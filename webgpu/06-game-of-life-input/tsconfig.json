@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "declaration": false,
+    "sourceMap": false,
+    "outDir": "./",
+    "strict": true,
+    "typeRoots": ["../node_modules/@webgpu/types"]
+  },
+  "files": [
+      "./main.ts",
+      "../node_modules/@webgpu/types/dist/index.d.ts"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "declaration": false,
+    "sourceMap": false,
+    "outDir": "../",
+    "strict": true
+  },
+  "include": ["./*/*.ts"],
+  "exclude": ["./main.ts"]
+}
+

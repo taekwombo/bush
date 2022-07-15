@@ -3,6 +3,7 @@ import { drawLine } from './line/draw.js';
 import { clip } from './line/clip.js';
 import { extend } from './line/extend.js';
 import { equation } from './line/equation.js';
+import * as int from './line/intersection.js';
 import type { Point2 } from './point.js';
 import type { Debug, Draw, ImageDataExt } from './types.js';
 
@@ -11,6 +12,7 @@ export class Line2 implements Draw, Debug {
     public static extend = extend;
     public static drawLine = drawLine;
     public static equation = equation;
+    public static int = int;
 
     public points: Point2[];
     public color?: Color;

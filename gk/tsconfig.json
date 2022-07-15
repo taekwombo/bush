@@ -7,7 +7,7 @@
     "outDir": "./",
     "strict": true
   },
-  "include": ["./02/**/*.ts"],
+  "include": ["./**/*.ts"],
   "exclude": []
 }
 

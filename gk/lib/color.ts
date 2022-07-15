@@ -3,6 +3,7 @@ export class Color {
     public static Red: Color = new Color(255, 0, 0, 255);
     public static Black: Color = new Color(0, 0, 0, 255);
     public static Blue: Color = new Color(0, 0, 255, 255);
+    public static Yellow: Color = new Color(255, 255, 0, 155);
     public static Unpainted: Color = new Color();
 
     public r: number;

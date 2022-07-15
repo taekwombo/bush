@@ -1,4 +1,4 @@
-import { Line2, drawLine } from './line.js';
+import { Line2 } from './line.js';
 import { p2 } from './point.js';
 import type { Draw, Fill, ImageDataExt } from './types.js';
 import type { Color } from './color.js';
@@ -37,7 +37,7 @@ export class Polygon2 implements Draw, Fill {
                 const e1 = activeEdges[i - 1];
                 const e2 = activeEdges[i];
 
-                drawLine(image, p2(e1.x, y), p2(e2.x, y), color || this.color);
+                Line2.drawLine(image, p2(e1.x, y), p2(e2.x, y), color || this.color);
             }
 
             y++;

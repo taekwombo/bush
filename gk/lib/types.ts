@@ -1,5 +1,12 @@
 import type { Color } from './color.js';
 
+export type Range2 = {
+    xMin: number;
+    xMax: number;
+    yMin: number;
+    yMax: number;
+}
+
 export type ImageDataExt = ImageData & {
     validate(x: number, y: number): boolean;
     index(x: number, y: number): number;

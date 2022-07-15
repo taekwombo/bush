@@ -4,10 +4,10 @@
     "module": "esnext",
     "declaration": false,
     "sourceMap": false,
-    "outDir": "../",
+    "outDir": "./",
     "strict": true
   },
-  "include": ["./*/*.ts"],
-  "exclude": ["./main.ts"]
+  "include": ["./02/**/*.ts"],
+  "exclude": []
 }
 

@@ -16,4 +16,8 @@ export class Color {
         this.b = b || 0;
         this.a = a || 0;
     }
+
+    public eq(other: Color): boolean {
+        return this.r === other.r && this.g === other.g && this.b === other.b && this.a === other.a;
+    }
 }

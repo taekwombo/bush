@@ -156,8 +156,8 @@ export class Canvas {
         this.height = height;
     }
 
-    public getImageData(this: Canvas, [x, y, xm, ym]: [number?, number?, number?, number?] = []): ImageDataExt {
-        const imageData = this.context.getImageData(x || 0, y || 0, xm || this.width, ym || this.height) as ImageDataExt;
+    public getImageData(this: Canvas, [x, y, w, h]: [number, number, number, number]): ImageDataExt {
+        const imageData = this.context.getImageData(x, y, w, h) as ImageDataExt;
 
         imageData.validate = Canvas.validCoord.bind(imageData);
         imageData.index = Canvas.getPointIndex.bind(imageData);
@@ -167,16 +167,18 @@ export class Canvas {
         return imageData as ImageDataExt;
     }
 
-    public putImageData(this: Canvas, img: ImageData, [x, y]: [number?, number?] = []): void {
-        this.context.putImageData(img, x || 0, y || 0);
+    public putImageData(this: Canvas, img: ImageData, [x, y]: [number, number]): void {
+        this.context.putImageData(img, x, y);
     }
 
-    public drawCb(this: Canvas, cb: (img: ImageDataExt) => void, dimensions?: [number, number, number, number]): void {
-        const img = this.getImageData(dimensions);
+    public drawCb(this: Canvas, cb: (img: ImageDataExt, put: () => void) => void, dimensions: [number?, number?, number?, number?] = []): void {
+        const [x = 0, y = 0, w = this.width, h = this.height] = dimensions;
+        const img = this.getImageData([x, y, w, h]);
+        const put = () => this.putImageData(img, [x, y]);
 
-        cb(img);
+        cb(img, put);
 
-        this.putImageData(img, [dimensions[0], dimensions[1]]);
+        put();
     }
 }
 

@@ -63,7 +63,7 @@ export function b4(p1: Point2, p2: Point2, p3: Point2, p4: Point2, image: ImageD
             + 3 * p3.y * (t ** 2) * d
             + p4.y * t ** 3;
 
-        image.drawPoint(Math.floor(x), Math.floor(y), { r: 0, g: 180, b: 55, a: 255 });
+        image.drawPoint(Math.floor(x), Math.floor(y), new Color(0, 180, 55, 255));
 
         t += step;
     }
@@ -77,7 +77,7 @@ export class Bezier2 implements Draw {
 
     public constructor(points: Point2[], color?: Color) {
         this.points = points;
-        this.color = color || { r: 200, g: 200, b: 50, a: 255 };
+        this.color = color || new Color(200, 200, 50, 255);
     }
 
     public draw(image: ImageDataExt): this {

@@ -26,7 +26,7 @@ export class Point2 implements Draw, Debug {
         return `(${this.x}, ${this.y})`;
     }
 }
-export function p2 (x: number, y: number): Point2 {
-    return new Point2(Math.round(x), Math.round(y));
+export function p2 (...args: ConstructorParameters<typeof Point2>): Point2 {
+    return new Point2(...args);
 }
 

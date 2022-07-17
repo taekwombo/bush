@@ -20,7 +20,7 @@ type Standard = {
  * General line equation
  * y = ax + b
  */
-type General = {
+export type General = {
     a: number;
     b: number;
 };

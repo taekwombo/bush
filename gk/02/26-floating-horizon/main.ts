@@ -1,5 +1,5 @@
-import { Canvas, Color, Line2, p2, Point2 } from '../../lib/mod.js';
-import type { ImageDataExt } from '../../lib/mod.js';
+import { Canvas, Color, drawSegment, p2, Point2, Segment2, s2 } from '../../lib/mod.js';
+import type { ImageDataExt, Range2 } from '../../lib/mod.js';
 
 const canvas = Canvas.create2(900, 900);
 
@@ -40,7 +40,6 @@ type FHOptions = {
 };
 
 function drawFH(image: ImageDataExt, options: FHOptions): void {
-    const { drawLine, extend } = Line2;
     let {
         put,
         xMax,
@@ -101,25 +100,29 @@ function drawFH(image: ImageDataExt, options: FHOptions): void {
         const yellow = new Color(255, 255, 0, 155);
         const pink = new Color(255, 50, 255, 155);
         const green = new Color(180, 240, 220, 155);
-        const range = {
-            xMin: 0,
-            yMin: 0,
-            xMax: width,
-            yMax: height,
+        const range: Range2 = {
+            x: [0, width],
+            y: [0, height],
         };
 
         // Draw total drawing area
-        new Line2([p2(0, 0), p2(width, 0), p2(width, height), p2(0, height), p2(0, 0)], new Color(90, 90, 90, 255)).draw(image);
+        Segment2.pipeDraw(image, [
+            p2(0, 0),
+            p2(width, 0),
+            p2(width, height),
+            p2(0, height),
+            p2(0, 0)
+        ]);
         const x0 = Math.max(xMin, 0);
         const y0 = Math.max(yMin, 0);
         const z0 = Math.max(zMin, 0);
 
         // Draw X axis
-        extend(new Line2([p(x0, y0, z0), p(xMax, y0, z0)], green), range).draw(image);
+        s2(p(x0, y0, z0), p(xMax, y0, z0), green).extend(range).draw(image);
         // Draw Y axis
-        extend(new Line2([p(x0, y0, z0), p(x0, yMax, z0)], pink), range).draw(image);
+        s2(p(x0, y0, z0), p(x0, yMax, z0), pink).extend(range).draw(image);
         // Draw Z axis
-        extend(new Line2([p(x0, y0, z0), p(x0, y0, zMax)], yellow), range).draw(image);
+        s2(p(x0, y0, z0), p(x0, y0, zMax), yellow).extend(range).draw(image);
         put();
     }
 
@@ -146,7 +149,7 @@ function drawFH(image: ImageDataExt, options: FHOptions): void {
 
     function updateHorizon (a: Point2, b: Point2): void {
         image.drawPoint = updateHorizonMethod;
-        drawLine(image, a, b);
+        drawSegment(image, a, b);
         image.drawPoint = drawPoint;
     }
 
@@ -162,7 +165,7 @@ function drawFH(image: ImageDataExt, options: FHOptions): void {
                 const pa = points[index];
                 const pb = points[index - 1];
 
-                drawLine(image, pa, pb);
+                drawSegment(image, pa, pb);
                 put();
             }
 
@@ -170,7 +173,7 @@ function drawFH(image: ImageDataExt, options: FHOptions): void {
                 const pa = points[index];
                 const pb = points[index - gridWidth - 1];
 
-                drawLine(image, pa, pb);
+                drawSegment(image, pa, pb);
                 put();
             }
 

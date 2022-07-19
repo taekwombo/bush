@@ -1,6 +1,6 @@
-import type { Color } from './color.js';
+import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
-import type { Debug, Draw, ImageDataExt } from './types.js';
+import type { Debug, Draw, ImageDataExt } from '../types.js';
 
 export class Circle2 implements Draw, Debug {
     public center: Point2;
@@ -136,3 +136,4 @@ export function drawEllipsis(
 
     return image;
 }
+

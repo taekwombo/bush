@@ -1,6 +1,6 @@
-import type { Color } from './color.js';
+import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
-import type { Draw, ImageDataExt } from './types.js';
+import type { Draw, ImageDataExt } from '../types.js';
 
 export class Cyclic implements Draw {
     public center: Point2;

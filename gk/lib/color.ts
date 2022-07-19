@@ -1,9 +1,20 @@
 export class Color {
-    public static White: Color = new Color(255, 255, 255, 255);
-    public static Red: Color = new Color(255, 0, 0, 255);
-    public static Black: Color = new Color(0, 0, 0, 255);
-    public static Blue: Color = new Color(0, 0, 255, 255);
-    public static Yellow: Color = new Color(255, 255, 0, 155);
+    public static Aqua = new Color(0, 255, 255, 255);
+    public static Black = new Color(0, 0, 0, 255);
+    public static Blue = new Color(0, 0, 255, 255);
+    public static Fuchsia = new Color(255, 0, 255, 255);
+    public static Gray = new Color(128, 128, 128, 255);	
+    public static Green = new Color(0, 128, 0, 255);	
+    public static Lime = new Color(0, 255, 0, 255);	
+    public static Maroon = new Color(128, 0, 0, 255);
+    public static Navy = new Color(0, 0, 128, 255);	
+    public static Olive = new Color(128, 128, 0, 255);	
+    public static Purple = new Color(128, 0, 128, 255);	
+    public static Red = new Color(255, 0, 0, 255);
+    public static Silver = new Color(192, 192, 192, 255);	
+    public static Teal = new Color(0, 128, 128, 255);	
+    public static White = new Color(255, 255, 255, 255);	
+    public static Yellow = new Color(255, 255, 0, 255);
     public static Unpainted: Color = new Color();
 
     public r: number;

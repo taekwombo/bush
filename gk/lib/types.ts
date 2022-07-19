@@ -1,10 +1,14 @@
 import type { Color } from './color.js';
 
+export const enum LineType {
+    Vertical = 'v',
+    Horizontal = 'h',
+    Slope = 's', 
+}
+
 export type Range2 = {
-    xMin: number;
-    xMax: number;
-    yMin: number;
-    yMax: number;
+    x: [min: number, max: number];
+    y: [min: number, max: number];
 }
 
 export type ImageDataExt = ImageData & {
@@ -24,4 +28,8 @@ export interface Fill {
 
 export interface Debug {
     debug: () => string;
+}
+
+export interface Eq {
+    eq: (lhs: this, rhs: this) => boolean;
 }

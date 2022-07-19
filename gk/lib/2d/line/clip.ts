@@ -1,13 +1,16 @@
-import type { Line2 } from '../line.js';
+import { nn } from '../../utils.js';
+import { Line2 } from '../line.js';
 import type { Point2 } from '../point.js';
-import type { Range2 } from '../types.js';
+import type { Range2 } from '../../types.js';
 
-export function clip(line: Line2, options: Range2, eq: { a: number; b: number }): Line2 {
-    line.assert2Point();
-
-    const { yMin, yMax, xMin, xMax } = options;
-    const { a, b } = eq;
-    const [start, end] = line.points;
+/**
+ * Mutates the "segment" property of line reducing it size to desired range.
+ * This works for non-vertical and non-horizontal lines.
+ */
+export function clip(line: Line2, options: Range2): Line2 {
+    const { x: [xMin, xMax], y: [yMin, yMax] } = options;
+    const { a, b } = nn(line.slope);
+    const { start, end } = line.segment;
 
     function cp(point: Point2): void {
         if (point.y < yMin) {
@@ -35,3 +38,4 @@ export function clip(line: Line2, options: Range2, eq: { a: number; b: number })
 
     return line;
 }
+

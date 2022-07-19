@@ -1,7 +1,7 @@
-import type { Color } from './color.js';
-import type { Debug, Draw, ImageDataExt } from './types.js';
+import type { Color } from '../color.js';
+import type { Debug, Draw, Eq, ImageDataExt } from '../types.js';
 
-export class Point2 implements Draw, Debug {
+export class Point2 implements Draw, Debug, Eq {
     public x: number;
     public y: number;
     public color?: Color;
@@ -25,7 +25,23 @@ export class Point2 implements Draw, Debug {
     public debug(): string {
         return `(${this.x}, ${this.y})`;
     }
+
+    public eq(this: Point2, rhs: Point2): boolean {
+        return this.x === rhs.x && this.y === rhs.y;
+    }
+
+    public set(this: Point2, { x, y, color }: Point2): Point2 {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+
+        return this;
+    }
 }
+
+/**
+ * An alias to Point2 class.
+ */
 export function p2 (...args: ConstructorParameters<typeof Point2>): Point2 {
     return new Point2(...args);
 }

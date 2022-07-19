@@ -1,5 +1,5 @@
-import { Color } from './color.js';
-import type { Draw, ImageDataExt } from './types.js';
+import { Color } from '../color.js';
+import type { Draw, ImageDataExt } from '../types.js';
 import type { Point2 } from './point.js';
 
 const step = 0.0025;
@@ -112,3 +112,4 @@ export class Bezier2 implements Draw {
         return this;
     }
 }
+

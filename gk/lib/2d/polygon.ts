@@ -1,11 +1,11 @@
-import { Line2 } from './line.js';
+import { Segment2, drawSegment } from './segment.js';
 import { p2 } from './point.js';
-import type { Draw, Fill, ImageDataExt } from './types.js';
-import type { Color } from './color.js';
+import type { Draw, Fill, ImageDataExt } from '../types.js';
+import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
 
 
-type ActiveEdge = { edge: Line2; x: number };
+type ActiveEdge = { edge: Segment2; x: number };
 
 export class Polygon2 implements Draw, Fill {
     public vertices: Point2[];
@@ -19,7 +19,12 @@ export class Polygon2 implements Draw, Fill {
     public draw(image: ImageDataExt): this {
         const points = [...this.vertices, this.vertices[0]];
 
-        new Line2(points, this.color).draw(image);
+        for (let i = 1; i < points.length; i++) {
+            const pp = points[i - 1];
+            const pc = points[i];
+
+            new Segment2(pp, pc).draw(image);
+        }
 
         return this;
     }
@@ -28,7 +33,7 @@ export class Polygon2 implements Draw, Fill {
         const edges = this.fillEdges();
 
         let activeEdges: ActiveEdge[] = [];
-        let y = edges[0].points[0].y;
+        let y = edges[0].start.y;
 
         do {
             activeEdges = this.getActiveEdges(activeEdges, edges, y);
@@ -37,19 +42,19 @@ export class Polygon2 implements Draw, Fill {
                 const e1 = activeEdges[i - 1];
                 const e2 = activeEdges[i];
 
-                Line2.drawLine(image, p2(e1.x, y), p2(e2.x, y), color || this.color);
+                drawSegment(image, p2(e1.x, y), p2(e2.x, y), color || this.color);
             }
 
             y++;
 
-            activeEdges = activeEdges.filter(({ edge }) => edge.points[1].y !== y);
+            activeEdges = activeEdges.filter(({ edge }) => edge.end.y !== y);
         } while (activeEdges.length > 0);
 
         return this;
     }
 
-    protected getActiveEdges(this: Polygon2, activeEdges: ActiveEdge[], edges: Line2[], y: number): ActiveEdge[] {
-        function intersectionAtY({ points: [start, end] }: Line2, y: number): number {
+    protected getActiveEdges(this: Polygon2, activeEdges: ActiveEdge[], edges: Segment2[], y: number): ActiveEdge[] {
+        function intersectionAtY({ start, end }: Segment2, y: number): number {
             let dx: number = end.x - start.x;
 
             // Vertical line.
@@ -72,7 +77,7 @@ export class Polygon2 implements Draw, Fill {
         }
 
         const active: ActiveEdge[] = edges
-            .filter((edge) => edge.points[0].y === y)
+            .filter((edge) => edge.start.y === y)
             // Attach x coordinate of intersection at Y coordinate.
             .map((edge) => ({
                 edge,
@@ -88,41 +93,36 @@ export class Polygon2 implements Draw, Fill {
         return active;
     }
 
-    protected fillEdges(): Line2[] {
-        const edges: Line2[] = [];
+    protected fillEdges(): Segment2[] {
+        const edges: Segment2[] = [];
 
         for (let i = 1; i < this.vertices.length; i++) {
-            edges.push(new Line2([
+            edges.push(new Segment2(
                 this.vertices[i - 1],
                 this.vertices[i],
-            ]));
+            ));
         }
 
-        edges.push(new Line2([
+        edges.push(new Segment2(
             this.vertices[0],
             this.vertices[this.vertices.length - 1]
-        ]));
+        ));
 
         return edges
             // Remove horizontal edges.
-            .filter((edge) => edge.points[0].y !== edge.points[1].y)
+            .filter((edge) => edge.start.y !== edge.end.y)
             // Make sure edge direction points up.
-            .map((line)=> {
-                const [s, e] = line.points;
+            .map((segment)=> {
+                const { start, end } = segment;
 
-                if (s.y > e.y) {
-                    return line.invert();
+                if (start.y > end.y) {
+                    return segment.invert();
                 }
 
-                return line;
+                return segment;
             })
             // Sort edges so that first point Y coordinate is ascending.
-            .sort((a, b) => {
-                const [as] = a.points;
-                const [bs] = b.points;
-
-                return as.y - bs.y;
-            });
+            .sort(({ start: a }, { start: b }) => a.y - b.y);
     }
 }
 

@@ -68,7 +68,7 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
             case 0b0001:
             case 0b0101:
             case 0b1001: {
-                a.x = nn(vmin.intersection(s2(a, b))).x;
+                a.set(nn(vmin.intersection(s2(a, b))));
 
                 break;
             }
@@ -76,19 +76,19 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
             case 0b1010:
             case 0b0010:
             case 0b0110: {
-                a.x = nn(vmax.intersection(s2(a, b))).x;
+                a.set(nn(vmax.intersection(s2(a, b))));
 
                 break;
             }
 
             case 0b0100: {
-                a.y = nn(hmax.intersection(s2(a, b))).y;
+                a.set(nn(hmax.intersection(s2(a, b))));
 
                 break;
             }
 
             case 0b1000: {
-                a.y = nn(hmin.intersection(s2(a, b))).y;
+                a.set(nn(hmin.intersection(s2(a, b))));
 
                 break;
             }
@@ -108,59 +108,45 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
  *
  * 3.1.3. [pdfs/grafika_komputerowa.pdf]
  */
-export function clipLB(line: Segment2, options: Range2): null | Segment2 {
+export function clipLB(segment: Segment2, options: Range2): null | Segment2 {
     const { x: [xMin, xMax], y: [yMin, yMax] } = options;
-    const { start: a, end: b } = line;
-    let t1 = 0;
-    let t2 = 1;
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
+    const { start: a, end: b } = segment;
 
-    function test(p: number, q: number): number {
-        if (p < 0) {
-            const r = q / p;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const pi = [-dx, dx, -dy, dy];
+    const qi = [a.x - xMin, xMax - a.x, a.y - yMin, yMax - a.y];
 
-            if (r > t2) {
-                return 0;
-            } else if (r > t1) {
-                t1 = r;
-            }
-        } else if (p > 0) {
-            const r = q / p;
+    const rs: number[] = [];
 
-            if (r < t1) {
-                return 0;
-            } else if (r < t2) {
-                t2 = r;
-            }
-        } else if (q < 0) {
-            return 0;
+    for (let i = 0; i < pi.length; i++) {
+        const p = pi[i];
+        const q = qi[i];
+
+        // Parallel to the edge and outside of the clip window.
+        if (p === 0 && q < 0) {
+            return null;
         }
 
-        return 1;
-    }
-
-
-    if (test(-dx, a.x - xMin)) {
-        if (test(dx, xMax - a.x)) {
-            if (test(-dy, a.y - yMin)) {
-                if (test(dy, yMax - a.y)) {
-                    if (t2 !== 0) {
-                        b.x = t2 * dx;
-                        b.y = t2 * dy;
-                    }
-                    if (t1 !== 0) {
-                        a.x = t1 * dx;
-                        a.y = t1 * dx;
-                    }
-
-                    return line;
-                }
-            }
+        if (p !== 0) {
+            rs.push(q / p);
         }
     }
 
-    console.log('>> null');
+    const t1 = Math.max(0, ...rs);
+    const t2 = Math.min(1, ...rs);
 
-    return null;
+    console.log({ t1, t2, pi, qi, a: a.debug(), b: b.debug() });
+
+    if (t2 !== 1) {
+        b.x += t2 * dx;
+        b.y += t2 * dy;
+    }
+    if (t1 !== 0) {
+        a.x += t1 * dx;
+        a.y += t1 * dy;
+    }
+    console.log({ t1, t2, pi, qi, a: a.debug(), b: b.debug() });
+
+    return segment;
 }

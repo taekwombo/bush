@@ -1,9 +1,39 @@
-import { Canvas, clipSC, s2, p2, Color } from '../../lib/mod.js';
+import { Canvas, clipLB, clipSC, Segment2, s2, p2, Color } from '../../lib/mod.js';
 
 const canvas = Canvas.create2(400, 400);
 
 canvas.drawCb((img) => {
-    { // Draw a line from the origin to (100, 100) clipped to (50, 50) from the origin.
-        clipSC(s2(p2(0, 0), p2(100, 100), Color.Aqua), { x: [0, 50], y: [0, 50] })?.draw(img);
+    const xMin = 99;
+    const xMax = 200;
+    const yMin = 100;
+    const yMax = 150;
+    const r = { x: [xMin, xMax], y: [yMin, yMax] };
+
+    // Draw area of the clip window.
+    Segment2.pipeDraw(
+        img,
+        [
+            p2(xMin, yMin),
+            p2(xMax, yMin),
+            p2(xMax, yMax),
+            p2(xMin, yMax),
+            p2(xMin, yMin),
+        ],
+        Color.Gray,
+    );
+
+    s2(p2(0, 0), p2(300, 300), Color.Red).draw(img);
+    s2(p2(xMin, yMin), p2(xMax, yMax), Color.Red).draw(img);
+    p2(xMin, yMin, Color.White).draw(img);
+
+    {
+        const s = s2(p2(0, 0), p2(300, 300), Color.Aqua);
+        clipSC(s, r)?.draw(img);
     }
+
+    {
+        const s = s2(p2(120, 100), p2(120, 200), Color.Fuchsia);
+        clipLB(s, { x: [100, 200], y: [100, 150] })?.draw(img);
+    }
+
 });

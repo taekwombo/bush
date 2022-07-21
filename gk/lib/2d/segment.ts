@@ -13,9 +13,9 @@ export class Segment2 implements Eq, Draw, Debug {
     public static intersection = intersection;
     public static drawSegment = drawSegment;
 
-    public static pipeDraw(image: ImageDataExt, points: Point2[]) {
+    public static pipeDraw(image: ImageDataExt, points: Point2[], color?: Color) {
         for (let i = 1; i < points.length; i++) {
-            drawSegment(image, points[i - 1], points[i]);
+            drawSegment(image, points[i - 1], points[i], color);
         }
     }
 

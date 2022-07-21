@@ -19,7 +19,7 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
     const { x: [xMin, xMax], y: [yMin, yMax] } = options;
 
     const pointCode = (x: number, y: number): number => {
-        if (xMin > y) {
+        if (yMin > y) {
             if (xMin > x) {
                 return 0b1001;
             } else if (xMax < x) {
@@ -35,9 +35,15 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
             } else {
                 return 0b0100;
             }
+        } else {
+            if (xMin > x) {
+                return 0b0001;
+            } else if (xMax < x) {
+                return 0b0010;
+            } else {
+                return 0b0;
+            }
         }
-
-        return 0b0;
     };
 
     let { start: a, end: b } = segment;
@@ -68,7 +74,7 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
             case 0b0001:
             case 0b0101:
             case 0b1001: {
-                a.set(nn(vmin.intersection(s2(a, b))));
+                a.set(nn(s2(a, b).intersection(vmin)));
 
                 break;
             }
@@ -76,19 +82,19 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
             case 0b1010:
             case 0b0010:
             case 0b0110: {
-                a.set(nn(vmax.intersection(s2(a, b))));
+                a.set(nn(s2(a, b).intersection(vmax)));
 
                 break;
             }
 
             case 0b0100: {
-                a.set(nn(hmax.intersection(s2(a, b))));
+                a.set(nn(s2(a, b).intersection(hmax)));
 
                 break;
             }
 
             case 0b1000: {
-                a.set(nn(hmin.intersection(s2(a, b))));
+                a.set(nn(s2(a, b).intersection(hmin)));
 
                 break;
             }

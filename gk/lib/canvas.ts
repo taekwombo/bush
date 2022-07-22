@@ -1,4 +1,5 @@
 import { Color } from './color.js';
+import { positionRecording } from './canvas/record.js';
 import type { ImageDataExt } from './types.js';
 
 export class Canvas {
@@ -154,6 +155,7 @@ export class Canvas {
         this.context = context;
         this.width = width;
         this.height = height;
+        positionRecording(this);
     }
 
     public getImageData(this: Canvas, [x, y, w, h]: [number, number, number, number]): ImageDataExt {

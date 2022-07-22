@@ -7,7 +7,7 @@ import type { Point2 } from '../point.js';
  *
  * https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
  */
-export function intersection(seg1: Segment2, seg2: Segment2): null | Point2 {
+export function def(seg1: Segment2, seg2: Segment2): null | Point2 {
     const { start: a, end: b } = seg1;
     const { start: c, end: d } = seg2;
 
@@ -64,4 +64,46 @@ export function intersection(seg1: Segment2, seg2: Segment2): null | Point2 {
     return p2(x, y);
 }
 
+/**
+ * Using cross product of vectors.
+ *
+ * https://stackoverflow.com/a/565282
+ */
+export function cross(s1: Segment2, s2: Segment2): Point2 | null {
+    const { start: p, end: r } = s1;
+    const { start: q, end: s } = s2;
 
+    const cross = (a: Point2, b: Point2): number => (a.x * b.y) - (a.y * b.x);
+    const sub = (a: Point2, b: Point2): Point2 => p2(a.x - b.x, a.y - b.y);
+
+    const rs = cross(r, s);
+
+    if (rs === 0) {
+        return null;
+        // if (cross(qmp, r) === 0) {
+        //     // Segments are colinear.
+        //     return null;
+        // } else {
+        //     // Segments are parallel.
+        //     return null
+        // }
+    }
+
+    // t = (q - p) × s / (r × s);
+    // u = (p − q) × r / (s × r)
+    // (s × r) = -(r × s)
+    const t = cross(sub(q, p), s) / rs;
+    const u = cross(sub(p, q), r) / -rs;
+
+    const t01 = t >= 0 && t <= 1;
+    const u01 = u >= 0 && t <= 1;
+
+    if (!(t01 && u01)) {
+        return null;
+    }
+
+    return p2(
+        p.x + t * r.x,
+        p.y + t * r.y,
+    );
+}

@@ -7,7 +7,7 @@ import type { Range2 } from '../../types.js';
 /**
  * Sutherland-Cohen algorithm.
  *
- * 3.1.2. [pdfs/grafika_komputerowa.pdf]
+ * 3.1.2. [resources/grafika_komputerowa.pdf]
  *
  * 1001│1000│1010
  * ────│────│────
@@ -15,7 +15,7 @@ import type { Range2 } from '../../types.js';
  * ────│────│────
  * 0101│0100│0110
  */
-export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
+export function SC(segment: Segment2, options: Range2): null | Segment2 {
     const { x: [xMin, xMax], y: [yMin, yMax] } = options;
 
     const pointCode = (x: number, y: number): number => {
@@ -112,47 +112,69 @@ export function clipSC(segment: Segment2, options: Range2): null | Segment2 {
 /**
  * Liang-Barsky algorithm.
  *
- * 3.1.3. [pdfs/grafika_komputerowa.pdf]
+ * 3.1.3. [resources/grafika_komputerowa.pdf]
  */
-export function clipLB(segment: Segment2, options: Range2): null | Segment2 {
+export function LB(segment: Segment2, options: Range2): null | Segment2 {
     const { x: [xMin, xMax], y: [yMin, yMax] } = options;
     const { start: a, end: b } = segment;
-
     const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const pi = [-dx, dx, -dy, dy];
-    const qi = [a.x - xMin, xMax - a.x, a.y - yMin, yMax - a.y];
+    let t1 = 0;
+    let t2 = 1;
 
-    const rs: number[] = [];
+    function test(p: number, q: number): boolean {
+        let r: number;
+        if (p < 0) {
+            r = q / p;
 
-    for (let i = 0; i < pi.length; i++) {
-        const p = pi[i];
-        const q = qi[i];
+            if (r > t2) {
+                return false;
+            } else if (r > t1) {
+                t1 = r;
+            }
+        } else if (p > 0) {
+            r = q / p;
 
-        // Parallel to the edge and outside of the clip window.
-        if (p === 0 && q < 0) {
-            return null;
+            if (r < t1) {
+                return false;
+            } else if (r < t2) {
+                t2 = r;
+            }
+        } else if (q < 0) {
+            return false;
         }
 
-        if (p !== 0) {
-            rs.push(q / p);
+        return true;
+    }
+
+    if (test(-dx, a.x - xMin)) {
+        if (test(dx, xMax - a.x)) {
+            const dy = b.y - a.y;
+            if (test(-dy, a.y - yMin)) {
+                if (test(dy, yMax - a.y)) {
+                    if (t2 < 1) {
+                        b.x = a.x + t2 * dx;
+                        b.y = a.y + t2 * dy;
+                    }
+                    if (t1 > 0) {
+                        a.x = a.x + t1 * dx;
+                        a.y = a.y + t1 * dy;
+                    }
+
+                    return segment;
+                }
+            }
         }
     }
 
-    const t1 = Math.max(0, ...rs);
-    const t2 = Math.min(1, ...rs);
+    return null;
+}
 
-    console.log({ t1, t2, pi, qi, a: a.debug(), b: b.debug() });
-
-    if (t2 !== 1) {
-        b.x += t2 * dx;
-        b.y += t2 * dy;
-    }
-    if (t1 !== 0) {
-        a.x += t1 * dx;
-        a.y += t1 * dy;
-    }
-    console.log({ t1, t2, pi, qi, a: a.debug(), b: b.debug() });
-
-    return segment;
+/**
+ * [resources/another_2d_line_clipping_method.pdf]
+ *
+ * Another Simple but Faster Method for 2D Line Clipping
+ *
+ * by Dimitrios Matthes and Vasileios Drakopoulos
+ */
+export function DMVD(){
 }

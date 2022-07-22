@@ -8,7 +8,7 @@ import type { Point2 } from '../point.js';
 /**
  * Finds an intersection of a line "line" and a segment "seg".
  *
- * 3.1.1. [pdfs/grafika_komputerowa.pdf]
+ * 3.1.1. [resources/grafika_komputerowa.pdf]
  * 
  * Intersection between Segment (P₁, P₂) and a line (ax + by = c).
  * P₁ = (x₁, y₁)

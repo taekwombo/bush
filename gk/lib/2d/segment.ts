@@ -1,14 +1,14 @@
 import { drawSegment } from './segment/draw.js';
 import { ovl } from '../utils.js';
 import { extend } from './segment/extend.js';
-import { intersection } from './segment/intersection.js';
+import * as intersection from './segment/intersection.js';
+import * as clip from './segment/clip.js';
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
 import type { Range2, Draw, Debug, Eq, ImageDataExt } from '../types.js';
 
-export { clipSC, clipLB } from './segment/clip.js';
-
 export class Segment2 implements Eq, Draw, Debug {
+    public static clip = clip;
     public static extend = extend;
     public static intersection = intersection;
     public static drawSegment = drawSegment;
@@ -66,7 +66,7 @@ export class Segment2 implements Eq, Draw, Debug {
     }
 
     public intersection(this: Segment2, other: Segment2): Point2 | null {
-        return intersection(this, other);
+        return intersection.def(this, other);
     }
 }
 

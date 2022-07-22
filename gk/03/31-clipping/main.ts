@@ -1,4 +1,4 @@
-import { Canvas, clipLB, clipSC, Segment2, s2, p2, Color } from '../../lib/mod.js';
+import { Canvas, Line2, Segment2, s2, p2, Color } from '../../lib/mod.js';
 import type { Range2 } from '../../lib/mod.js';
 
 const canvas = Canvas.create2(400, 400);
@@ -23,14 +23,28 @@ canvas.drawCb((img) => {
         Color.Gray,
     );
 
-    {
-        const s = s2(p2(0, 0), p2(300, 300), Color.Aqua);
-        clipSC(s, r)?.draw(img);
+    { // Draw lines inside the clip window using Sutherland-Cohen algorithm in AQUA color.
+        [
+            s2(p2(0, 0), p2(300, 300), Color.Aqua),
+            s2(p2(0, 120), p2(200, 120), Color.Aqua),
+            s2(p2(140, 100), p2(140, 200), Color.Aqua),
+        ].map((s) => Segment2.clip.SC(s, r)?.draw(img));
     }
 
-    {
-        const s = s2(p2(120, 100), p2(120, 200), Color.Fuchsia);
-        clipLB(s, r)?.draw(img);
+    { // Draw lines inside the clip window using Liang-Barsky algorithm in FUCHSIA color.
+        [
+            s2(p2(50, 0), p2(350, 300), Color.Fuchsia),
+            s2(p2(120, 100), p2(120, 200), Color.Fuchsia),
+            s2(p2(0, 140), p2(200, 140), Color.Fuchsia),
+        ].map((s) => Segment2.clip.LB(s, r)?.draw(img));
     }
 
+    { // Draw segment of clipped line using Skala algorithm in LIME color.
+        [
+            s2(p2(80, 80), p2(160, 200)),
+            s2(p2(200, 50), p2(125, 300)),
+        ].map((s) => {
+            Line2.clip.SKALA(Line2.fromSegment(s, Color.Lime), r)?.draw(img);
+        });
+    }
 });

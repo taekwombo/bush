@@ -1,7 +1,7 @@
 import { Line2 } from '../line.js';
 import { p2 } from '../point.js';
 import { nn } from '../../utils.js';
-import { clip } from '../line/clip.js';
+import { clipSlope } from '../line/clip.js';
 import { LineType } from '../../types.js';
 import type { Segment2 } from '../segment.js';
 import type { Range2 } from '../../types.js';
@@ -48,5 +48,5 @@ export function extend(segment: Segment2, options: Range2): Segment2 {
         end.set(point1);
     }
 
-    return clip(line, options).segment;
+    return clipSlope(line, options).segment;
 }

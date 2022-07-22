@@ -48,5 +48,7 @@ export function extend(segment: Segment2, options: Range2): Segment2 {
         end.set(point1);
     }
 
-    return clipSlope(line, options).segment;
+    clipSlope(line, options);
+
+    return segment;
 }

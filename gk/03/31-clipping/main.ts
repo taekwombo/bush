@@ -47,4 +47,12 @@ canvas.drawCb((img) => {
             Line2.clip.SKALA(Line2.fromSegment(s, Color.Lime), r)?.draw(img);
         });
     }
+
+    { // Draw clipped segment using DMVD in RED color.
+        [
+            s2(p2(50, 50), p2(250, 200), Color.Red),
+            s2(p2(160, 100), p2(160, 200), Color.Red),
+            s2(p2(0, 130), p2(200, 130), Color.Red),
+        ].map((s) => Segment2.clip.DMVD(s, r)?.draw(img));
+    }
 });

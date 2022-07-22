@@ -176,5 +176,53 @@ export function LB(segment: Segment2, options: Range2): null | Segment2 {
  *
  * by Dimitrios Matthes and Vasileios Drakopoulos
  */
-export function DMVD(){
+export function DMVD(segment: Segment2, options: Range2): Segment2 | null {
+    const { x: [xMin, xMax], y: [yMin, yMax] } = options;
+    const { start: a, end: b } = segment;
+
+    // Step 1. Check for out of window segment.
+    if (
+        (a.x < xMin && b.x < xMin)      // line is left to the clipping window
+        || (a.x > xMax && b.x > xMax)   // line is right to the clipping window
+        || (a.y < yMin && b.y < yMin)   // line is over the clipping window
+        || (a.y > yMax && b.y > yMax)   // line is under the clipping window
+    ) {
+        return null;
+    }
+
+    // Step 2. Correct point positions if needed.
+    const x: [s: number, e: number] = [a.x, b.x];
+    const y: [s: number, e: number] = [a.y, b.y];
+
+    let i = 0;
+    while (i < 2) {
+        if (x[i] < xMin) {
+            x[i] = xMin;
+            y[i] = a.y + ((b.y - a.y) / (b.x - a.x)) * (xMin - a.x);
+        } else if (x[i] > xMax) {
+            x[i] = xMax;
+            y[i] = a.y + ((b.y - a.y) / (b.x - a.x)) * (xMax - a.x);
+        }
+
+        if (y[i] < yMin) {
+            y[i] = yMin;
+            x[i] = a.x + ((b.x - a.x) / (b.y - a.y)) * (yMin - a.x);
+        } else if (y[i] > yMax) {
+            y[i] = yMax;
+            x[i] = a.x + ((b.x - a.x) / (b.y - a.y)) * (yMax - a.x);
+        }
+
+        i++;
+    }
+
+    // Step 3. Check if new points are inside clip window.
+    // If the points are outside return null.
+    if ((x[0] < xMin && x[1] < xMin) || (x[0] > xMax && x[1] > xMax)) {
+        return null;
+    }
+
+    a.set(p2(x[0], y[0]));
+    b.set(p2(x[1], y[1]));
+
+    return segment;
 }

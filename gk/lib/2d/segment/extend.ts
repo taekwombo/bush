@@ -3,8 +3,8 @@ import { p2 } from '../point.js';
 import { nn } from '../../utils.js';
 import { clipSlope } from '../line/clip.js';
 import { LineType } from '../../types.js';
+import type { Range2 } from '../range.js';
 import type { Segment2 } from '../segment.js';
-import type { Range2 } from '../../types.js';
 
 /** Mutates segment argument extending it to desired size. */
 export function extend(segment: Segment2, options: Range2): Segment2 {

@@ -5,7 +5,8 @@ import * as intersection from './segment/intersection.js';
 import * as clip from './segment/clip.js';
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
-import type { Range2, Draw, Debug, Eq, ImageDataExt } from '../types.js';
+import type { Range2 } from './range.js';
+import type { Draw, Debug, Eq, ImageDataExt } from '../types.js';
 
 export class Segment2 implements Eq, Draw, Debug {
     public static clip = clip;

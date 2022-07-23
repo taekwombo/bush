@@ -6,11 +6,6 @@ export const enum LineType {
     Slope = 's', 
 }
 
-export type Range2 = {
-    x: [min: number, max: number];
-    y: [min: number, max: number];
-}
-
 export type ImageDataExt = ImageData & {
     validate(x: number, y: number): boolean;
     index(x: number, y: number): number;
@@ -32,4 +27,8 @@ export interface Debug {
 
 export interface Eq {
     eq: (lhs: this, rhs: this) => boolean;
+}
+
+export interface Clone<T> {
+    clone: (this: T) => T;
 }

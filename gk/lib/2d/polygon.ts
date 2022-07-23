@@ -1,13 +1,16 @@
 import { Segment2, drawSegment } from './segment.js';
+import * as clip from './polygon/clip.js';
 import { p2 } from './point.js';
-import type { Draw, Fill, ImageDataExt } from '../types.js';
+import type { Clone, Debug, Draw, Fill, ImageDataExt } from '../types.js';
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
 
 
 type ActiveEdge = { edge: Segment2; x: number };
 
-export class Polygon2 implements Draw, Fill {
+export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
+    public static clip = clip;
+
     public vertices: Point2[];
     public color?: Color;
 
@@ -17,13 +20,14 @@ export class Polygon2 implements Draw, Fill {
     }
 
     public draw(image: ImageDataExt): this {
-        const points = [...this.vertices, this.vertices[0]];
+        let pp = this.vertices[this.vertices.length - 1];
 
-        for (let i = 1; i < points.length; i++) {
-            const pp = points[i - 1];
-            const pc = points[i];
+        for (let i = 0; i < this.vertices.length; i++) {
+            const pc = this.vertices[i];
 
-            new Segment2(pp, pc).draw(image);
+            new Segment2(pp, pc, this.color).draw(image);
+
+            pp = pc;
         }
 
         return this;
@@ -36,7 +40,7 @@ export class Polygon2 implements Draw, Fill {
         let y = edges[0].start.y;
 
         do {
-            activeEdges = this.getActiveEdges(activeEdges, edges, y);
+            activeEdges = this.getActiveEdges(activeEdges.filter(({ edge }) => edge.end.y !== y), edges, y);
 
             for (let i = 1; i < activeEdges.length; i += 2) {
                 const e1 = activeEdges[i - 1];
@@ -47,7 +51,6 @@ export class Polygon2 implements Draw, Fill {
 
             y++;
 
-            activeEdges = activeEdges.filter(({ edge }) => edge.end.y !== y);
         } while (activeEdges.length > 0);
 
         return this;
@@ -111,7 +114,7 @@ export class Polygon2 implements Draw, Fill {
         return edges
             // Remove horizontal edges.
             .filter((edge) => edge.start.y !== edge.end.y)
-            // Make sure edge direction points up.
+            // Make sure edge direction points down.
             .map((segment)=> {
                 const { start, end } = segment;
 
@@ -123,6 +126,19 @@ export class Polygon2 implements Draw, Fill {
             })
             // Sort edges so that first point Y coordinate is ascending.
             .sort(({ start: a }, { start: b }) => a.y - b.y);
+    }
+
+    public debug(this: Polygon2): string {
+        const v = this.vertices.map((p) => p.debug());
+
+        return `[${v.join(', ')}]`;
+    }
+
+    public clone(this: Polygon2): Polygon2 {
+        return new Polygon2(
+            this.vertices.map((p) => p.clone()),
+            this.color?.clone(),
+        );
     }
 }
 

@@ -2,7 +2,7 @@ import { p2 } from '../point.js';
 import { nn } from '../../utils.js';
 import { s2 } from '../segment.js';
 import type { Segment2 } from '../segment.js';
-import type { Range2 } from '../../types.js';
+import type { Range2 } from '../range.js';
 
 /**
  * Sutherland-Cohen algorithm.

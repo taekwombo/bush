@@ -1,4 +1,6 @@
-export class Color {
+import type { Clone } from './types.js';
+
+export class Color implements Clone<Color> {
     public static Aqua = new Color(0, 255, 255, 255);
     public static Black = new Color(0, 0, 0, 255);
     public static Blue = new Color(0, 0, 255, 255);
@@ -31,5 +33,9 @@ export class Color {
 
     public eq(other: Color): boolean {
         return this.r === other.r && this.g === other.g && this.b === other.b && this.a === other.a;
+    }
+
+    public clone(this: Color): Color {
+        return new Color(this.r, this.g, this.b, this.a);
     }
 }

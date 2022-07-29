@@ -1,6 +1,7 @@
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
-import type { Draw, ImageDataExt } from '../types.js';
+import type { Img } from '../img.js';
+import type { Draw } from '../types.js';
 
 export class Cyclic implements Draw {
     public center: Point2;
@@ -23,7 +24,7 @@ export class Cyclic implements Draw {
         this.step = 0.05;
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         // http://www.algorytm.org/podstawy-grafiki/krzywe-cykliczne.html
         const { maxTick, step, center, inside, trackRadius, radius, height, color } = this;
         let tick = 0;

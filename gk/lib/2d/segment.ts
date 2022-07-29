@@ -1,20 +1,22 @@
 import { drawSegment } from './segment/draw.js';
-import { ovl } from '../utils.js';
 import { extend } from './segment/extend.js';
 import * as intersection from './segment/intersection.js';
 import * as clip from './segment/clip.js';
+import * as helpers from './segment/helpers.js';
 import type { Color } from '../color.js';
+import type { Img } from '../img.js';
 import type { Point2 } from './point.js';
 import type { Range2 } from './range.js';
-import type { Draw, Debug, Eq, ImageDataExt } from '../types.js';
+import type { Draw, Debug, Eq } from '../types.js';
 
 export class Segment2 implements Eq, Draw, Debug {
+    public static helpers = helpers;
     public static clip = clip;
     public static extend = extend;
     public static intersection = intersection;
     public static drawSegment = drawSegment;
 
-    public static pipeDraw(image: ImageDataExt, points: Point2[], color?: Color) {
+    public static pipeDraw(image: Img, points: Point2[], color?: Color) {
         for (let i = 1; i < points.length; i++) {
             drawSegment(image, points[i - 1], points[i], color);
         }
@@ -39,7 +41,7 @@ export class Segment2 implements Eq, Draw, Debug {
         this.color = color;
     }
 
-    public draw(img: ImageDataExt): this {
+    public draw(img: Img): this {
         drawSegment(img, this.start, this.end, this.color);
         return this;
     }
@@ -49,7 +51,7 @@ export class Segment2 implements Eq, Draw, Debug {
     }
 
     public debug(this: Segment2): string {
-        return `${ovl('AB')} A=${this.start.debug()} B=${this.end.debug()}`;
+        return `A̅B̅=(${this.start.debug()}, ${this.end.debug()})`;
     }
 
     public invert(this: Segment2): Segment2 {

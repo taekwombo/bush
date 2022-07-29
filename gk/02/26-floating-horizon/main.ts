@@ -1,5 +1,5 @@
 import { Canvas, Color, drawSegment, p2, Point2, Segment2, s2 } from '../../lib/mod.js';
-import type { ImageDataExt, Range2 } from '../../lib/mod.js';
+import type { Img, Range2 } from '../../lib/mod.js';
 
 const canvas = Canvas.create2(900, 900);
 
@@ -39,7 +39,7 @@ type FHOptions = {
     fn: (x: number, y: number) => number,
 };
 
-function drawFH(image: ImageDataExt, options: FHOptions): void {
+function drawFH(image: Img, options: FHOptions): void {
     let {
         put,
         xMax,
@@ -128,23 +128,26 @@ function drawFH(image: ImageDataExt, options: FHOptions): void {
 
     type DP = typeof image.drawPoint;
     const drawPoint = ((original: DP): DP => {
-        return function drawPoint(this: ImageDataExt, x: number, y: number): void {
+        return function drawPoint(this: Img, x: number, y: number): Img {
             const up = horizon.up[x];
             const dn = horizon.dn[x];
             if (y > dn || y < up) {
                 original.call(this, x, y);
             }
+
+            return this;
         };
     })(image.drawPoint);
     image.drawPoint = drawPoint;
 
-    const updateHorizonMethod = function updateHorizon(this: ImageDataExt, x: number, y: number): void {
+    const updateHorizonMethod = function updateHorizon(this: Img, x: number, y: number): Img {
         if (y > horizon.dn[x]) {
             horizon.dn[x] = y;
         }
         if (y < horizon.up[x]) {
             horizon.up[x] = y;
         }
+        return this;
     };
 
     function updateHorizon (a: Point2, b: Point2): void {

@@ -1,7 +1,9 @@
 import { Segment2, drawSegment } from './segment.js';
 import * as clip from './polygon/clip.js';
+import * as helpers from './polygon/helpers.js';
 import { p2 } from './point.js';
-import type { Clone, Debug, Draw, Fill, ImageDataExt } from '../types.js';
+import type { Img } from '../img.js';
+import type { Clone, Debug, Draw, Fill } from '../types.js';
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
 
@@ -10,6 +12,7 @@ type ActiveEdge = { edge: Segment2; x: number };
 
 export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
     public static clip = clip;
+    public static helpers = helpers;
 
     public vertices: Point2[];
     public color?: Color;
@@ -19,7 +22,7 @@ export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
         this.color = color;
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         let pp = this.vertices[this.vertices.length - 1];
 
         for (let i = 0; i < this.vertices.length; i++) {
@@ -33,7 +36,7 @@ export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
         return this;
     }
 
-    public fill(image: ImageDataExt, color?: Color): this {
+    public fill(image: Img, color?: Color): this {
         const edges = this.fillEdges();
 
         let activeEdges: ActiveEdge[] = [];

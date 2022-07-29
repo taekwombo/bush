@@ -8,6 +8,9 @@
     "strict": true
   },
   "include": ["./**/*.ts"],
-  "exclude": []
+  "exclude": [],
+  "ts-node": {
+      "swc": true
+  }
 }
 

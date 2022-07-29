@@ -1,6 +1,7 @@
 import type { Color } from '../color.js';
+import type { Img } from '../img.js';
 import type { Point2 } from './point.js';
-import type { Debug, Draw, ImageDataExt } from '../types.js';
+import type { Debug, Draw } from '../types.js';
 
 export class Circle2 implements Draw, Debug {
     public center: Point2;
@@ -13,7 +14,7 @@ export class Circle2 implements Draw, Debug {
         this.color = color;
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         drawCircle(image, this.center.x, this.center.y, this.radius, this.color);
 
         return this;
@@ -37,7 +38,7 @@ export class Ellipsis2 implements Draw, Debug {
         this.color = color;
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         drawEllipsis(image, this.center.x, this.center.y, this.a, this.b, this.color);
 
         return this;
@@ -48,7 +49,7 @@ export class Ellipsis2 implements Draw, Debug {
     }
 }
 
-export function drawCircle(image: ImageDataExt, cx: number, cy: number, radius: number, color?: Color): ImageDataExt {
+export function drawCircle(image: Img, cx: number, cy: number, radius: number, color?: Color): Img {
     // http://www.algorytm.org/podstawy-grafiki/kreslenie-okregow.html
     let x = 0;
     let y = radius;
@@ -79,13 +80,13 @@ export function drawCircle(image: ImageDataExt, cx: number, cy: number, radius: 
 }
 
 export function drawEllipsis(
-    image: ImageDataExt,
+    image: Img,
     cx: number,
     cy: number,
     radiusA: number,
     radiusB: number,
     color?: Color,
-): ImageDataExt {
+): Img {
     // http://www.algorytm.org/podstawy-grafiki/kreslenie-elipsy.html
 
     let a = radiusA;

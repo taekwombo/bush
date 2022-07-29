@@ -1,8 +1,8 @@
 import { Color } from '../../color.js';
 import type { Point2 } from '../point.js';
-import type { ImageDataExt } from '../../types.js';
+import type { Img } from '../../img.js';
 
-export function drawSegment(image: ImageDataExt, start: Point2, end: Point2, color?: Color): void {
+export function drawSegment(image: Img, start: Point2, end: Point2, color?: Color): void {
     // http://www.algorytm.org/podstawy-grafiki/algorytm-bresenhama.html
     let deltaX = end.x - start.x;
     let deltaY = end.y - start.y;

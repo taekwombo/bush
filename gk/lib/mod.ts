@@ -1,5 +1,6 @@
 export * from './canvas.js';
 export * from './color.js';
+export * from './img.js';
 export * from './types.js';
 export * from './utils.js';
 export * from './2d/bezier.js';

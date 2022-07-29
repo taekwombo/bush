@@ -1,5 +1,6 @@
 import { Color } from '../color.js';
-import type { Draw, ImageDataExt } from '../types.js';
+import type { Img } from '../img.js';
+import type { Draw } from '../types.js';
 import type { Point2 } from './point.js';
 
 const step = 0.0025;
@@ -47,7 +48,7 @@ function bernstein(n: number, i: number, t: number): number {
     return nt(n, i) * (t ** i) * ((1 - t) ** (n - i));
 }
 
-export function b4(p1: Point2, p2: Point2, p3: Point2, p4: Point2, image: ImageDataExt): ImageData {
+export function b4(p1: Point2, p2: Point2, p3: Point2, p4: Point2, image: Img): Img {
     // http://www.algorytm.org/podstawy-grafiki/krzywa-beziera.html
     // 0 <= t <= 1
     let t = 0.0;
@@ -80,7 +81,7 @@ export class Bezier2 implements Draw {
         this.color = color || new Color(200, 200, 50, 255);
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         // https://byc-matematykiem.pl/krzywe-beziera/
 
         const { points, color } = this;

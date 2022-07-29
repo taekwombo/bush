@@ -4,8 +4,9 @@ import * as clip from './line/clip.js';
 import * as intersection from './line/intersection.js';
 import { LineType } from '../types.js';
 import type { Slope, Standard } from './line/equation.js';
+import type { Img } from '../img.js';
 import type { Segment2 } from './segment.js';
-import type { Debug, Draw, ImageDataExt } from '../types.js';
+import type { Debug, Draw } from '../types.js';
 
 export class Line2 implements Draw, Debug {
     public static clip = clip;
@@ -37,8 +38,8 @@ export class Line2 implements Draw, Debug {
         this.segment = seg;
     }
 
-    public draw(image: ImageDataExt): this {
-        const { width, height } = image;
+    public draw(image: Img): this {
+        const { width, height } = image.image;
 
         this.segment.extend({
             x: [0, width],

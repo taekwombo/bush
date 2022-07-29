@@ -1,4 +1,4 @@
-import type { Color } from './color.js';
+import type { Img } from './img.js';
 
 export const enum LineType {
     Vertical = 'v',
@@ -6,19 +6,12 @@ export const enum LineType {
     Slope = 's', 
 }
 
-export type ImageDataExt = ImageData & {
-    validate(x: number, y: number): boolean;
-    index(x: number, y: number): number;
-    drawPoint(this: ImageDataExt, x: number, y: number, color?: Color): void; 
-    floodFill(x: number, y: number, color: Color, mod?: 4 | 8): void;
-}
-
 export interface Draw {
-    draw: (image: ImageDataExt) => this;
+    draw: (image: Img) => this;
 }
 
 export interface Fill {
-    fill: (image: ImageDataExt) => this;
+    fill: (image: Img) => this;
 }
 
 export interface Debug {

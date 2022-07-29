@@ -1,5 +1,6 @@
 import type { Color } from '../color.js';
-import { Clone, Debug, Draw, Eq, ImageDataExt } from '../types.js';
+import type { Img } from '../img.js';
+import { Clone, Debug, Draw, Eq } from '../types.js';
 
 export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
     public x: number;
@@ -16,7 +17,7 @@ export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
         this.color = color;
     }
 
-    public draw(image: ImageDataExt): this {
+    public draw(image: Img): this {
         image.drawPoint(this.x, this.y, this.color);
 
         return this;
@@ -40,6 +41,13 @@ export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
 
     public clone(this: Point2): Point2 {
         return new Point2(this.x, this.y, this.color);
+
+    }
+
+    public distance(this: Point2, other: Point2): number {
+        return Math.sqrt(
+            (other.x - this.x) ** 2 + (other.y - this.y) ** 2
+        );
     }
 }
 

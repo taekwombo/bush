@@ -3,7 +3,7 @@ import { Canvas, Segment2, p2 } from '../../lib/mod.js';
 const canvas = Canvas.create2(400, 400);
 
 canvas.drawCb((img) => {
-    const { width: w, height: h } = img;
+    const { width: w, height: h } = img.image;
 
     const points = [
         p2(50, 50),

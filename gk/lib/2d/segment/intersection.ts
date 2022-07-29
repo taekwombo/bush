@@ -11,11 +11,14 @@ export function def(seg1: Segment2, seg2: Segment2): null | Point2 {
     const { start: a, end: b } = seg1;
     const { start: c, end: d } = seg2;
 
-    const t = (
-        (a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)
-    ) / (
-        (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x)
-    );
+    const num = (a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x);
+    const den = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+
+    if (den === 0) {
+        return null;
+    }
+
+    const t = num / den;
 
     if (t > 1 || t < 0) {
         return null;
@@ -64,46 +67,29 @@ export function def(seg1: Segment2, seg2: Segment2): null | Point2 {
     return p2(x, y);
 }
 
-/**
- * Using cross product of vectors.
- *
- * https://stackoverflow.com/a/565282
- */
+/** https://stackoverflow.com/a/565282 */
 export function cross(s1: Segment2, s2: Segment2): Point2 | null {
-    const { start: p, end: r } = s1;
-    const { start: q, end: s } = s2;
+    const { start: a, end: b } = s1;
+    const { start: c, end: d } = s2;
 
-    const cross = (a: Point2, b: Point2): number => (a.x * b.y) - (a.y * b.x);
-    const sub = (a: Point2, b: Point2): Point2 => p2(a.x - b.x, a.y - b.y);
+    const dx0 = b.x - a.x;
+    const dy0 = b.y - a.y;
+    const dx1 = d.x - c.x;
+    const dy1 = d.y - c.y;
 
-    const rs = cross(r, s);
+    // s = (-dy0 * (a.x - c.x) + dx0 * (a.y - c.y)) / (-dx1 * dy0 + dx0 * dy1);
+    // t = ( dx1 * (a.y - c.y) - dy1 * (a.x - c.x)) / (-dx1 * dy0 + dx0 * dy1);
 
-    if (rs === 0) {
-        return null;
-        // if (cross(qmp, r) === 0) {
-        //     // Segments are colinear.
-        //     return null;
-        // } else {
-        //     // Segments are parallel.
-        //     return null
-        // }
+    const dn = (-dx1 * dy0 + dx0 * dy1);
+    const s = (-dy0 * (a.x - c.x) + dx0 * (a.y - c.y)) / dn;
+    const t = (dx1 * (a.y - c.y) - dy1 * (a.x - c.x)) / dn;
+
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+        return p2(
+            a.x + t * dx0,
+            a.y + t * dy0,
+        );
     }
 
-    // t = (q - p) × s / (r × s);
-    // u = (p − q) × r / (s × r)
-    // (s × r) = -(r × s)
-    const t = cross(sub(q, p), s) / rs;
-    const u = cross(sub(p, q), r) / -rs;
-
-    const t01 = t >= 0 && t <= 1;
-    const u01 = u >= 0 && t <= 1;
-
-    if (!(t01 && u01)) {
-        return null;
-    }
-
-    return p2(
-        p.x + t * r.x,
-        p.y + t * r.y,
-    );
+    return null;
 }

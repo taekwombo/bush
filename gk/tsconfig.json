@@ -5,6 +5,7 @@
     "declaration": false,
     "sourceMap": false,
     "outDir": "./",
+    "importsNotUsedAsValues": "error",
     "strict": true
   },
   "include": ["./**/*.ts"],

@@ -1,7 +1,7 @@
 import { nn } from '../../utils.js';
 import { p2 } from '../point.js';
-import { Line2 } from '../line.js';
 import { Segment2 } from '../segment.js';
+import type { Line2 } from '../line.js';
 import type { Point2 } from '../point.js';
 import type { Range2 } from '../range.js';
 

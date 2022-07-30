@@ -1,8 +1,8 @@
-import { Color } from '../color.js';
 import { equation } from './line/equation.js';
 import * as clip from './line/clip.js';
 import * as intersection from './line/intersection.js';
-import { LineType } from '../types.js';
+import type { LineType } from '../types.js';
+import type { Color } from '../color.js';
 import type { Slope, Standard } from './line/equation.js';
 import type { Img } from '../img.js';
 import type { Segment2 } from './segment.js';

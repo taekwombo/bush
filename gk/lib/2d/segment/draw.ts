@@ -1,4 +1,4 @@
-import { Color } from '../../color.js';
+import type { Color } from '../../color.js';
 import type { Point2 } from '../point.js';
 import type { Img } from '../../img.js';
 

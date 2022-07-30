@@ -1,6 +1,6 @@
 import type { Color } from '../color.js';
 import type { Img } from '../img.js';
-import { Clone, Debug, Draw, Eq } from '../types.js';
+import type { Clone, Debug, Draw, Eq } from '../types.js';
 
 export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
     public x: number;

@@ -1,8 +1,8 @@
 import { p2 } from '../point.js';
 import { nn } from '../../utils.js';
-import { Line2 } from '../line.js';
 import { LineType } from '../../types.js';
 import type { Segment2 } from '../segment.js';
+import type { Line2 } from '../line.js';
 import type { Point2 } from '../point.js';
 
 /**

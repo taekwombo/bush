@@ -4,9 +4,9 @@ import type { Img, Range2 } from '../../lib/mod.js';
 const canvas = Canvas.create2(900, 900);
 
 const w = 600, h = 600;
-canvas.drawCb((img, put) => {
+canvas.drawCb((img, draw) => {
     drawFH(img, {
-        put,
+        draw,
         xMin: -100,
         xMax: 100,
         yMin: -100,
@@ -22,7 +22,7 @@ canvas.drawCb((img, put) => {
 }, [100, 100, w + 1, h + 1]);
 
 type FHOptions = {
-    put: () => void;
+    draw: () => void;
     xMin?: number;
     yMin?: number;
     zMin?: number;
@@ -41,7 +41,7 @@ type FHOptions = {
 
 function drawFH(image: Img, options: FHOptions): void {
     let {
-        put,
+        draw,
         xMax,
         xMin = 0,
         yMax,
@@ -123,7 +123,7 @@ function drawFH(image: Img, options: FHOptions): void {
         s2(p(x0, y0, z0), p(x0, yMax, z0), pink).extend(range).draw(image);
         // Draw Z axis
         s2(p(x0, y0, z0), p(x0, y0, zMax), yellow).extend(range).draw(image);
-        put();
+        draw();
     }
 
     type DP = typeof image.drawPoint;
@@ -169,7 +169,7 @@ function drawFH(image: Img, options: FHOptions): void {
                 const pb = points[index - 1];
 
                 drawSegment(image, pa, pb);
-                put();
+                draw();
             }
 
             if (iy > 0) {
@@ -177,7 +177,7 @@ function drawFH(image: Img, options: FHOptions): void {
                 const pb = points[index - gridWidth - 1];
 
                 drawSegment(image, pa, pb);
-                put();
+                draw();
             }
 
             if (ix > 0) {

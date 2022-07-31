@@ -1,8 +1,8 @@
 import type { Color } from '../color.js';
 import type { Img } from '../img.js';
-import type { Clone, Debug, Draw, Eq } from '../types.js';
+import type { Clone, Draw, Eq } from '../types.js';
 
-export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
+export class Point2 implements Clone<Point2>, Draw, Eq {
     public x: number;
     public y: number;
     public color?: Color;
@@ -23,7 +23,7 @@ export class Point2 implements Clone<Point2>, Draw, Debug, Eq {
         return this;
     }
 
-    public debug(): string {
+    public toString(): string {
         return `(${this.x}, ${this.y})`;
     }
 

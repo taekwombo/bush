@@ -38,7 +38,7 @@ test('sadflkj', (t) => {
         p2(10, 10),
     ];
     for (const c of cases) {
-        test(`pointSide - ${a.debug()} ${b.debug()} ${c.debug()}`, (t) => {
+        test(`pointSide - ${a} ${b} ${c}`, (t) => {
             t.is(pointSide(a, b, c), PSPos.Right);
             t.is(pointSide(b, a, c), PSPos.Left);
         });
@@ -69,7 +69,7 @@ test('normal', (t) => {
     ];
 
     for (const [c, expected] of cases) {
-        test(`contains - ${segment.debug()} ${c.debug()}`, (t) => {
+        test(`contains - ${segment} ${c}`, (t) => {
             t.is(expected, contains(segment, c));
         });
     }

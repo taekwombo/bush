@@ -3,14 +3,14 @@ import * as clip from './polygon/clip.js';
 import * as helpers from './polygon/helpers.js';
 import { p2 } from './point.js';
 import type { Img } from '../img.js';
-import type { Clone, Debug, Draw, Fill } from '../types.js';
+import type { Clone, Draw, Fill } from '../types.js';
 import type { Color } from '../color.js';
 import type { Point2 } from './point.js';
 
 
 type ActiveEdge = { edge: Segment2; x: number };
 
-export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
+export class Polygon2 implements Clone<Polygon2>, Draw, Fill {
     public static clip = clip;
     public static helpers = helpers;
 
@@ -131,8 +131,8 @@ export class Polygon2 implements Clone<Polygon2>, Debug, Draw, Fill {
             .sort(({ start: a }, { start: b }) => a.y - b.y);
     }
 
-    public debug(this: Polygon2): string {
-        const v = this.vertices.map((p) => p.debug());
+    public toString(this: Polygon2): string {
+        const v = this.vertices.map((p) => p.toString());
 
         return `[${v.join(', ')}]`;
     }

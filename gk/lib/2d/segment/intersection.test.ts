@@ -15,7 +15,7 @@ for (const [a, b, c, d] of cases) {
     const sa = s2(a, b);
     const sb = s2(c, d);
 
-    test(`${sa.debug()} & ${sb.debug()}`, (t) => {
+    test(`${sa} & ${sb}`, (t) => {
         t.deepEqual(def(sa, sb), cross(sa, sb));
     });
 }

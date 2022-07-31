@@ -68,14 +68,14 @@ export class Canvas {
         this.context.putImageData(img, x, y);
     }
 
-    public drawCb(this: Canvas, cb: (img: Img, put: () => void) => void, dimensions: [number?, number?, number?, number?] = []): Canvas {
+    public drawCb(this: Canvas, cb: (img: Img, draw: () => void) => void, dimensions: [number?, number?, number?, number?] = []): Canvas {
         const [x = 0, y = 0, w = this.width, h = this.height] = dimensions;
         const img = this.getImageData([x, y, w, h]);
-        const put = () => this.putImageData(img.image, [x, y]);
+        const draw = () => this.putImageData(img.image, [x, y]);
 
-        cb(img, put);
+        cb(img, draw);
 
-        put();
+        draw();
 
         return this;
     }

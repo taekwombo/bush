@@ -1,9 +1,9 @@
 import type { Color } from '../color.js';
 import type { Img } from '../img.js';
 import type { Point2 } from './point.js';
-import type { Debug, Draw } from '../types.js';
+import type { Draw } from '../types.js';
 
-export class Circle2 implements Draw, Debug {
+export class Circle2 implements Draw {
     public center: Point2;
     public radius: number;
     public color?: Color;
@@ -20,12 +20,12 @@ export class Circle2 implements Draw, Debug {
         return this;
     }
 
-    public debug(): string {
-        return `O(${this.center.debug()}, r=${this.radius})`;
+    public toString(): string {
+        return `O(${this.center}, r=${this.radius})`;
     }
 }
 
-export class Ellipsis2 implements Draw, Debug {
+export class Ellipsis2 implements Draw {
     public center: Point2;
     public a: number;
     public b: number;
@@ -44,8 +44,8 @@ export class Ellipsis2 implements Draw, Debug {
         return this;
     }
 
-    public debug(): string {
-        return `E(${this.center.debug()}, a=${this.a}, b=${this.b})`;
+    public toString(): string {
+        return `E(${this.center}, a=${this.a}, b=${this.b})`;
     }
 }
 

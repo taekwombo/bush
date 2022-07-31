@@ -6,10 +6,14 @@ export function nn<T>(v: T): Exclude<T, null> {
     return v as Exclude<T, null>;
 }
 
-/** Add overline */
-export function ovl(v: string): string {
-    return v
-        .split('')
-        .map((c) => `${c}\u0305`)
-        .join('');
+/**
+ * Ensure that all arguments are not NaN nor Infinity.
+ */
+export function num(...vals: number[]): void {
+    for (const v of vals) {
+        if (Math.abs(v) === Infinity || Number.isNaN(v)) {
+            throw new Error(`arguments can not be NaN nor Infinity`);
+        }
+    }
 }
+

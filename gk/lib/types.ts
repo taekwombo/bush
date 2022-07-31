@@ -14,10 +14,6 @@ export interface Fill {
     fill: (image: Img) => this;
 }
 
-export interface Debug {
-    debug: () => string;
-}
-
 export interface Eq {
     eq: (lhs: this, rhs: this) => boolean;
 }

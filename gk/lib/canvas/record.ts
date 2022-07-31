@@ -17,7 +17,7 @@ function print(line: Point2[]): void {
     let p2s: string[] = [];
 
     for (let point of line) {
-        debug.push(point.debug());   
+        debug.push(point.toString());   
         p2s.push(`p2(${point.x}, ${point.y})`);
     }
 

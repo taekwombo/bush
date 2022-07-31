@@ -6,9 +6,9 @@ import type { Color } from '../color.js';
 import type { Slope, Standard } from './line/equation.js';
 import type { Img } from '../img.js';
 import type { Segment2 } from './segment.js';
-import type { Debug, Draw } from '../types.js';
+import type { Draw } from '../types.js';
 
-export class Line2 implements Draw, Debug {
+export class Line2 implements Draw {
     public static clip = clip;
     public static intersection = intersection;
 
@@ -49,7 +49,9 @@ export class Line2 implements Draw, Debug {
         return this;
     }
 
-    public debug(): string {
-        return 'todo';
+    public toString(): string {
+        const { a, b, c } = this.standard;
+
+        return `${a}x + ${b}y + ${c} = 0`;
     }
 }

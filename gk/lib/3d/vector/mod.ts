@@ -1,20 +1,34 @@
-import { num } from '../../utils.js';
+import { nz, num } from '../../utils.js';
+import type { Mat4 } from '../matrix/mod.js';
 
 export class Vector {
     public static new(...args: ConstructorParameters<typeof Vector>): Vector {
         return new Vector(...args);
     }
 
+    public spherical(): Vector {
+        // TODO: create a vector from spherical coordinates.
+        // TODO: add vector method that will return spherical coordinates of a vector.
+        throw new Error('Unimplemented');
+    }
+
     public x: number;
     public y: number;
     public z: number;
 
-    public constructor(x: number, y: number, z: number) {
+    public constructor(x: number, y: number, z: number, w: number = 1.0) {
         num(x, y, z);
+        nz(w);
 
         this.x = x;
         this.y = y;
         this.z = z;
+
+        if (w !== 1) {
+            this.x /= w;
+            this.y /= w;
+            this.z /= w;
+        }
     }
 
     public add(this: Vector, rhs: Vector): Vector {
@@ -76,6 +90,22 @@ export class Vector {
         if (len !== 0) {
             this.mul(1.0 / len);
         }
+
+        return this;
+    }
+
+    public t(this: Vector, mat: Mat4): Vector {
+        const { x, y, z } = this;
+        const m = mat.v;
+        
+        const xp = x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0];
+        const yp = x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1];
+        const zp = x * m[0][2] + y * m[1][2] + z * m[2][2] + m[3][2];
+        const w = x * m[0][3] + y * m[1][3] + z * m[2][3] + m[3][3];
+
+        this.x = xp / w;
+        this.y = yp / w;
+        this.z = zp / w;
 
         return this;
     }

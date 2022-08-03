@@ -17,3 +17,19 @@ export function num(...vals: number[]): void {
     }
 }
 
+/**
+ * Ensure at least one of the arguments is non-zero.
+ */
+export function nz(...vals: number[]): void {
+    for (const v of vals) {
+        if (v !== 0) {
+            return;
+        }
+    }
+
+    throw new Error('at least one of the arguments must be != 0');
+}
+
+export function rad(value: number): number {
+    return value / 180 * Math.PI;
+}

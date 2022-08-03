@@ -1,6 +1,7 @@
 import { p2 } from '../point.js';
 import { nn } from '../../utils.js';
 import { s2 } from '../segment.js';
+import type { Point2 } from '../point.js';
 import type { Segment2 } from '../segment.js';
 import type { Range2 } from '../range.js';
 
@@ -169,6 +170,7 @@ export function LB(segment: Segment2, options: Range2): null | Segment2 {
     return null;
 }
 
+type DMVDParameters = [Segment2, Range2] | [Point2, Point2, Range2];
 /**
  * [resources/another_2d_line_clipping_method.pdf]
  *
@@ -176,7 +178,21 @@ export function LB(segment: Segment2, options: Range2): null | Segment2 {
  *
  * by Dimitrios Matthes and Vasileios Drakopoulos
  */
-export function DMVD(segment: Segment2, options: Range2): Segment2 | null {
+export function DMVD(...args: DMVDParameters): Segment2 | null {
+    let segment, options;
+
+    if (args.length === 2) {
+        const [seg, opt] = args;
+
+        segment = seg;
+        options = opt;
+    } else {
+        const [pa, pb, opt] = args;
+
+        segment = s2(pa, pb);
+        options = opt;
+    }
+
     const { x: [xMin, xMax], y: [yMin, yMax] } = options;
     const { start: a, end: b } = segment;
 

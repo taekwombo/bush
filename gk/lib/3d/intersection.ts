@@ -1,6 +1,7 @@
 import type { Plane } from './plane/mod.js';
 import type { Line } from './line/mod.js';
 import type { Vector } from './vector/mod.js';
+import type { Triangle } from './triangle/mod.js';
 
 /**
  * Calculate the intersection point of a line and a plane.
@@ -44,4 +45,35 @@ export function line_plane(l: Line, p: Plane): Opt<Vector> {
     const t = point.dot(nv) / dotLP;
 
     return l0.clone().add(lv.clone().mul(t));
+}
+
+/**
+ * Calculate the intersection point of a line and a triangle.
+ *
+ * https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
+ */
+export function line_triangle(l: Line, t: Triangle): Opt<Vector> {
+    const p = line_plane(l, { normal: t.n, point: t.a });
+
+    if (!p) {
+        return null;
+    }
+
+    const a = t.a.clone().sub(p);
+    const b = t.b.clone().sub(p);
+    const c = t.c.clone().sub(p);
+
+    const u = b.cross(c);
+    const v = c.cross(a);
+    const w = a.cross(b);
+
+    if (u.dot(v) <= 0) {
+        return null;
+    }
+
+    if (v.dot(w) <= 0) {
+        return null;
+    }
+
+    return p;
 }

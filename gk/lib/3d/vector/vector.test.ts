@@ -2,6 +2,7 @@ import test from 'ava';
 import { Vector } from './mod.js';
 
 test('invalid', (t) => {
+    t.throws(() => Vector.new(1, 1, 2, 0));
     t.throws(() => Vector.new(1, 1, -Infinity));
     t.throws(() => Vector.new(Infinity, 1, 1));
     t.throws(() => Vector.new(NaN, 1, 1));

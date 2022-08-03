@@ -1,5 +1,6 @@
 import { drawSegment } from './segment/draw.js';
 import { extend } from './segment/extend.js';
+import { r2 } from './range.js';
 import * as intersection from './segment/intersection.js';
 import * as clip from './segment/clip.js';
 import * as helpers from './segment/helpers.js';
@@ -17,16 +18,25 @@ export class Segment2 implements Eq, Draw {
     public static drawSegment = drawSegment;
 
     public static pipeDraw(image: Img, points: (Point2 | Point2[])[], color?: Color) {
+        const options = r2([0, image.image.width], [0, image.image.height]);
         const ps = points.filter((p): p is Point2 => !Array.isArray(p));
         const arr = points.filter((p): p is Point2[] => Array.isArray(p));
 
         for (let i = 1; i < ps.length; i++) {
-            drawSegment(image, ps[i - 1], ps[i], color);
+            const s = clip.DMVD(s2(ps[i - 1], ps[i], color), options);
+
+            if (s) {
+                drawSegment(image, s.start, s.end, color);
+            }
         }
 
         for (const ps of arr) {
             for (let i = 1; i < ps.length; i++) {
-                drawSegment(image, ps[i - 1], ps[i], color);
+                const s = clip.DMVD(s2(ps[i - 1], ps[i], color), options);
+
+                if (s) {
+                    drawSegment(image, s.start, s.end, color);
+                }
             }
         }
     }

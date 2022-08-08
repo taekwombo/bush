@@ -4,15 +4,15 @@ import { Img } from './img.js';
 export class Canvas {
     public static record = record;
 
-    protected static getCanvas(width: number, height: number): HTMLCanvasElement {
-        let canvas: HTMLCanvasElement = document.querySelector('canvas')!;
+    protected static getCanvas(width: number, height: number, selector: string, stretch: boolean): HTMLCanvasElement {
+        let canvas: HTMLCanvasElement = document.querySelector(selector)!;
 
         if (!canvas) {
             canvas = document.createElement('canvas');
             document.body.appendChild(canvas);
         }
 
-        {   // Make canvas appear to be bigger than drawing buffer.
+        if (stretch) {   // Make canvas appear to be bigger than drawing buffer.
             const size = Math.min(window.innerWidth, window.innerHeight);
             canvas.style.width = `${size}px`;
             canvas.style.height = `${size}px`;
@@ -34,8 +34,8 @@ export class Canvas {
         return context;
     }
 
-    public static create2(width: number, height: number): Canvas {
-        const canvas = this.getCanvas(width, height);
+    public static create2(width: number, height: number, selector: string = 'canvas', stretch: boolean = true): Canvas {
+        const canvas = this.getCanvas(width, height, selector, stretch);
         const context = this.getContext2(canvas);
 
         return new Canvas(canvas, context, width, height);

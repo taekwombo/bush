@@ -33,3 +33,58 @@ export function nz(...vals: number[]): void {
 export function rad(value: number): number {
     return value / 180 * Math.PI;
 }
+
+function getUIDiv(id: string = 'id'): HTMLDivElement {
+    const ex = document.querySelector<HTMLDivElement>(`#${id}`);
+
+    if (ex) {
+        return ex;
+    }
+
+    const ui = document.createElement('div');
+
+    ui.id = id;
+
+    ui.style.position = 'fixed';
+    ui.style.backgroundColor = 'transparent';
+    ui.style.top = '0';
+
+    ui.onclick = (e) => (e.stopPropagation(), e.preventDefault());
+
+    document.body.appendChild(ui);
+
+    return ui;
+}
+
+export function addControl(label: string, opt: Partial<HTMLInputElement>, divId?: string) {
+    const ui = getUIDiv(divId);
+    
+    const { value, onchange, ...rest } = opt;
+
+    const l = document.createElement('label');
+    const i = document.createElement('input');
+
+    l.innerText = label;
+    l.style.width = '270px';
+    l.style.display = 'flex';
+    l.style.justifyContent = 'space-between';
+    l.style.padding = '2px';
+    i.type = 'range';
+
+    Object.assign(i, rest);
+    i.value = value || '';
+
+    const s = document.createElement('span');
+    s.innerText = value || '-';
+
+    i.onchange = (e) => {
+        s.innerText = (e as any).target.value;
+        if (onchange) {
+            onchange.call(i, e);
+        }
+    };
+
+    l.appendChild(s);
+    l.appendChild(i);
+    ui.appendChild(l);
+}

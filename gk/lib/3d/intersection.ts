@@ -4,12 +4,16 @@ import type { Vector } from './vector/mod.js';
 import type { Triangle } from './triangle/mod.js';
 
 /**
+ * Links:
+ *
+ * http://jongarvin.com/up/MCV4U/slides/intersection_line_plane_handout.pdf
+ * https://www.wikiwand.com/en/Line%E2%80%93plane_intersection
+ *
  * Calculate the intersection point of a line and a plane.
  *
  * Line:  l₀ + tl⃗
  * Plane: (p - p₀) ∙ n⃗ = 0
  *
- * https://www.wikiwand.com/en/Line%E2%80%93plane_intersection
  *
  * The formula for t is:
  * t = (p₀ - l₀) ∙ n⃗ / (l⃗ ∙ n⃗)
@@ -53,7 +57,7 @@ export function line_plane(l: Line, p: Plane): Opt<Vector> {
  * https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
  */
 export function line_triangle(l: Line, t: Triangle): Opt<Vector> {
-    const p = line_plane(l, { normal: t.n, point: t.a });
+    const p = line_plane(l, { normal: t.normal, point: t.a });
 
     if (!p) {
         return null;

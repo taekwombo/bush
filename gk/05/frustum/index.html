@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>5.2 - Perspective Projection</title>
+        <title>5 - Frustum</title>
         <script defer type="module" src="./main.js"></script>
         <style>
             * {
@@ -14,8 +14,17 @@
                 height: 100vh;
             }
 
+            body {
+                display: flex;
+            }
+
             canvas {
                 background-color: black;
+            }
+
+            canvas:first-of-type {
+                margin-right: 4px;
+                outline: 4px solid green;
             }
         </style>
     </head>

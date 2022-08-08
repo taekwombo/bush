@@ -1,8 +1,20 @@
+import { rad } from '../utils.js';
 import type { Color } from '../color.js';
 import type { Img } from '../img.js';
 import type { Clone, Draw, Eq } from '../types.js';
 
 export class Point2 implements Clone<Point2>, Draw, Eq {
+    public static fromNDC(image: Img, { x, y }: Record<'x' | 'y', number>): Point2 {
+        return new Point2(
+            (x + 1) / 2 * image.image.width,
+            (y + 1) / 2 * image.image.height,
+        );
+    }
+
+    public static from({ x, y }: Record<'x' | 'y', number>): Point2 {
+        return new Point2(x, y);
+    }
+
     public x: number;
     public y: number;
     public color?: Color;
@@ -49,6 +61,30 @@ export class Point2 implements Clone<Point2>, Draw, Eq {
             (other.x - this.x) ** 2 + (other.y - this.y) ** 2
         );
     }
+    
+    public rotate(this: Point2, angle: number, c?: Point2): Point2 {
+        let { x, y } = this;
+        if (c) {
+            x -= c.x;
+            y -= c.y;
+        }
+
+        const sin = Math.sin(rad(angle));
+        const cos = Math.cos(rad(angle));
+
+        const xp = Math.floor(x * cos - y * sin);
+        const yp = Math.floor(x * sin + y * cos);
+
+        this.x = xp;
+        this.y = yp;
+
+        if (c) {
+            this.x += c.x;
+            this.y += c.y;
+        }
+
+        return this;
+    }
 }
 
 /**
@@ -57,4 +93,6 @@ export class Point2 implements Clone<Point2>, Draw, Eq {
 export function p2 (...args: ConstructorParameters<typeof Point2>): Point2 {
     return new Point2(...args);
 }
+
+p2.from = Point2.from;
 

@@ -5,11 +5,11 @@
     "declaration": false,
     "sourceMap": false,
     "outDir": "./",
-    "strict": true,
-    "typeRoots": ["../node_modules/@webgpu/types"]
+    "strict": true
   },
   "files": [
-      "./main.ts",
-      "../node_modules/@webgpu/types/dist/index.d.ts"
-  ]
+      "./node_modules/@webgpu/types/dist/index.d.ts"
+  ],
+  "include": ["./**/*.ts"],
+  "exclude": []
 }

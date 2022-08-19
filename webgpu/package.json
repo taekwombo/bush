@@ -1,0 +1,9 @@
+{
+  "name": "webgpu",
+  "version": "0.0.0",
+  "description": "",
+  "scripts": {},
+  "dependencies": {
+    "@webgpu/types": "^0.1.20"
+  }
+}

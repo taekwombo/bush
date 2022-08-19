@@ -57,7 +57,7 @@ const EMPTY = (): M4 => [
  */
 export class Mat4 {
     /** Scale, translate, rotate. */
-    public static mul(input: Partial<Record<'translate' | 'scale' | 'rotate', Mat4>>): Mat4 {
+    public static STR(input: Partial<Record<'translate' | 'scale' | 'rotate', Mat4>>): Mat4 {
         if (!input.translate && !input.rotate && !input.scale) {
             throw new Error('At least one matrix required');
         }

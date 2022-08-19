@@ -65,7 +65,7 @@ let right: {
     perspective: Mat4,
 };
 { // initialize right screen info
-    const sceneTransform = Mat4.mul({
+    const sceneTransform = Mat4.STR({
         translate: Mat4.translate([3, 0, 9]),
         rotate: Mat4.rotate([rad(10), rad(35), 0]),
     }).inverse();

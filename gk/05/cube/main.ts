@@ -29,7 +29,7 @@ type Screen = {
  * Left screen renders the cube.
  * Right screen renders cube and the left camera that is looking at the cube.
  */
-let left: Screen;
+let left: Screen & { lightPosition: Vector };
 
 { // initialize left screen info
     // In relation to the World origin.
@@ -53,6 +53,7 @@ let left: Screen;
         perspective,
         cameraToWorld,
         worldToCamera,
+        lightPosition: Vector.new(0, 0, 0),
     };
 }
 
@@ -114,6 +115,18 @@ function draw(img: Img) {
         start.t(left.perspective);
         end.t(left.perspective);
 
+        // Calculate color of the triangle.
+        let color = triangle.color || Color.White;
+        const lightVec = left.lightPosition.sub(triangle.a);
+        const normal = triangle.normal;
+        const dot = lightVec.dot(normal);
+        if (dot < 0) {
+            throw new Error('Unreachable');
+        } else {
+            const f = dot / (normal.mag() * lightVec.mag());
+            color = new Color(f * color.r, f * color.g, f * color.b, 255);
+        }
+
         // Projected triangle.
         const triangleNDC = triangle.transform(left.perspective);
 
@@ -121,7 +134,7 @@ function draw(img: Img) {
             Point2.fromNDC(img, triangleNDC.a),
             Point2.fromNDC(img, triangleNDC.b),
             Point2.fromNDC(img, triangleNDC.c),
-        ], triangle.color).draw(img).fill(img);
+        ], color).draw(img).fill(img);
 
         try {
             s2(Point2.fromNDC(img, start), Point2.fromNDC(img, end)).draw(img);

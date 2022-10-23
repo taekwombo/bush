@@ -75,15 +75,7 @@ const render = new Render(game.ctx, bindGroup, shaders).update();
 const compute = new Compute(game.ctx, bindGroup, shaders, [2, 3]).update();
 const queue = new Queue();
 
-game.configure();
-
-let playing = false;
-
 const tick = async () => {
-    if (!playing) {
-        return;
-    }
-
     await game.tick(async (encoder) => {
         render.tick(encoder);
         compute.tick(encoder);
@@ -108,39 +100,23 @@ async function animationAnimate() {
     });
 }
 
-// microtaskAnimate();
-// animationAnimate();
+async function configure() {
+    game.configure();
 
-window.addEventListener('keypress', (e) => {
-    if (e.key !== ' ') {
-        return;
-    }
-
-    if (!e.shiftKey) {
-        playing = !playing;
-    }
-
-    queue.push(tick);
-});
-
-const onResize = debounce(() => {
-    playing = false;
-
-    queue.push(async () => {
-        game.configure();
-
-        const viewportData = new Float32Array([window.innerWidth, window.innerHeight]);
-        viewportBuffer.write(viewportData);
-        
-        const grid = new Float32Array(createGrid());
-        await gridBuffer.update(grid);
-        await computeBuffer.update(grid);
-        bindGroup.update();
-
-        playing = true;
-    });
-}, 200);
+    const viewportData = new Float32Array([window.innerWidth, window.innerHeight]);
+    viewportBuffer.write(viewportData);
+    
+    const grid = new Float32Array(createGrid());
+    await gridBuffer.update(grid);
+    await computeBuffer.update(grid);
+    bindGroup.update();
+}
 
 window.addEventListener('resize', () => {
-    onResize();
+    debounce(() => queue.push(configure), 200);
 });
+
+{ // Main block starting up the program.
+    configure()
+        .then(() => animationAnimate());
+}

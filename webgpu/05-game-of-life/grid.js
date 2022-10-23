@@ -1,4 +1,4 @@
-export const cellSize = 20.0;
+export const cellSize = 2.0;
 
 export const GridRule = {
     Random() {

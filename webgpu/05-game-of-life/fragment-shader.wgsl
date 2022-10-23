@@ -30,9 +30,9 @@ fn fragment_main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4
     }
 
     // Draw lines.
-    if (is_x_line || is_y_line) {
-        col = vec3(1.0, 1.0, 1.0);
-    }
+    // if (is_x_line || is_y_line) {
+    //     col = vec3(1.0, 1.0, 1.0);
+    // }
 
     // Check if grid_size is equal to defined length in grid array.
     if (!is_grid_ok) {

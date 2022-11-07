@@ -31,7 +31,7 @@ window.addEventListener('keypress', (event) => {
 });
 
 function redraw() {
-    canvas.clear().drawCb((img, draw) => {
+    canvas.clear().drawCb((img) => {
         for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
                 const ray = createRay(camera, x, y);

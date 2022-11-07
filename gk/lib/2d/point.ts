@@ -53,7 +53,13 @@ export class Point2 implements Clone<Point2>, Draw, Eq {
 
     public clone(this: Point2): Point2 {
         return new Point2(this.x, this.y, this.color);
+    }
 
+    public round(this: Point2): Point2 { 
+        this.x = Math.round(this.x);
+        this.y = Math.round(this.y);
+
+        return this;
     }
 
     public distance(this: Point2, other: Point2): number {

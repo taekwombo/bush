@@ -19,6 +19,14 @@ export class Color implements Clone<Color> {
     public static Yellow = new Color(255, 255, 0, 255);
     public static Unpainted: Color = new Color();
 
+    public static random(min: number = 0.0): Color {
+        const r = Math.round((Math.random() * (1.0 - min) + min) * 255);
+        const g = Math.round((Math.random() * (1.0 - min) + min) * 255);
+        const b = Math.round((Math.random() * (1.0 - min) + min) * 255);
+
+        return new Color(r, g, b, 255);
+    }
+
     public r: number;
     public g: number;
     public b: number;
@@ -37,5 +45,9 @@ export class Color implements Clone<Color> {
 
     public clone(this: Color): Color {
         return new Color(this.r, this.g, this.b, this.a);
+    }
+
+    public toHex(this: Color): string {
+        return `#${this.r.toString(16)}${this.g.toString(16)}${this.b.toString(16)}`;
     }
 }

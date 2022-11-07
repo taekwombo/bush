@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>6 - B-spline</title>
+        <script defer type="module" src="./main.js"></script>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                background-color: white;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+                align-items: baseline;
+            }
+
+            canvas {
+                background-color: black;
+            }
+
+            .handle {
+                position: fixed;
+                width: 8px;
+                height: 8px;
+                cursor: pointer;
+            }
+
+            .ui-inputs {
+                display: flex;
+            }
+
+            #left {
+                display: flex;
+                flex-direction: column;
+            }
+
+            input {
+                margin: 12px;
+            }
+
+            #right {
+                padding: 0 20px;
+                background-color: #ddd;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas></canvas>
+        <div class="ui-inputs">
+            <div id="left"></div>
+            <div id="right"></div>
+        </div>
+    </body>
+</html>

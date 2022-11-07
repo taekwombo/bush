@@ -4,6 +4,7 @@ export * from './img.js';
 export * from './types.js';
 export * from './utils.js';
 export * from './2d/bezier.js';
+export * from './2d/bspline.js';
 export * from './2d/circle.js';
 export * from './2d/cyclic.js';
 export * from './2d/line.js';

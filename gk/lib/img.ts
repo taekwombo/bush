@@ -111,7 +111,5 @@ export class Img {
 
         return this;
     }
-
-
 }
 

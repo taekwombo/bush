@@ -12,7 +12,7 @@ export class Canvas {
             document.body.appendChild(canvas);
         }
 
-        if (stretch) {   // Make canvas appear to be bigger than drawing buffer.
+        if (stretch) { // Make canvas appear to be bigger than drawing buffer.
             const size = Math.min(window.innerWidth, window.innerHeight);
             canvas.style.width = `${size}px`;
             canvas.style.height = `${size}px`;

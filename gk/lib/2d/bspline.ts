@@ -94,28 +94,18 @@ export class Bspline2 implements Draw {
         Segment2.pipeDraw(image, points, Color.Green);
 
         for (let x = 0; x <= 1; x += step) {
-            const t = x;
-
             const k = knots.findIndex((e, i, arr) => {
                 return x >= e && arr[i + 1] > x;
             });
 
-            const point = this.calculate(
-                k,
-                t,
-            );
-
-            point.round().draw(image);
+            this.calculate(k, x).round().draw(image);
         }
 
         return this;
     }
 
     // https://en.wikipedia.org/wiki/De_Boor%27s_algorithm
-    public calculate(
-        k: number,
-        x: number,
-    ): Point2 {
+    public calculate(k: number, x: number): Point2 {
         const { knots: t, points: c, degree: p } = this;
         const d: Point2[] = [];
 

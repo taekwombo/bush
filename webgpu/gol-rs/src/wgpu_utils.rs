@@ -1,6 +1,6 @@
-use wgpu::*;
-use wgpu::util::DeviceExt;
 use super::Grid;
+use wgpu::util::DeviceExt;
+use wgpu::*;
 
 pub struct UserBuffer {
     pub name: &'static str,
@@ -31,7 +31,7 @@ impl UserBuffer {
                 label: Some(label),
                 usage,
                 contents: data,
-            })
+            }),
         }
     }
 
@@ -55,7 +55,7 @@ impl UserBuffer {
                 buffer: &self.buffer,
                 offset: 0,
                 size: None,
-            })
+            }),
         }
     }
 }
@@ -101,15 +101,11 @@ impl UBuffers {
         let cells_buffer = UserBuffer::new(
             device,
             &cells,
-            BufferUsages::UNIFORM
-                | BufferUsages::STORAGE
-                | BufferUsages::COPY_DST,
+            BufferUsages::UNIFORM | BufferUsages::STORAGE | BufferUsages::COPY_DST,
             "cells",
             2,
             ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
-            BufferBindingType::Storage {
-                read_only: true,
-            },
+            BufferBindingType::Storage { read_only: true },
         );
         let next_cells_buffer = UserBuffer::new(
             device,
@@ -121,13 +117,16 @@ impl UBuffers {
             "next_cells",
             3,
             ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
-            BufferBindingType::Storage {
-                read_only: false,
-            }
+            BufferBindingType::Storage { read_only: false },
         );
 
         Self {
-            buffers: vec![cell_size_buffer, viewport_buffer, cells_buffer, next_cells_buffer],
+            buffers: vec![
+                cell_size_buffer,
+                viewport_buffer,
+                cells_buffer,
+                next_cells_buffer,
+            ],
         }
     }
 
@@ -140,17 +139,18 @@ impl UBuffers {
 
         let names = self.buffers.iter().map(|n| n.name).collect::<Vec<_>>();
 
-        println!("Couldn't find buffer {}. Did you mean one of {}", name, names.join(", "));
+        println!(
+            "Couldn't find buffer {}. Did you mean one of {}",
+            name,
+            names.join(", ")
+        );
         panic!();
     }
 
     pub fn get_bgl(&self, device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("the_only_one_bgl"),
-            entries: &self.buffers
-                .iter()
-                .map(|b| b.as_bgl())
-                .collect::<Vec<_>>()
+            entries: &self.buffers.iter().map(|b| b.as_bgl()).collect::<Vec<_>>(),
         })
     }
 
@@ -158,10 +158,7 @@ impl UBuffers {
         device.create_bind_group(&BindGroupDescriptor {
             layout,
             label: Some("the_only_one_bg"),
-            entries: &self.buffers
-                .iter()
-                .map(|b| b.as_bg())
-                .collect::<Vec<_>>(),
+            entries: &self.buffers.iter().map(|b| b.as_bg()).collect::<Vec<_>>(),
         })
     }
 
@@ -183,25 +180,29 @@ pub struct Program {
 
 impl Program {
     pub fn new(device: &Device, format: TextureFormat, pl: &PipelineLayout) -> Self {
+        macro_rules! init_vb {
+            ($vec:ident, [$($elem:literal),+ $(,)*]) => {
+                $(
+                    $vec.extend_from_slice(&$elem.to_ne_bytes());
+                )+
+            };
+        }
+
         let mut vertices: Vec<u8> = Vec::new();
 
-        let mut b = |val: f32| {
-            let bytes = val.to_ne_bytes();
-            vertices.extend_from_slice(&bytes);
-        };
+        #[rustfmt::skip]
+        init_vb!(vertices, [
+            -1.0_f32,  1.0_f32, 0.0_f32,
+            -1.0_f32, -1.0_f32, 0.0_f32,
+             1.0_f32,  1.0_f32, 0.0_f32,
+             1.0_f32, -1.0_f32, 0.0_f32,
+        ]);
 
-        b(-1.0); b(1.0); b(0.0);
-        b(-1.0); b(-1.0); b(0.0);
-        b(1.0); b(1.0); b(0.0);
-        b(1.0); b(-1.0); b(0.0);
-
-        let vertex_buffer = device.create_buffer_init(
-            &util::BufferInitDescriptor {
-                label: Some("vertex_buffer"),
-                usage: BufferUsages::VERTEX,
-                contents: &vertices
-            }
-        );
+        let vertex_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: Some("vertex_buffer"),
+            usage: BufferUsages::VERTEX,
+            contents: &vertices,
+        });
 
         Self {
             vertex_buffer,
@@ -213,32 +214,30 @@ impl Program {
 }
 
 fn create_shader_module(device: &Device, label: &'static str, path: &'static str) -> ShaderModule {
-    device.create_shader_module(
-        ShaderModuleDescriptor {
-            label: Some(label),
-            source: ShaderSource::Wgsl(
-                String::from_utf8_lossy(
-                    &std::fs::read(path).unwrap_or_else(|_| panic!("{} loaded", label))
-                )
-            ),
-        }
-    )
+    device.create_shader_module(ShaderModuleDescriptor {
+        label: Some(label),
+        source: ShaderSource::Wgsl(String::from_utf8_lossy(
+            &std::fs::read(path).unwrap_or_else(|_| panic!("{} loaded", label)),
+        )),
+    })
 }
 
 fn create_compute_pipeline(device: &Device, pl: &PipelineLayout) -> ComputePipeline {
     let compute_shader = create_shader_module(device, "compute_shader", "./src/compute.wgsl");
 
-    device.create_compute_pipeline(
-       &ComputePipelineDescriptor {
-           layout: Some(pl),
-           label: None,
-           entry_point: "compute_main",
-           module: &compute_shader,
-       }
-    )
+    device.create_compute_pipeline(&ComputePipelineDescriptor {
+        layout: Some(pl),
+        label: None,
+        entry_point: "compute_main",
+        module: &compute_shader,
+    })
 }
 
-fn create_render_pipeline(device: &Device, format: TextureFormat, pl: &PipelineLayout) -> RenderPipeline {
+fn create_render_pipeline(
+    device: &Device,
+    format: TextureFormat,
+    pl: &PipelineLayout,
+) -> RenderPipeline {
     let vertex_shader = create_shader_module(device, "vertex_shader", "./src/vertex.wgsl");
     let fragment_shader = create_shader_module(device, "fragment_shader", "./src/fragment.wgsl");
 
@@ -256,7 +255,7 @@ fn create_render_pipeline(device: &Device, format: TextureFormat, pl: &PipelineL
                 }],
                 array_stride: 12,
                 step_mode: VertexStepMode::Vertex,
-            }]
+            }],
         },
         fragment: Some(FragmentState {
             module: &fragment_shader,

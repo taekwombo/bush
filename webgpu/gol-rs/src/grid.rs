@@ -23,17 +23,20 @@ impl Grid {
     }
 
     fn calc(cell_size: u8, window_size: PhysicalSize<u32>) -> (f32, f32, f32, f32) {
-        let rows: u16 = window_size.height.div_ceil(cell_size as u32).try_into().expect("rows ok");
-        let cols: u16 = window_size.width.div_ceil(cell_size as u32).try_into().expect("cols ok");
+        let rows: u16 = window_size
+            .height
+            .div_ceil(cell_size as u32)
+            .try_into()
+            .expect("rows ok");
+        let cols: u16 = window_size
+            .width
+            .div_ceil(cell_size as u32)
+            .try_into()
+            .expect("cols ok");
         let w: u16 = window_size.width.try_into().expect("width ok");
         let h: u16 = window_size.height.try_into().expect("height ok");
 
-        (
-            f32::from(rows),
-            f32::from(cols),
-            f32::from(w),
-            f32::from(h),
-        )
+        (f32::from(rows), f32::from(cols), f32::from(w), f32::from(h))
     }
 
     pub fn get_cell_buffer(&self) -> Vec<u8> {
@@ -67,7 +70,7 @@ impl Grid {
 
         r.extend_from_slice(&self.width.to_ne_bytes());
         r.extend_from_slice(&self.height.to_ne_bytes());
-        
+
         r
     }
 

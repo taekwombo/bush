@@ -8,7 +8,7 @@ pub struct Sender<T> {
 }
 
 impl<T> Sender<T> {
-    fn send(&self, data: T) -> () {
+    fn send(&self, data: T) {
         let mut inner = self.shared.inner.lock().unwrap();
 
         inner.queue.push_back(data);
@@ -26,13 +26,12 @@ impl<T> Clone for Sender<T> {
 
         Sender {
             shared: Arc::clone(&self.shared),
-
         }
     }
 }
 
 impl<T> Drop for Sender<T> {
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         let mut inner = self.shared.inner.lock().unwrap();
         inner.senders -= 1;
         if inner.senders == 0 {
@@ -63,7 +62,7 @@ impl<T> Receiver<T> {
                         std::mem::swap(&mut self.buffer, &mut inner.queue);
                     }
                     return Some(v);
-                },
+                }
                 None if inner.senders == 0 => return None,
                 None => {
                     inner = self.shared.available.wait(inner).unwrap();
@@ -112,18 +111,20 @@ pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
         },
         Receiver {
             shared,
-            buffer: Default::default()
+            buffer: Default::default(),
         },
     )
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
+    use super::*;
+
     #[test]
     fn test_channel() {
         use std::thread;
 
-        let (tx, mut rx) = super::channel::<u8>();
+        let (tx, mut rx) = channel::<u8>();
 
         tx.send(10);
         assert_eq!(rx.recv().unwrap(), 10);
@@ -141,14 +142,14 @@ mod test {
     fn test_channel_clone() {
         struct NotClone;
 
-        let (tx, _) = super::channel::<NotClone>();
+        let (tx, _) = channel::<NotClone>();
 
         let _ = tx.clone();
     }
 
     #[test]
     fn test_no_senders() {
-        let (_, mut rx) = super::channel::<u8>();
+        let (_, mut rx) = channel::<u8>();
 
         assert_eq!(None, rx.recv());
     }

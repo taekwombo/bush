@@ -8,7 +8,7 @@ pub struct Sender<T> {
 }
 
 impl<T> Sender<T> {
-    fn send(&self, data: T) {
+    pub fn send(&self, data: T) {
         let mut inner = self.shared.inner.lock().unwrap();
 
         inner.queue.push_back(data);

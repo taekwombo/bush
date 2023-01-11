@@ -1,5 +1,6 @@
 #![feature(dropck_eyepatch)]
 
+pub mod atomics;
 pub mod cell;
 pub mod channel;
 pub mod drop_check;

@@ -4,6 +4,7 @@ pub mod atomics;
 pub mod cell;
 pub mod channel;
 pub mod drop_check;
+pub mod fattos;
 pub mod iter;
 pub mod strtok;
 

@@ -257,9 +257,11 @@ mod tests {
             }
         }
 
-        let read = ReadFile::new("Cargo.toml");
-        let result = block_on(read);
-        let content = String::from_utf8_lossy(&result);
-        println!("Cargo.toml reads:\n\n{}", content);
+        block_on(async {
+            let read = ReadFile::new("Cargo.toml");
+            let result = read.await;
+            let content = String::from_utf8_lossy(&result);
+            println!("Cargo.toml reads:\n\n{}", content);
+        });
     }
 }

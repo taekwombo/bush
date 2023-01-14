@@ -1,4 +1,4 @@
-// https://www.youtube.com/watch?v=8O0Nt9qY_vo
+//! https://www.youtube.com/watch?v=8O0Nt9qY_vo
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;

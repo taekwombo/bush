@@ -1,4 +1,4 @@
-// https://www.youtube.com/watch?v=TJOFSMpJdzg
+//! https://www.youtube.com/watch?v=TJOFSMpJdzg
 
 use std::marker::PhantomData;
 use std::ptr::NonNull;
@@ -31,7 +31,7 @@ impl<T> std::ops::Deref for Pudlo<T> {
 
     fn deref(&self) -> &Self::Target {
         // SAFETY: pointer created from Box, wasn't freed, aligned.
-        unsafe { &*self.value.as_ref() }
+        unsafe { self.value.as_ref() }
     }
 }
 
@@ -102,7 +102,8 @@ mod tests {
         struct Hia<T: Debug>(T);
 
         impl<T> Drop for Hia<T>
-        where T: Debug
+        where
+            T: Debug,
         {
             fn drop(&mut self) {
                 println!("{:?}", self.0);

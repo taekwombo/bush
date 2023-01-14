@@ -1,4 +1,4 @@
-#![feature(dropck_eyepatch, generators, generator_trait, never_type)]
+#![feature(dropck_eyepatch, generators, generator_trait)]
 
 pub mod atomics;
 pub mod cell;
@@ -13,7 +13,6 @@ pub mod strtok;
 // Plan:
 // crust of rust until Future impls are here
 // Serde refresh - https://www.youtube.com/watch?v=BI_bHCGRgMY
-// dyn dispatch - vtable
 // asm!
 // ffi
 

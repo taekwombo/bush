@@ -1,4 +1,4 @@
-// https://www.youtube.com/watch?v=yozQ9C69pNs
+//! https://www.youtube.com/watch?v=yozQ9C69pNs
 
 pub fn flatten<O>(iter: O) -> Flatten<O::IntoIter>
 where

@@ -1,5 +1,6 @@
-// https://www.youtube.com/watch?v=iVYWDIW71jk
-// https://doc.rust-lang.org/reference/subtyping.html
+//! https://www.youtube.com/watch?v=iVYWDIW71jk
+//! https://doc.rust-lang.org/reference/subtyping.html
+//! About 'static: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html
 
 pub fn strtok<'original>(string: &mut &'original str, delimiter: char) -> &'original str {
     if let Some(i) = string.find(delimiter) {
@@ -16,7 +17,9 @@ pub fn strtok<'original>(string: &mut &'original str, delimiter: char) -> &'orig
     prefix
 }
 
-pub fn strtok_single_lifetime<'a>(_string: &'a mut &'a str) -> &'a str { "" }
+pub fn strtok_single_lifetime<'a>(_string: &'a mut &'a str) -> &'a str {
+    ""
+}
 
 #[cfg(test)]
 mod tests {
@@ -38,7 +41,7 @@ mod tests {
         let _shorter_prefix = strtok_single_lifetime(&mut shorter);
         // Above works fine since 'static is shorented the the lifetime of 'borrow_too_long.
     }
-    
+
     #[cfg(feature = "failures")]
     #[test]
     fn static_borrow() {

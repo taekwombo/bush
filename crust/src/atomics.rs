@@ -1,9 +1,9 @@
-// https://www.youtube.com/watch?v=rMGWeSjctlY
-// https://en.cppreference.com/w/cpp/atomic/memory_order
-// https://en.wikipedia.org/wiki/MESI_protocol
+//! https://www.youtube.com/watch?v=rMGWeSjctlY
+//! https://en.cppreference.com/w/cpp/atomic/memory_order
+//! https://en.wikipedia.org/wiki/MESI_protocol
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::cell::UnsafeCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Holds a luxurious value accessible to a one thread at a time.
 pub struct Lux<T> {
@@ -33,17 +33,19 @@ impl<T> Lux<T> {
             .is_err()
         {
             // When failed to take the value, spin until locked changes value to false.
-            while self.locked.load(Ordering::Relaxed) == true {}
+            while self.locked.load(Ordering::Relaxed) {
+                std::hint::spin_loop();
+            }
         }
 
-        let r = f(unsafe { &mut  *self.value.get() });
+        let r = f(unsafe { &mut *self.value.get() });
 
         // Ordering::Release
         // A store operation with this memory order performs the release operation: no reads or writes
         // in the current thread can be reordered after this store.
         // All writes in the current thread are visible in other threads that acquire the same atomic
         // variable and writes that carry a dependency into the atomic variable become visible in other
-        // threads that consume the same atomic. 
+        // threads that consume the same atomic.
         self.locked.store(false, Ordering::Release);
 
         r
@@ -59,11 +61,13 @@ mod tests {
     fn lock() {
         let value: &'static _ = Box::leak(Box::new(Lux::new(0)));
         let threads = (0..10)
-            .map(|_| spawn(|| -> () {
-                for _ in 0..1000 {
-                    value.with_lock(|v| *v += 1);
-                }
-            }))
+            .map(|_| {
+                spawn(|| -> () {
+                    for _ in 0..1000 {
+                        value.with_lock(|v| *v += 1);
+                    }
+                })
+            })
             .collect::<Vec<JoinHandle<_>>>();
 
         for t in threads {

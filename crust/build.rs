@@ -3,10 +3,10 @@
 
 #[cfg(feature = "bindgen")]
 fn main() {
-    use std::env::var;
-    use std::path::PathBuf;
     use bindgen::{Builder, CargoCallbacks};
     use pkg_config::Config;
+    use std::env::var;
+    use std::path::PathBuf;
 
     Config::new()
         .atleast_version("1.0.18")

@@ -17,7 +17,6 @@ use std::mem::MaybeUninit;
 pub struct Sodium;
 
 impl Sodium {
-
     pub fn new() -> Result<Sodium, ()> {
         if unsafe { ffi::sodium_init() } < 0 {
             return Err(());
@@ -26,12 +25,15 @@ impl Sodium {
         Ok(Self)
     }
 
-    pub fn crypto_generichash<'a>(self, input: &[u8], key: Option<&[u8]>, out: &'a mut [MaybeUninit<u8>]) -> Result<&'a mut [u8], ()> {
+    pub fn crypto_generichash<'a>(
+        self,
+        input: &[u8],
+        key: Option<&[u8]>,
+        out: &'a mut [MaybeUninit<u8>],
+    ) -> Result<&'a mut [u8], ()> {
         use ffi::{
-            crypto_generichash_BYTES_MIN as BYTES_MIN,
-            crypto_generichash_BYTES_MAX as BYTES_MAX,
-            crypto_generichash_KEYBYTES_MIN as KEY_MIN,
-            crypto_generichash_KEYBYTES_MAX as KEY_MAX,
+            crypto_generichash_BYTES_MAX as BYTES_MAX, crypto_generichash_BYTES_MIN as BYTES_MIN,
+            crypto_generichash_KEYBYTES_MAX as KEY_MAX, crypto_generichash_KEYBYTES_MIN as KEY_MIN,
         };
 
         let out_len = u32::try_from(out.len()).map_err(|_| ())?;
@@ -64,7 +66,7 @@ impl Sodium {
         if res < 0 {
             Err(())
         } else {
-            Ok(unsafe {MaybeUninit::slice_assume_init_mut(out) })
+            Ok(unsafe { MaybeUninit::slice_assume_init_mut(out) })
         }
     }
 }
@@ -99,4 +101,3 @@ mod tests {
         assert_eq!(v1, v2);
     }
 }
-

@@ -1,3 +1,5 @@
+/* Paints every 20th pixel white making a grid. */
+
 if (!('gpu' in navigator)) {
     document.innerHTML = 'WebGPU is not supported';
 

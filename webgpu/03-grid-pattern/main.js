@@ -1,3 +1,5 @@
+/* Creates a grid from the grid storage buffer. */
+
 if (!('gpu' in navigator)) {
     document.innerHTML = 'WebGPU is not supported';
 
@@ -14,7 +16,7 @@ const viewportBuffer = device.createBuffer({
     size: 2 * 4,
     usage: GPUBufferUsage.UNIFORM
         /* For buffer mapping */
-        | GPUBufferUsage.MAP_WRITE
+        // | GPUBufferUsage.MAP_WRITE
         /* For device.queue.writeBuffer(...) */
         | GPUBufferUsage.COPY_DST,
     mappedAtCreation: true,
@@ -71,19 +73,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 configure();
-
-// new ResizeObserver(entries => {
-//     for (const entry of entries) {
-//         if (entry.target !== canvas) {
-//             continue;
-//         }
-// 
-//         canvas.width = entry.devicePixelContentBoxSize[0].inlineSize / window.devicePixelRatio;
-//         canvas.height = entry.devicePixelContentBoxSize[0].blockSize / window.devicePixelRatio;
-// 
-//         configure();
-//     }
-// }).observe(canvas);
 
 let queue = Promise.resolve();
 

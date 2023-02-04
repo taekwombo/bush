@@ -1,3 +1,8 @@
+if (!window.hasOwnProperty('Mat4')) {
+    alert('Start server in the repo root directory.');
+    throw new Error('Start server in the repo root directory.');
+}
+
 let fovy = 55;
 const aspect = 1;
 let near = 1;

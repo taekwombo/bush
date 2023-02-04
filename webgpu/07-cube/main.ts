@@ -3,6 +3,7 @@ import { proj, onUpdate } from './projection.js';
 import { Model } from './model.js';
 
 declare global {
+    /** Imported from gk/lib/3d/matrix/mod.js. */
     export const Mat4: any;
 }
 

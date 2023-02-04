@@ -1,3 +1,5 @@
+/* Toggle state of grid cells when moving over the grid while LMB is pressed down. */
+
 if (!('gpu' in navigator)) {
     document.innerHTML = 'WebGPU is not supported';
 
@@ -14,7 +16,7 @@ const viewportBuffer = device.createBuffer({
     size: 2 * 4,
     usage: GPUBufferUsage.UNIFORM
         /* For buffer mapping */
-        | GPUBufferUsage.MAP_WRITE
+        // | GPUBufferUsage.MAP_WRITE
         /* For device.queue.writeBuffer(...) */
         | GPUBufferUsage.COPY_DST,
     mappedAtCreation: true,
@@ -44,7 +46,7 @@ const cellSizeBuffer = device.createBuffer({
 }
 
 
-let gridBuffer;
+let gridBuffer, grid;
 updateGridBuffer();
 
 const updateUniformData = async () => {
@@ -71,19 +73,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 configure();
-
-// new ResizeObserver(entries => {
-//     for (const entry of entries) {
-//         if (entry.target !== canvas) {
-//             continue;
-//         }
-// 
-//         canvas.width = entry.devicePixelContentBoxSize[0].inlineSize / window.devicePixelRatio;
-//         canvas.height = entry.devicePixelContentBoxSize[0].blockSize / window.devicePixelRatio;
-// 
-//         configure();
-//     }
-// }).observe(canvas);
 
 let queue = Promise.resolve();
 
@@ -226,15 +215,11 @@ function createGrid(x, y) {
 function updateGridBuffer(data) {
     const grid_x = Math.ceil(window.innerWidth / cellSize);
     const grid_y = Math.ceil(window.innerHeight / cellSize);
-    const grid = new Float32Array(data || createGrid(grid_x, grid_y));
+    grid = new Float32Array(data || createGrid(grid_x, grid_y));
 
     gridBuffer = device.createBuffer({
         size: grid.byteLength,
-        usage: GPUBufferUsage.STORAGE
-            | GPUBufferUsage.UNIFORM
-            | GPUBufferUsage.COPY_DST
-            | GPUBufferUsage.MAP_READ
-            | GPUBufferUsage.MAP_WRITE,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     device.queue.writeBuffer(gridBuffer, 0, grid);
@@ -289,25 +274,12 @@ function onMouseMove(event) {
 }
 
 async function toggleCells() {
-    await gridBuffer.mapAsync(GPUMapMode.READ);
-
-    const data = Array.from(new Float32Array(gridBuffer.getMappedRange()));
-
-    gridBuffer.unmap();
-
-
     for (const index of toggle.values()) {
-        data[index] = data[index] === 1.0 ? 0.0 : 1.0;
+        grid[index] = grid[index] === 1.0 ? 0.0 : 1.0;
     }
 
-    await gridBuffer.mapAsync(GPUMapMode.WRITE);
-
-    new Float32Array(gridBuffer.getMappedRange()).set(new Float32Array(data));
-
-    gridBuffer.unmap();
-
+    device.queue.writeBuffer(gridBuffer, 0, grid);
     render();
-
     toggle.clear();
 }
 

@@ -4,6 +4,6 @@
   "description": "",
   "scripts": {},
   "dependencies": {
-    "@webgpu/types": "^0.1.20"
+    "@webgpu/types": "0.1.26"
   }
 }

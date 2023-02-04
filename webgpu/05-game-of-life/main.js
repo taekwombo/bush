@@ -1,3 +1,5 @@
+/* Game of life on compute shader. */
+
 import { Queue } from './queue.js';
 import { Shaders } from './shaders.js';
 import { Game } from './game.js';
@@ -27,7 +29,7 @@ const viewportBuffer = new GpuBuffer(game.ctx, {
     data: new Float32Array([window.innerWidth, window.innerHeight]),
     type: 'uniform',
     offset: 0,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
 });
 
@@ -43,11 +45,10 @@ const cellSizeBuffer = new GpuBuffer(game.ctx, {
 
 const gridBuffer = new GpuBuffer(game.ctx, {
     label: 'grid',
-    data: new Float32Array(createGrid(GridRule.LastCol)),
+    data: new Float32Array(createGrid(GridRule.Pattern)),
     type: 'read-only-storage',
     offset: 0,
-    usage: GPUBufferUsage.UNIFORM
-        | GPUBufferUsage.STORAGE
+    usage: GPUBufferUsage.STORAGE
         | GPUBufferUsage.COPY_DST,
     visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
 });
@@ -58,8 +59,7 @@ const computeBuffer = new GpuBuffer(game.ctx, {
     type: 'storage',
     offset: 0,
     visibility: GPUShaderStage.COMPUTE,
-    usage: GPUBufferUsage.UNIFORM
-        | GPUBufferUsage.STORAGE
+    usage: GPUBufferUsage.STORAGE
         | GPUBufferUsage.COPY_DST
         | GPUBufferUsage.COPY_SRC,
 });
@@ -86,7 +86,7 @@ const tick = async () => {
 };
 
 async function microtaskAnimate() {
-    await queue.push(tick);;
+    await queue.push(tick);
     await new Promise((r) => setTimeout(r, 900));
     window.queueMicrotask(microtaskAnimate);
 }
@@ -103,18 +103,15 @@ async function animationAnimate() {
 async function configure() {
     game.configure();
 
-    const viewportData = new Float32Array([window.innerWidth, window.innerHeight]);
-    viewportBuffer.write(viewportData);
-    
+    viewportBuffer.write(new Float32Array([window.innerWidth, window.innerHeight]));
+
     const grid = new Float32Array(createGrid());
     await gridBuffer.update(grid);
     await computeBuffer.update(grid);
     bindGroup.update();
 }
 
-window.addEventListener('resize', () => {
-    debounce(() => queue.push(configure), 200);
-});
+window.addEventListener('resize', debounce(() => queue.push(configure), 200));
 
 { // Main block starting up the program.
     configure()

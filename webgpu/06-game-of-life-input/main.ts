@@ -1,3 +1,4 @@
+/* Game of life on compute shader with mouse input support. */
 import {
     Buffer,
     BindGroup,
@@ -61,10 +62,9 @@ const bindGroup = BindGroup
         binding: 2,
         type: 'read-only-storage',
         visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
-        usage: GPUBufferUsage.UNIFORM
-            | GPUBufferUsage.STORAGE
-            | GPUBufferUsage.MAP_READ
-            | GPUBufferUsage.COPY_DST,
+        usage: GPUBufferUsage.STORAGE
+            | GPUBufferUsage.COPY_DST
+            | GPUBufferUsage.COPY_SRC,
     }))
     .add('compute', Buffer.init(device, gridData(canvas), {
         binding: 3,
@@ -77,12 +77,23 @@ const bindGroup = BindGroup
     }))
     .finish();
 
+const gridMapBuffer = Buffer.init(device, gridData(canvas), {
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+});
+
 const render = new Render(device, context, shaders);
 const compute = new Compute(device, shaders, 'compute', 'grid');
-const input = new Input(bindGroup, 'grid', canvas).init();
+const input = new Input(bindGroup, 'grid', gridMapBuffer, canvas).init();
 
 async function tick() {
-    await input.hasWork();
+    if (input.hasWork()) {
+        await input.waitForFinish();
+
+        const enc = device.createCommandEncoder();
+        await input.readData(enc);
+        device.queue.submit([enc.finish()]);
+        await input.copyData();
+    }
 
     const enc = device.createCommandEncoder();
 
@@ -113,9 +124,11 @@ window.addEventListener('resize', debounce(async () => {
 
         await bindGroup.getBuffer('viewport').update(viewportData(canvas));
 
-        await bindGroup.getBuffer('grid').update(gridData(canvas));
+        const grid = gridData(canvas);
 
-        await bindGroup.getBuffer('compute').update(gridData(canvas));
+        await bindGroup.getBuffer('grid').update(grid);
+        await bindGroup.getBuffer('compute').update(grid);
+        await gridMapBuffer.update(grid);
 
         bindGroup.update();
 

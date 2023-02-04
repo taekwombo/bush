@@ -1,16 +1,19 @@
 import { gridSize, cellSize } from './shared.js';
 import type { BindGroup } from './bind-group.js';
+import type { Buffer } from './buffer.js';
 
 export class Input {
     protected bindGroup: BindGroup;
     protected bufferName: string;
+    protected mapBuffer: Buffer;
     protected markAlive: Set<number>;
     protected canvas: HTMLCanvasElement;
     protected work?: [() => void, Promise<void>];
 
-    public constructor(bindGroup: BindGroup, bufferName: string, canvas: HTMLCanvasElement) {
+    public constructor(bindGroup: BindGroup, bufferName: string, mapBuffer: Buffer, canvas: HTMLCanvasElement) {
         this.bindGroup = bindGroup;
         this.bufferName = bufferName;
+        this.mapBuffer = mapBuffer;
         this.canvas = canvas;
         this.markAlive = new Set();
         this.onMouseMove = this.onMouseMove.bind(this);
@@ -38,20 +41,23 @@ export class Input {
 
     protected onMouseDown(this: Input): void {
         this.createWork();
-
         window.addEventListener('mousemove', this.onMouseMove);
     }
 
     protected onMouseUp(this: Input): void {
-
         window.removeEventListener('mousemove', this.onMouseMove);
-        this.copyData();
+        this.finishWork();
     }
 
-    protected async copyData(this: Input): Promise<void> {
-        const buffer = this.bindGroup.getBuffer(this.bufferName);
-        const buf = buffer.get();
+    public async readData(this: Input, encoder: GPUCommandEncoder): Promise<void> {
+        const source = this.bindGroup.getBuffer(this.bufferName);
+        const dest = this.mapBuffer;
 
+        encoder.copyBufferToBuffer(source.get(), 0, dest.get(), 0, dest.size());
+    }
+
+    public async copyData(this: Input): Promise<void> {
+        const buf = this.mapBuffer.get();
         await buf.mapAsync(GPUMapMode.READ);
         const currentData = Array.from(new Float32Array(buf.getMappedRange()));
         buf.unmap();
@@ -60,16 +66,9 @@ export class Input {
             currentData[index] = 1;
         }
 
-
-        buffer.write(new Float32Array(currentData));
+        this.bindGroup.getBuffer(this.bufferName).write(new Float32Array(currentData));
 
         this.markAlive.clear();
-
-        if (this.work) {
-            this.work[0]();
-        } else {
-            throw new Error('Unreachable - copyData');
-        }
     }
 
     protected createWork(this: Input): Input {
@@ -85,11 +84,25 @@ export class Input {
         return this;
     }
 
-    public async hasWork(this: Input): Promise<void> {
-        if (this.work) {
-            await this.work[1];
+    public hasWork(this: Input): boolean {
+        return this.work !== undefined;
+    }
 
-            this.work = undefined;
+    public waitForFinish(this: Input): Promise<void> {
+        if (!this.work) {
+            throw new Error('Unreachable');
         }
+
+        return this.work[1];
+    }
+
+    protected finishWork(this: Input): void {
+        if (!this.work) {
+            throw new Error('Unreachable');
+        }
+
+        // Resolve pending promise.
+        this.work[0]();
+        this.work = undefined;
     }
 }

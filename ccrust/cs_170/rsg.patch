@@ -1,0 +1,87 @@
+From df6fb2ac515db455f7c99a48ad80948c3d9a61ce Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Sun, 5 Feb 2023 13:09:18 +0100
+Subject: [PATCH] rsg: add random sequence generation
+
+---
+ random.cc |  7 ++++++-
+ rsg.cc    | 38 +++++++++++++++++++++++++++++++++++---
+ 2 files changed, 41 insertions(+), 4 deletions(-)
+
+diff --git a/random.cc b/random.cc
+index aa0d151..0a01765 100644
+--- a/random.cc
++++ b/random.cc
+@@ -29,8 +29,13 @@ RandomGenerator::RandomGenerator()
+ 
+ int RandomGenerator::getRandomInteger(int low, int high)
+ {
++  // Warm up the rand function, makes math.g expansion more random.
++  double r = rand();
++  for (int i = 0; i < (low + high + 3); i++) {
++    r = rand();
++  }
+   assert(low <= high);
+-  double percent = (rand() / (static_cast<double>(RAND_MAX) + 1));
++  double percent = (r / (static_cast<double>(RAND_MAX) + 1));
+   assert(percent >= 0.0 && percent < 1.0); 
+   int offset = static_cast<int>(percent * (high - low + 1));
+   return low + offset;
+diff --git a/rsg.cc b/rsg.cc
+index 28d6979..16e8805 100644
+--- a/rsg.cc
++++ b/rsg.cc
+@@ -39,6 +39,27 @@ static void readGrammar(ifstream& infile, map<string, Definition>& grammar)
+   }
+ }
+ 
++/**
++ * Takes a reference to a definition and uses it to get random Production.
++ * Each terminal is printed to stdout, nonterminals are recursively expanded
++ * with this function if their entry exists in grammar map.
++ *
++ * @param definition a valid reference to Definition.
++ * @param grammar reference to STL map, whip maps nonterminals to their Production.
++ */
++void drainDefinition(const Definition& definition, map<string, Definition>& grammar) {
++    const Production& prod = definition.getRandomProduction();
++
++    for (Production::const_iterator curr = prod.begin(); curr != prod.end(); curr++) {
++        if (grammar.count(*curr)) {
++            map<string, Definition>::const_iterator def = grammar.find(*curr);
++            drainDefinition(def->second, grammar);
++        } else {
++            cout << curr->c_str() << " ";
++        }
++    }
++}
++
+ /**
+  * Performs the rudimentary error checking needed to confirm that
+  * the client provided a grammar file.  It then continues to
+@@ -72,8 +93,19 @@ int main(int argc, char *argv[])
+   // things are looking good...
+   map<string, Definition> grammar;
+   readGrammar(grammarFile, grammar);
+-  cout << "The grammar file called \"" << argv[1] << "\" contains "
+-       << grammar.size() << " definitions." << endl;
+-  
++  // cout << "The grammar file called \"" << argv[1] << "\" contains "
++  //     << grammar.size() << " definitions." << endl;
++
++  map<string, Definition>::iterator start_rule = grammar.find("<start>");
++
++  if (start_rule == grammar.end()) {
++      cout << "The grammar file doesn't have <start> rule." << endl;
++      return 1;
++  }
++
++  cout << endl << "Grammar \"" << argv[1] << "\":" << endl;
++  drainDefinition(start_rule->second, grammar);
++  cout << endl;
++
+   return 0;
+ }
+-- 
+2.39.1
+

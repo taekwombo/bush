@@ -1,0 +1,58 @@
+From 6311cd9cecf4a2c1cee703d8d69b8857b7922b2f Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Sun, 5 Feb 2023 13:41:15 +0100
+Subject: [PATCH 1/4] six-degrees: get rid of warnings, support lack of OSTYPE
+ env
+
+---
+ imdb-utils.h | 9 +++++----
+ imdb.cc      | 2 +-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/imdb-utils.h b/imdb-utils.h
+index 81a039f..5d7101d 100644
+--- a/imdb-utils.h
++++ b/imdb-utils.h
+@@ -43,7 +43,7 @@ struct film {
+   
+   bool operator<(const film& rhs) const { 
+     return this->title < rhs.title || 
+-           this->title == rhs.title && this->year < rhs.year; 
++           (this->title == rhs.title && this->year < rhs.year); 
+   }
+ };
+ 
+@@ -62,10 +62,11 @@ inline const char *determinePathToData(const char *userSelectedPath = NULL)
+   if (userSelectedPath != NULL) return userSelectedPath;
+   
+   const char *ostype = getenv("OSTYPE");
+-  if (strcasecmp(ostype, "linux") == 0)
+-    return "/usr/class/cs107/assignments/assn-2-six-degrees-data/little-endian/";
++
++  if (!ostype || strcasecmp(ostype, "linux") == 0)
++    return "./data/little-endian/";
+   if (strcasecmp(ostype, "solaris") == 0)
+-    return "/usr/class/cs107/assignments/assn-2-six-degrees-data/big-endian/";
++    return "./data/big-endian/";
+   
+   cerr << "Unsupported OS... bailing" << endl;
+   exit(1);
+diff --git a/imdb.cc b/imdb.cc
+index 7f1347b..615f6ed 100644
+--- a/imdb.cc
++++ b/imdb.cc
+@@ -1,10 +1,10 @@
+-using namespace std;
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/mman.h>
+ #include <fcntl.h>
+ #include <unistd.h>
+ #include "imdb.h"
++using namespace std;
+ 
+ const char *const imdb::kActorFileName = "actordata";
+ const char *const imdb::kMovieFileName = "moviedata";
+-- 
+2.39.1
+

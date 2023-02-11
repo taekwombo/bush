@@ -1,0 +1,303 @@
+From ec2104d4467305d03af08f74d1909957d0e482da Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Sat, 11 Feb 2023 12:33:22 +0100
+Subject: [PATCH 4/4] six-degrees: search from both directions
+
+---
+ imdb.cc        |  33 +++++++++++-
+ imdb.h         |   8 +++
+ path.cc        |  12 +++++
+ path.h         |   2 +
+ six-degrees.cc | 134 ++++++++++++++++++++++++++++++++-----------------
+ 5 files changed, 142 insertions(+), 47 deletions(-)
+
+diff --git a/imdb.cc b/imdb.cc
+index b4566ed..b251254 100644
+--- a/imdb.cc
++++ b/imdb.cc
+@@ -106,6 +106,7 @@ static movie_data getMovieData(const void* movie) {
+ typedef struct {
+     const void* key;
+     const void* file;
++    const bool loose;
+ } cmp_key;
+ 
+ /**
+@@ -116,10 +117,14 @@ typedef struct {
+  * @param r_offset  - pointer to the integer defining offset of actor data.
+  */
+ static int actorCmp(const void* key_ptr, const void* r_offset) {
+-    cmp_key* k = (cmp_key*)key_ptr;
++    const cmp_key* k = (cmp_key*)key_ptr;
+     const void* file = k->file;
+     const char* left = (char*)k->key;
+     const char* right = (char*)file + *(int*)r_offset;
++
++    if (!k->loose) {
++        return strcmp(left, right);
++    }
+     
+     size_t index = 0;
+     while (index < strlen(left) && index < strlen(right)) {
+@@ -226,6 +231,32 @@ bool imdb::getCast(const film& movie, vector<string>& players) const {
+     return true;
+ }
+ 
++bool imdb::getName(string& player) const {
++    cmp_key key = (cmp_key) {
++        .key = player.c_str(),
++        .file = this->actorFile,
++        .loose = true,
++    };
++
++    void* actor_offset = bsearch(
++        &key,
++        (char*)this->actorFile + sizeof(int),
++        *(int*)(this->actorFile),
++        sizeof(int),
++        actorCmp
++    );
++
++    if (actor_offset == NULL) {
++        return false;
++    }
++
++    actor_data actor = getActorData((char*)this->actorFile + *(int*)actor_offset);
++
++    player = string(actor.name);
++
++    return true;
++}
++
+ imdb::~imdb()
+ {
+   releaseFileMap(actorInfo);
+diff --git a/imdb.h b/imdb.h
+index eeada93..bbd12e9 100644
+--- a/imdb.h
++++ b/imdb.h
+@@ -90,6 +90,14 @@ class imdb {
+ 
+   bool getCast(const film& movie, vector<string>& players) const;
+ 
++  /**
++   * Method: getName
++   *
++   * Searches for actor name to get their full name.
++   * Throws if an actor was not found - use after confirmation that searched actor exists.
++   */
++  bool getName(string& player) const;
++
+   /**
+    * Destructor: ~imdb
+    * -----------------
+diff --git a/path.cc b/path.cc
+index 5ef12ed..f7c0fbc 100644
+--- a/path.cc
++++ b/path.cc
+@@ -76,3 +76,15 @@ ostream& operator<<(ostream& os, const path& p)
+ 
+   return os;
+ }
++
++path operator+(path left, path right) {
++    vector<path::connection>::const_iterator n;
++    right.reverse();
++    for (n = right.links.begin(); n != right.links.end(); n++) {
++        left.addConnection(
++            n->movie,
++            n->player
++        );
++    }
++    return left;
++}
+diff --git a/path.h b/path.h
+index 60e5d0f..81d61ce 100644
+--- a/path.h
++++ b/path.h
+@@ -35,6 +35,8 @@ class path {
+    */
+ 
+   friend ostream& operator<<(ostream& os, const path& p);
++
++  friend path operator+(path l, path r);
+   
+  public:
+ 
+diff --git a/six-degrees.cc b/six-degrees.cc
+index 3d0c1bf..7fe2769 100644
+--- a/six-degrees.cc
++++ b/six-degrees.cc
+@@ -31,15 +31,14 @@ static string promptForActor(const string& prompt, const imdb& db)
+     cout << prompt << " [or <enter> to quit]: ";
+     getline(cin, response);
+     if (response == "") return "";
+-    vector<film> credits;
+-    if (db.getCredits(response, credits)) return response;
++    if (db.getName(response)) return response;
+     cout << "We couldn't find \"" << response << "\" in the movie database. "
+ 	 << "Please try again." << endl;
+   }
+ }
+ 
+-typedef map<const string, const vector<film> > movies_cache_t;
+-const vector<film>& getMovies(const imdb& db, const string& actor, movies_cache_t& cache) {
++typedef map<const string, const vector<film> > credits_cache_t;
++const vector<film>& getMovies(const imdb& db, const string& actor, credits_cache_t& cache) {
+     if (cache.find(actor) != cache.end()) {
+         return cache[actor];
+     }
+@@ -66,58 +65,99 @@ const vector<string>& getCast(const imdb& db, const film& movie, cast_cache_t& c
+ 
+ path generateShortestPath(
+     const imdb& db,
+-    const string first,
+-    const string second
++    const string source,
++    const string target
+ ) {
+-    static movies_cache_t cache_actor;
+-    static cast_cache_t cache_movie;
+-
+-    /** Actor we are looking for in the checked movies. */
+-    const string target = second;
+-    list<path> queue;   // List of paths to verify.
+-    queue.push_back(path(first));
+-
+-    set<film> seen_movies;
+-    set<string> seen_actors;
+-
+-    while (!queue.empty() && queue.front().getLength() < 6) {
+-        const path cur_path = queue.front();
+-        const string& actor = cur_path.getLastPlayer();
+-        queue.pop_front();
+-
+-        // Find all movies of the actor.
+-        const vector<film> movies = getMovies(db, actor, cache_actor);
+-        // Iterate movies of current actor.
+-        vector<film>::const_iterator movie;
+-        for (movie = movies.begin(); movie != movies.end(); movie++) {
+-            // If current movie was already checked, skip it.
+-            if (seen_movies.find(*movie) != seen_movies.end()) {
+-                continue;
++    static credits_cache_t cache_credits;
++    static cast_cache_t cache_cast;
++    map<const string, path> left; // Expansion of the tree from the side of source actor.
++    map<const string, path> right;// Expansion of the tree from the side of target actor.
++    left.insert(make_pair(source, path(source)));
++    right.insert(make_pair(target, path(target)));
++    map<const string, path> tmp;
++
++    set<film> seen_movies_l;
++    map<const string, path> seen_actors_l;
++    set<film> seen_movies_r;
++    map<const string, path> seen_actors_r;
++
++    int depth = 0;
++    while (depth < 4) {
++        map<const string, path>::const_iterator left_item;
++        for (left_item = left.begin(); left_item != left.end(); left_item++) {
++            const string& actor = left_item->first;
++            const vector<film> movies = getMovies(db, actor, cache_credits);
++            vector<film>::const_iterator movie;
++
++            for (movie = movies.begin(); movie != movies.end(); movie++) {
++                if (seen_movies_l.find(*movie) != seen_movies_l.end()) {
++                    continue;
++                }
++                seen_movies_l.insert(*movie);
++
++                vector<string> cast = getCast(db, *movie, cache_cast);
++                vector<string>::const_iterator actor;
++
++                for (actor = cast.begin(); actor != cast.end(); actor++) {
++                    if (seen_actors_l.find(*actor) != seen_actors_l.end()) {
++                        continue;
++                    }
++
++                    path next_path = left_item->second;
++                    next_path.addConnection(*movie, *actor);
++                    seen_actors_l.insert(make_pair(*actor, next_path));
++                    tmp.insert(make_pair(*actor, next_path));
++
++                    map<const string, path>::const_iterator f = seen_actors_r.find(*actor);
++                    if (f != seen_actors_r.end()) {
++                        return next_path + f->second;
++                    }
++                }
+             }
+-            seen_movies.insert(*movie);
+-
+-            // Otherwise, push actors of current movie to queue.
+-            vector<string> cast = getCast(db, *movie, cache_movie);
+-            vector<string>::const_iterator movie_actor;
+-            for (movie_actor = cast.begin(); movie_actor != cast.end(); movie_actor++) {
+-                // Skip any actor that was already checked.
+-                if (seen_actors.find(*movie_actor) != seen_actors.end()) {
++        }
++        swap(left, tmp);
++        tmp.clear();
++
++        map<const string, path>::const_iterator right_item;
++        for (right_item = right.begin(); right_item != right.end(); right_item++) {
++            const string& actor = right_item->first;
++            const vector<film> movies = getMovies(db, actor, cache_credits);
++            vector<film>::const_iterator movie;
++
++            for (movie = movies.begin(); movie != movies.end(); movie++) {
++                if (seen_movies_r.find(*movie) != seen_movies_r.end()) {
+                     continue;
+                 }
++                seen_movies_r.insert(*movie);
++
++                vector<string> cast = getCast(db, *movie, cache_cast);
++                vector<string>::const_iterator actor;
++
++                for (actor = cast.begin(); actor != cast.end(); actor++) {
++                    if (seen_actors_r.find(*actor) != seen_actors_r.end()) {
++                        continue;
++                    }
+ 
+-                seen_actors.insert(*movie_actor);
+-                path clone = cur_path;
+-                clone.addConnection(*movie, *movie_actor);
+-                // And if this actor is the one we are searching for, return path.
+-                if (target == *movie_actor) {
+-                    return clone;
++
++                    path next_path = right_item->second;
++                    next_path.addConnection(*movie, *actor);
++                    seen_actors_r.insert(make_pair(*actor, next_path));
++                    tmp.insert(make_pair(*actor, next_path));
++
++                    map<const string, path>::const_iterator f = seen_actors_l.find(*actor);
++                    if (f != seen_actors_l.end()) {
++                        return f->second + next_path;
++                    }
+                 }
+-                queue.push_back(clone);
+             }
+         }
++        swap(right, tmp);
++        tmp.clear();
++
++        depth++;
+     }
+ 
+-    return path(first);
++    return path(source);
+ }
+ 
+ /**
+@@ -155,6 +195,8 @@ int main(int argc, const char *argv[])
+     if (source == target) {
+       cout << "Good one.  This is only interesting if you specify two different people." << endl;
+     } else {
++      cout << endl << "Path between \""
++           << source << "\" - \"" << target << "\"" << endl << endl;
+       cout << generateShortestPath(
+         db,
+         source,
+-- 
+2.39.1
+

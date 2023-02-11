@@ -1,0 +1,254 @@
+From a138c8c49168e58a92c6692c9458b6df50aab14d Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Mon, 6 Feb 2023 21:54:59 +0100
+Subject: [PATCH 2/4] six-degrees: add getCast and getCredits
+
+---
+ imdb.cc | 202 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ imdb.h  |  16 +++++
+ 2 files changed, 216 insertions(+), 2 deletions(-)
+
+diff --git a/imdb.cc b/imdb.cc
+index 615f6ed..b4566ed 100644
+--- a/imdb.cc
++++ b/imdb.cc
+@@ -24,9 +24,207 @@ bool imdb::good() const
+ 	    (movieInfo.fd == -1) ); 
+ }
+ 
++/**
++ * Returns actor_data.
++ * 
++ * Actor data is laid out as follows:
++ * 1) c_str
++ * 2) optional 1 byte of padding
++ * 3) short     - number of movies actor starred in
++ * 4) optional 2 bytes of padding
++ * 5) int[]     - offsets to movie objects
++ *
++ * @param actor pointer to the first byte of the object
++ */
++static actor_data getActorData(const void* actor) {
++    // Length of the string + '\0' terminating the string.
++    int byte_offset = strlen((char*)actor) + 1;
++
++    // Include padding for short*.
++    if (byte_offset % 2 != 0) {
++        byte_offset++;
++    }
++    void* movie_count = (char*)actor + byte_offset;
++
++    byte_offset += 2;
++    // Include padding for int*.
++    if (byte_offset % 4 != 0) {
++        byte_offset += 2;
++    }
++    void* movie_offsets = (char*)actor + byte_offset;
++
++    assert((size_t)movie_count % 2 == 0);
++    assert((size_t)movie_offsets % 4 == 0);
++
++    return (actor_data) {
++        .name = (char*)actor,
++        .movie_count = (short*)movie_count,
++        .movie_offsets = (int*)movie_offsets,
++    };
++}
++
++
++/**
++ * Returns movie_data.
++ *
++ * Movie data is laid as follows.
++ * 1) c_str
++ * 2) char      - <release year> - 1900
++ * 3) optional 1 byte of padding
++ * 4) short     - number of actors in the movie
++ * 5) optional 2 bytes of padding
++ * 6) int[]     - offsets to actor objects
++ *
++ * @param movie pointer to the first byte of the object
++ */
++static movie_data getMovieData(const void* movie) {
++    int byte_offset = strlen((char*)movie) + 1;
++    void* year = (char*)movie + byte_offset;
++    byte_offset += 1;
++    if (byte_offset % 2 != 0) {
++        byte_offset += 1;
++    }
++    void* cast_cnt = (char*)movie + byte_offset;
++
++    byte_offset += 2;
++    if (byte_offset % 4 != 0) {
++        byte_offset += 2;
++    }
++    void* actor_offsets = (char*)movie + byte_offset;
++
++    assert((size_t)cast_cnt % 2 == 0);
++    assert((size_t)actor_offsets % 4 == 0);
++
++    return (movie_data) {
++        .title = (char*)movie,
++        .year = (char*)year,
++        .cast_count = (short*)cast_cnt,
++        .actor_offsets = (int*)actor_offsets,
++    };
++}
++
++typedef struct {
++    const void* key;
++    const void* file;
++} cmp_key;
++
++/**
++ * Comparator for binary search in actors file.
++ * Poor mans prefix search that ignores letter case.
++ *
++ * @param key_ptr   - pointer to the cmp_key data. With key being char*.
++ * @param r_offset  - pointer to the integer defining offset of actor data.
++ */
++static int actorCmp(const void* key_ptr, const void* r_offset) {
++    cmp_key* k = (cmp_key*)key_ptr;
++    const void* file = k->file;
++    const char* left = (char*)k->key;
++    const char* right = (char*)file + *(int*)r_offset;
++    
++    size_t index = 0;
++    while (index < strlen(left) && index < strlen(right)) {
++        char lc = left[index] | 0b00100000;
++        char rc = right[index] | 0b00100000;
++
++        if (lc != rc) {
++            return lc - rc;
++        }
++
++        index++;
++    }
++
++    return 0;
++}
++
+ // you should be implementing these two methods right here... 
+-bool imdb::getCredits(const string& player, vector<film>& films) const { return false; }
+-bool imdb::getCast(const film& movie, vector<string>& players) const { return false; }
++bool imdb::getCredits(const string& player, vector<film>& films) const {
++    cmp_key key = (cmp_key) {
++        .key = player.c_str(),
++        .file = this->actorFile,
++    };
++
++    void* actor_offset = bsearch(
++        &key,
++        (char*)this->actorFile + sizeof(int),
++        *(int*)(this->actorFile),
++        sizeof(int),
++        actorCmp
++    );
++
++    if (actor_offset == NULL) {
++        return false;
++    };
++
++    actor_data actor = getActorData((char*)this->actorFile + *(int*)actor_offset);
++
++    for(short i = 0; i < *actor.movie_count; i++) {
++        int mov_offset = *(actor.movie_offsets + i);
++        void* mov_ptr = (char*)this->movieFile + mov_offset;
++        movie_data movie = getMovieData(mov_ptr);
++
++        films.push_back((struct film) {
++            .title = movie.title,
++            .year = 1900 + *movie.year
++        });
++    }
++
++    return true;
++}
++
++/**
++ * Comparator for binary search in movies file.
++ *
++ * @param key_ptr   - pointer to the cmp_key data. With key being *film.
++ * @param r_offset  - pointer to the integer defining offset of movie data.
++ */
++static int movieCmp(const void* key_ptr, const void* r_offset) {
++    cmp_key* k = (cmp_key*)key_ptr;
++    const void* file = k->file;
++    const film left = *(const film*)k->key;
++    const movie_data rd = getMovieData((char*)file + *(int*)r_offset);
++    const film right = (struct film) {
++        .title = rd.title,
++        .year  = 1900 + *rd.year,
++    };
++
++    if (left == right) {
++        return 0;
++    } else if (left < right) {
++        return -1;
++    } 
++
++    return 1;
++}
++
++bool imdb::getCast(const film& movie, vector<string>& players) const {
++    cmp_key key = (cmp_key) {
++        .key = &movie,
++        .file = this->movieFile,
++    };
++
++    void* mov_offset = bsearch(
++        &key,
++        (char*)this->movieFile + sizeof(int),
++        *(int*)this->movieFile,
++        sizeof(int),
++        movieCmp
++    );
++
++    if (mov_offset == NULL) {
++        return false;
++    }
++
++    movie_data mov = getMovieData((char*)this->movieFile + *(int*)mov_offset);
++
++    for (short i = 0; i < *mov.cast_count; i++) {
++        int actor_offset = *(mov.actor_offsets + i);
++        void* actor_ptr = (char*)this->actorFile + actor_offset;
++
++        players.push_back(string((char*)actor_ptr));
++    }
++
++    return true;
++}
+ 
+ imdb::~imdb()
+ {
+diff --git a/imdb.h b/imdb.h
+index ee506b2..eeada93 100644
+--- a/imdb.h
++++ b/imdb.h
+@@ -6,6 +6,22 @@
+ #include <vector>
+ using namespace std;
+ 
++/** Set of pointers to object data in movie file. */
++typedef struct {
++    char* title;
++    /** Address to the byte telling how many years passed from 1900 to release of the movie. */
++    char* year;
++    short* cast_count;
++    int* actor_offsets;
++} movie_data;
++
++/** Set of pointers to object data in actor file. */
++typedef struct {
++    char* name;
++    short* movie_count;
++    int* movie_offsets;
++} actor_data;
++
+ class imdb {
+   
+  public:
+-- 
+2.39.1
+

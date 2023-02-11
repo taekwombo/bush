@@ -1,0 +1,137 @@
+From 10797dcc97ff969a9354775506b3513657882ca5 Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Sat, 11 Feb 2023 08:46:08 +0100
+Subject: [PATCH 3/4] six-degrees: add getShortestPath
+
+---
+ six-degrees.cc | 93 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 91 insertions(+), 2 deletions(-)
+
+diff --git a/six-degrees.cc b/six-degrees.cc
+index 26cdc9a..3d0c1bf 100644
+--- a/six-degrees.cc
++++ b/six-degrees.cc
+@@ -1,6 +1,7 @@
+ #include <vector>
+ #include <list>
+ #include <set>
++#include <map>
+ #include <string>
+ #include <iostream>
+ #include <iomanip>
+@@ -37,6 +38,88 @@ static string promptForActor(const string& prompt, const imdb& db)
+   }
+ }
+ 
++typedef map<const string, const vector<film> > movies_cache_t;
++const vector<film>& getMovies(const imdb& db, const string& actor, movies_cache_t& cache) {
++    if (cache.find(actor) != cache.end()) {
++        return cache[actor];
++    }
++
++    vector<film> movies;
++    db.getCredits(actor, movies);
++    cache.insert(make_pair(actor, movies));
++
++    return cache[actor];
++}
++
++typedef map<const film, const vector<string> > cast_cache_t;
++const vector<string>& getCast(const imdb& db, const film& movie, cast_cache_t& cache) {
++    if (cache.find(movie) != cache.end()) {
++        return cache[movie];
++    }
++
++    vector<string> cast;
++    db.getCast(movie, cast);
++    cache.insert(make_pair(movie, cast));
++
++    return cache[movie];
++}
++
++path generateShortestPath(
++    const imdb& db,
++    const string first,
++    const string second
++) {
++    static movies_cache_t cache_actor;
++    static cast_cache_t cache_movie;
++
++    /** Actor we are looking for in the checked movies. */
++    const string target = second;
++    list<path> queue;   // List of paths to verify.
++    queue.push_back(path(first));
++
++    set<film> seen_movies;
++    set<string> seen_actors;
++
++    while (!queue.empty() && queue.front().getLength() < 6) {
++        const path cur_path = queue.front();
++        const string& actor = cur_path.getLastPlayer();
++        queue.pop_front();
++
++        // Find all movies of the actor.
++        const vector<film> movies = getMovies(db, actor, cache_actor);
++        // Iterate movies of current actor.
++        vector<film>::const_iterator movie;
++        for (movie = movies.begin(); movie != movies.end(); movie++) {
++            // If current movie was already checked, skip it.
++            if (seen_movies.find(*movie) != seen_movies.end()) {
++                continue;
++            }
++            seen_movies.insert(*movie);
++
++            // Otherwise, push actors of current movie to queue.
++            vector<string> cast = getCast(db, *movie, cache_movie);
++            vector<string>::const_iterator movie_actor;
++            for (movie_actor = cast.begin(); movie_actor != cast.end(); movie_actor++) {
++                // Skip any actor that was already checked.
++                if (seen_actors.find(*movie_actor) != seen_actors.end()) {
++                    continue;
++                }
++
++                seen_actors.insert(*movie_actor);
++                path clone = cur_path;
++                clone.addConnection(*movie, *movie_actor);
++                // And if this actor is the one we are searching for, return path.
++                if (target == *movie_actor) {
++                    return clone;
++                }
++                queue.push_back(clone);
++            }
++        }
++    }
++
++    return path(first);
++}
++
+ /**
+  * Serves as the main entry point for the six-degrees executable.
+  * There are no parameters to speak of.
+@@ -60,6 +143,9 @@ int main(int argc, const char *argv[])
+     cout << "Please check to make sure the source files exist and that you have permission to read them." << endl;
+     exit(1);
+   }
++
++  vector<film> source_movies;
++  vector<film> target_movies;
+   
+   while (true) {
+     string source = promptForActor("Actor or actress", db);
+@@ -69,8 +155,11 @@ int main(int argc, const char *argv[])
+     if (source == target) {
+       cout << "Good one.  This is only interesting if you specify two different people." << endl;
+     } else {
+-      // replace the following line by a call to your generateShortestPath routine... 
+-      cout << endl << "No path between those two people could be found." << endl << endl;
++      cout << generateShortestPath(
++        db,
++        source,
++        target
++      ) << endl;
+     }
+   }
+   
+-- 
+2.39.1
+

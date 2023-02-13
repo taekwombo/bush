@@ -1,0 +1,331 @@
+From 4bbe3c57e22fe74288bfad0015837e20e3457fe0 Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Sun, 12 Feb 2023 22:45:58 +0100
+Subject: [PATCH 1/2] vector-hashset: vector
+
+---
+ vector.c     | 149 +++++++++++++++++++++++++++++++++++++++++++++++----
+ vector.h     |   8 ++-
+ vectortest.c |  89 +++++++++++++++++++++++++++++-
+ 3 files changed, 232 insertions(+), 14 deletions(-)
+
+diff --git a/vector.c b/vector.c
+index 8102b0b..f8fb686 100644
+--- a/vector.c
++++ b/vector.c
+@@ -3,37 +3,164 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <assert.h>
++#include <search.h>
++
++static void VectorGrow(vector *v)
++{
++    v->data = realloc(v->data, v->elemSize * (v->capacity + v->growth));
++    v->capacity = v->capacity + v->growth;
++    assert(v->data != NULL);
++}
+ 
+ void VectorNew(vector *v, int elemSize, VectorFreeFunction freeFn, int initialAllocation)
+-{}
++{
++    assert(initialAllocation >= 0);
++    assert(elemSize > 0);
++
++    v->length = 0;
++    v->elemSize = elemSize;
++    v->freeFn = freeFn;
++    if (initialAllocation > 0) {
++        v->growth = initialAllocation;
++        v->data = malloc(elemSize * initialAllocation);
++        v->capacity = initialAllocation;
++    } else {
++        v->growth = VECTOR_DEFAULT_CAPACITY;
++        v->data = malloc(elemSize * VECTOR_DEFAULT_CAPACITY);
++        v->capacity = VECTOR_DEFAULT_CAPACITY;
++    }
++}
+ 
+ void VectorDispose(vector *v)
+-{}
++{
++    assert(v != NULL);
++
++    if (v->freeFn != NULL) {
++        char* ptr = v->data;
++        for (int i = 0; i < v->length; i++) {
++            v->freeFn(ptr + (i * v->elemSize));
++        }
++    }
++
++    free(v->data);
++}
+ 
+ int VectorLength(const vector *v)
+-{ return 0; }
++{ return v->length; }
+ 
+ void *VectorNth(const vector *v, int position)
+-{ return NULL; }
++{
++    assert(v != NULL);
++    assert(position >= 0 && position < v->length);
++    return (char*)v->data + (position * v->elemSize);
++}
+ 
+ void VectorReplace(vector *v, const void *elemAddr, int position)
+-{}
++{
++    assert(v != NULL);
++    assert(elemAddr != NULL);
++    assert(position >= 0 && position < v->length);
++
++    void *item = (char*)v->data + (position * v->elemSize);
++    if (item == elemAddr) {
++        return;
++    }
++
++    memmove(item, elemAddr, v->elemSize);
++}
+ 
+ void VectorInsert(vector *v, const void *elemAddr, int position)
+-{}
++{
++    assert(v != NULL);
++    assert(elemAddr != NULL);
++    assert(position <= v->length && position >= 0);
++
++    if (position == v->length) {
++        return VectorAppend(v, elemAddr);
++    }
++
++    if (v->length == v->capacity) {
++        VectorGrow(v);
++    }
++
++    void *tail = (char*)v->data + (position * v->elemSize);
++    int tailLen = (v->length - position) * v->elemSize;
++    memmove((char*)tail + v->elemSize, tail, tailLen);
++    void *item = (char*)v->data + (v->elemSize * position);
++    memcpy(item, elemAddr, v->elemSize);
++    v->length++;
++}
+ 
+ void VectorAppend(vector *v, const void *elemAddr)
+-{}
++{
++    assert(v != NULL);
++    assert(elemAddr != NULL);
++    if (v->length == v->capacity) {
++        VectorGrow(v);
++    }
++    memcpy((char*)v->data + (v->length * v->elemSize), elemAddr, v->elemSize);
++    v->length++;
++}
+ 
+ void VectorDelete(vector *v, int position)
+-{}
++{
++    assert(v != NULL);
++    assert(position >= 0 && position < v->length);
++
++    void *item = (char*)v->data + position * v->elemSize;
++    if (v->freeFn != NULL) {
++        v->freeFn(item);
++    }
++
++    if (position < v->length - 1) {
++        void *tail = (char*)v->data + (position + 1) * v->elemSize;
++        int tailLen = (v->length - (position + 1)) * v->elemSize;
++        memmove(item, tail, tailLen);
++    }
++    
++    v->length--;
++}
+ 
+ void VectorSort(vector *v, VectorCompareFunction compare)
+-{}
++{
++    assert(compare != NULL);
++
++    if (v->length <= 1) {
++        return;
++    }
++
++    qsort(v->data, v->length, v->elemSize, compare);
++}
+ 
+ void VectorMap(vector *v, VectorMapFunction mapFn, void *auxData)
+-{}
++{
++    assert(mapFn != NULL);
++
++    for (int i = 0; i < v->length; i++) {
++        mapFn((char*)v->data + (i * v->elemSize), auxData);
++    }
++}
+ 
+ static const int kNotFound = -1;
+ int VectorSearch(const vector *v, const void *key, VectorCompareFunction searchFn, int startIndex, bool isSorted)
+-{ return -1; } 
++{
++    assert(startIndex >= 0 && startIndex <= v->length);
++    assert(key != NULL);
++    assert(searchFn != NULL);
++
++    void* base = (char*)v->data + v->elemSize * startIndex;
++    size_t nel = v->length - startIndex;
++
++    void* result = isSorted
++        ? bsearch(key, base, nel, v->elemSize, searchFn)
++        : lfind(key, base, &nel, v->elemSize, searchFn);
++
++    if (result == NULL) {
++        return kNotFound;
++    }
++
++    int index = ((char*)result - (char*)v->data) / v->elemSize;
++
++    return index;
++} 
++
+diff --git a/vector.h b/vector.h
+index ac3f7df..dcff90b 100644
+--- a/vector.h
++++ b/vector.h
+@@ -17,6 +17,7 @@
+ #define _vector_
+ 
+ #include "bool.h"
++#define VECTOR_DEFAULT_CAPACITY 8
+ 
+ /**
+  * Type: VectorCompareFunction
+@@ -68,7 +69,12 @@ typedef void (*VectorFreeFunction)(void *elemAddr);
+  */
+ 
+ typedef struct {
+-  // to be filled in by you
++  VectorFreeFunction freeFn;
++  int elemSize;
++  int length;
++  int capacity;
++  int growth;
++  void* data;
+ } vector;
+ 
+ /** 
+diff --git a/vectortest.c b/vectortest.c
+index d1eba1c..a4a66b4 100644
+--- a/vectortest.c
++++ b/vectortest.c
+@@ -393,12 +393,93 @@ static void MemoryTest()
+   VectorDispose(&questionWords);
+ }
+ 
++void VectorGrowthTest()
++{
++    vector vec;
++    VectorNew(&vec, sizeof(char), NULL, 1);
++    assert(vec.length == 0);
++    assert(vec.capacity == 1);
++    assert(vec.growth == 1);
++
++    char append = 1;
++    VectorAppend(&vec, &append);
++    VectorAppend(&vec, &append);
++    assert(vec.length == 2);
++    assert(vec.capacity == 2);
++    assert(vec.growth == 1);
++    fprintf(stdout, "Testing vector Growth OK\n");
++}
++
++void incOnFree(void *elemAddr)
++{
++    // Increase data behind the pointer.
++    int** elem = (int**)elemAddr;
++    **elem += 1;
++}
++
++void VectorDisposeTest()
++{
++    vector vec;
++    int count = 9;
++    int* cp = &count;
++    
++    VectorNew(&vec, sizeof(int*), incOnFree, 1);
++    VectorAppend(&vec, &cp); // Increases count to 10.
++    VectorAppend(&vec, &cp); // Increases count to 11.
++    VectorDelete(&vec, 1);
++    assert(*((int**)(vec.data))[0] == count);
++    VectorDispose(&vec);
++    assert(count == 11);
++
++    fprintf(stdout, "Dispose function OK\n");
++}
++
++void VectorMapMul(void *elemAddr, void *auxData)
++{
++    *(int*)elemAddr *= *(int*)auxData;
++}
++
++void VectorMapTest()
++{
++    vector vec;
++    VectorNew(&vec, sizeof(int), NULL, 4);
++    for (int i = 0; i < 4; i++) {
++        VectorAppend(&vec, &i);
++    }
++    int multiplier = 2;
++    VectorMap(&vec, VectorMapMul, &multiplier);
++    for (int i = 0; i < 4; i++) {
++        assert(*(int*)VectorNth(&vec, i) == i * multiplier);
++    }
++    fprintf(stdout, "Vector Map OK\n");
++}
++
++int VectorSearchFn(const void *left, const void *right)
++{
++    return *(int*)left - *(int*)right;
++}
++
++void VectorSearchTest()
++{
++    vector vec;
++    VectorNew(&vec, sizeof(int), NULL, 4);
++    for (int i = 0; i < 4; i++) {
++        VectorAppend(&vec, &i);
++    }
++    int key = 3;
++    assert(VectorSearch(&vec, &key, VectorSearchFn, vec.length, false) == -1);
++    assert(VectorSearch(&vec, &key, VectorSearchFn, vec.length, true) == -1);
++    assert(VectorSearch(&vec, &key, VectorSearchFn, 0, false) == 3);
++    assert(VectorSearch(&vec, &key, VectorSearchFn, 0, true) == 3);
++    fprintf(stdout, "Vector Search OK\n");
++}
++
+ /**
+  * Function: main
+  * --------------
+- * The enrty point into the test application.  The
++ * The entry point into the test application.  The
+  * first test is easy, the second one is medium, and
+- 8 the final test is hard.
++ * the final test is hard.
+  */
+ 
+ int main(int ignored, char **alsoIgnored) 
+@@ -406,6 +487,10 @@ int main(int ignored, char **alsoIgnored)
+   SimpleTest();
+   ChallengingTest();
+   MemoryTest();
++  VectorGrowthTest();
++  VectorDisposeTest();
++  VectorMapTest();
++  VectorSearchTest();
+   return 0;
+ }
+ 
+-- 
+2.39.1
+

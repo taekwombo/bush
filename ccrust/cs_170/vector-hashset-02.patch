@@ -1,0 +1,133 @@
+From 30347a4372bc940bb87f069d73042af0f9c043d8 Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Mon, 13 Feb 2023 19:17:14 +0100
+Subject: [PATCH 2/2] vector-hashset: hashset
+
+---
+ hashset.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ hashset.h |  6 +++-
+ 2 files changed, 84 insertions(+), 7 deletions(-)
+
+diff --git a/hashset.c b/hashset.c
+index e9ea74b..ae471fd 100644
+--- a/hashset.c
++++ b/hashset.c
+@@ -5,19 +5,92 @@
+ 
+ void HashSetNew(hashset *h, int elemSize, int numBuckets,
+ 		HashSetHashFunction hashfn, HashSetCompareFunction comparefn, HashSetFreeFunction freefn)
+-{}
++{
++    assert(elemSize >= 0);
++    assert(numBuckets > 0);
++    assert(hashfn != NULL);
++    assert(comparefn != NULL);
++
++    h->hashFn = hashfn;
++    h->cmpFn = comparefn;
++    h->numBuckets = numBuckets;
++    h->elemSize = elemSize;
++    h->buckets = malloc(sizeof(vector) * numBuckets);
++
++    for (int i = 0; i < numBuckets; i++) {
++        VectorNew(&h->buckets[i], elemSize, freefn, 0);
++    }
++}
+ 
+ void HashSetDispose(hashset *h)
+-{}
++{
++    assert(h != NULL);
++
++    for (int i = 0; i < h->numBuckets; i++) {
++        VectorDispose(&h->buckets[i]);
++    }
++
++    free(h->buckets);
++}
+ 
+ int HashSetCount(const hashset *h)
+-{ return 0; }
++{
++    assert(h != NULL);
++
++    int count = 0;
++    for (int i = 0; i < h->numBuckets; i++) {
++        count += VectorLength(&h->buckets[i]);
++    }
++
++    return count;
++}
+ 
+ void HashSetMap(hashset *h, HashSetMapFunction mapfn, void *auxData)
+-{}
++{
++    assert(h != NULL);
++    assert(mapfn != NULL);
++
++    for (int i = 0; i < h->numBuckets; i++) {
++        VectorMap(&h->buckets[i], mapfn, auxData);
++    }
++}
+ 
+ void HashSetEnter(hashset *h, const void *elemAddr)
+-{}
++{
++    assert(h != NULL);
++    assert(elemAddr != NULL);
++
++    int bucket = h->hashFn(elemAddr, h->numBuckets);
++    assert(bucket >= 0 && bucket < h->numBuckets);
++
++    vector *vec = &h->buckets[bucket];
++    if (VectorLength(vec) == 0) {
++        VectorAppend(vec, elemAddr);
++        return;
++    }
++
++    int elemPos = VectorSearch(vec, elemAddr, h->cmpFn, 0, false);
++    if (elemPos == -1) {
++        VectorAppend(vec, elemAddr);
++    } else {
++        VectorReplace(vec, elemAddr, elemPos);
++    }
++}
+ 
+ void *HashSetLookup(const hashset *h, const void *elemAddr)
+-{ return NULL; }
++{
++    assert(h != NULL);
++    assert(elemAddr != NULL);
++
++    int bucket = h->hashFn(elemAddr, h->numBuckets);
++    assert(bucket >= 0 && bucket < h->numBuckets);
++
++    vector *vec = &h->buckets[bucket];
++    int elemPos = VectorSearch(vec, elemAddr, h->cmpFn, 0, false);
++
++    if (elemPos == -1) {
++        return NULL;
++    }
++
++    return VectorNth(vec, elemPos);
++}
+diff --git a/hashset.h b/hashset.h
+index 4435f71..0215112 100644
+--- a/hashset.h
++++ b/hashset.h
+@@ -73,7 +73,11 @@ typedef void (*HashSetFreeFunction)(void *elemAddr);
+  */
+ 
+ typedef struct {
+-  // to be filled in by you
++  HashSetHashFunction hashFn;
++  HashSetCompareFunction cmpFn;
++  int numBuckets;
++  int elemSize;
++  vector *buckets;
+ } hashset;
+ 
+ /**
+-- 
+2.39.1
+

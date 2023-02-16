@@ -27,7 +27,7 @@ static Node* createIntNode(int value) {
 }
 
 static Node* createStringNode(const char* value) {
-    char* str = malloc(sizeof(char) * strlen(value));
+    char* str = malloc(sizeof(char) * strlen(value) + 1);
     strcpy(str, value);
 
     Node* node = malloc(sizeof(Node));

@@ -1,0 +1,1247 @@
+From 8b518b7a389787d8cbaa1f46e153a54f5e2ab9f0 Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Mon, 20 Feb 2023 20:39:15 +0100
+Subject: [PATCH 1/3] rss-news: lib
+
+---
+ hashset.c         |  90 +++++++++++++
+ http-utils.c      |  78 +++++++++++
+ http-utils.h      |  14 ++
+ lib/url_parser.c  | 328 ++++++++++++++++++++++++++++++++++++++++++++++
+ lib/url_parser.h  |  48 +++++++
+ streamtokenizer.c | 172 ++++++++++++++++++++++++
+ streamtokenizer.h |  15 ++-
+ url.c             | 107 +++++++++++++++
+ urlconnection.c   | 125 ++++++++++++++++++
+ vector.c          | 163 +++++++++++++++++++++++
+ 10 files changed, 1139 insertions(+), 1 deletion(-)
+ create mode 100644 hashset.c
+ create mode 100644 http-utils.c
+ create mode 100644 http-utils.h
+ create mode 100644 lib/url_parser.c
+ create mode 100644 lib/url_parser.h
+ create mode 100644 streamtokenizer.c
+ create mode 100644 url.c
+ create mode 100644 urlconnection.c
+ create mode 100644 vector.c
+
+diff --git a/hashset.c b/hashset.c
+new file mode 100644
+index 0000000..f21fa51
+--- /dev/null
++++ b/hashset.c
+@@ -0,0 +1,90 @@
++// vim: set fdl=0 fdm=syntax:
++#include "hashset.h"
++#include <assert.h>
++#include <stdlib.h>
++#include <string.h>
++
++void HashSetNew(hashset *h, int elemSize, int numBuckets,
++		HashSetHashFunction hashfn, HashSetCompareFunction comparefn, HashSetFreeFunction freefn)
++{
++    assert(elemSize >= 0);
++    assert(numBuckets > 0);
++    assert(hashfn != NULL);
++    assert(comparefn != NULL);
++
++    h->hashfn = hashfn;
++    h->comparefn = comparefn;
++    h->numBuckets = numBuckets;
++    h->elemSize = elemSize;
++    h->elemCount = 0;
++    h->buckets = malloc(sizeof(vector) * numBuckets);
++
++    for (int i = 0; i < numBuckets; i++) {
++        VectorNew(&h->buckets[i], elemSize, freefn, 0);
++    }
++}
++
++void HashSetDispose(hashset *h)
++{
++    if (h->elemCount > 0) {
++        for (int i = 0; i < h->numBuckets; i++) {
++            VectorDispose(&h->buckets[i]);
++        }
++    }
++
++    free(h->buckets);
++}
++
++int HashSetCount(const hashset *h)
++{
++    return h->elemCount;
++}
++
++void HashSetMap(hashset *h, HashSetMapFunction mapfn, void *auxData)
++{
++    assert(mapfn != NULL);
++
++    for (int i = 0; i < h->numBuckets; i++) {
++        VectorMap(&h->buckets[i], mapfn, auxData);
++    }
++}
++
++void HashSetEnter(hashset *h, const void *elemAddr)
++{
++    assert(elemAddr != NULL);
++
++    int bucket = h->hashfn(elemAddr, h->numBuckets);
++    assert(bucket >= 0 && bucket < h->numBuckets);
++
++    vector *vec = &h->buckets[bucket];
++    if (VectorLength(vec) == 0) {
++        VectorAppend(vec, elemAddr);
++        h->elemCount++;
++        return;
++    }
++
++    int elemPos = VectorSearch(vec, elemAddr, h->comparefn, 0, false);
++    if (elemPos == -1) {
++        VectorAppend(vec, elemAddr);
++        h->elemCount++;
++    } else {
++        VectorReplace(vec, elemAddr, elemPos);
++    }
++}
++
++void *HashSetLookup(hashset *h, const void *elemAddr)
++{
++    assert(elemAddr != NULL);
++
++    int bucket = h->hashfn(elemAddr, h->numBuckets);
++    assert(bucket >= 0 && bucket < h->numBuckets);
++
++    vector *vec = &h->buckets[bucket];
++    int elemPos = VectorSearch(vec, elemAddr, h->comparefn, 0, false);
++
++    if (elemPos == -1) {
++        return NULL;
++    }
++
++    return VectorNth(vec, elemPos);
++}
+diff --git a/http-utils.c b/http-utils.c
+new file mode 100644
+index 0000000..7cc7f30
+--- /dev/null
++++ b/http-utils.c
+@@ -0,0 +1,78 @@
++#include <string.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <ctype.h>
++#include <math.h>
++#include <assert.h>
++#include "http-utils.h"
++
++int stricmp(const char *a, const char *b)
++{
++    char ca = 9, cb = 9;
++    while (ca == cb && ca != '\0') {
++        ca = tolower(*a++);
++        cb = tolower(*b++);
++    }
++    return cb == '\0'
++        ? 0
++        : ca - cb;
++}
++
++
++// CURL callback.
++// size_t header_callback(char *buffer,
++//                        size_t size,
++//                        size_t nitems,
++//                        void *userdata);
++size_t parse_header(char *buffer, size_t size, size_t nitems, void *userdata)
++{
++    http_data *hd = (http_data*)userdata;
++    size_t len = strlen(buffer);
++
++    if (stricmp(buffer, "HTTP/1") == 0) {
++        char *st = buffer + strlen("HTTP/1.1 "), *ep;
++        hd->status = (short)(strtol(strtok(st, " "), &ep, 10));
++        hd->reason_phrase = strdup(strtok(NULL, " \r\n"));
++    } else if (stricmp(buffer, "HTTP/2") == 0) {
++        char *st = buffer + strlen("HTTP/2"), *ep; 
++        hd->status = (short)(strtol(strtok(st, " \r\n"), &ep, 10));
++#ifdef __DEBUG__
++        assert(strlen(ep) == 0);
++#endif
++    } else if (stricmp(buffer, "Content-Length:") == 0) {
++        // Get http_data.content_length
++        char *vs = buffer + sizeof("Content-Length: ") - 1;
++        char *ep;
++        hd->content_length = strtol(vs, &ep, 10);
++#ifdef __DEBUG__
++        assert(ep[0] == '\r');
++        assert(ep[1] == '\n');
++#endif
++    } else if (stricmp(buffer, "Content-Type:") == 0) {
++        // Get http_data.mime
++        char *v = buffer + sizeof("Content-Type: ") - 1;
++        char *mime = strtok(v, "; \r\n");
++        hd->mime = strdup(mime);
++    }
++
++    return len;
++}
++
++size_t save_data(char *ptr, size_t size, size_t nmemb, void *userdata)
++{
++    http_data *hd = (http_data*)userdata;
++#ifdef __DEBUG__
++    assert(hd->content_length > 0);
++#endif
++    if (hd->content_length == 0) {
++        hd->status = 0;
++        return nmemb;
++    }
++    if (hd->data == NULL) {
++        hd->data = fmemopen(NULL, hd->content_length, "w+");
++    }
++#ifdef __DEBUG__
++    assert(hd->data != NULL);
++#endif
++    return fputs(ptr, hd->data);
++}
+diff --git a/http-utils.h b/http-utils.h
+new file mode 100644
+index 0000000..4fe3f80
+--- /dev/null
++++ b/http-utils.h
+@@ -0,0 +1,14 @@
++#include <stdlib.h>
++#include <stdio.h>
++#include "bool.h"
++
++typedef struct {
++    short status;
++    const char *reason_phrase;
++    const char *mime;
++    size_t content_length;
++    FILE *data;
++} http_data;
++ 
++size_t parse_header(char *buffer, size_t size, size_t nitems, void *userdata);
++size_t save_data(char *ptr, size_t size, size_t nmemb, void *userdata);
+diff --git a/lib/url_parser.c b/lib/url_parser.c
+new file mode 100644
+index 0000000..d03b51c
+--- /dev/null
++++ b/lib/url_parser.c
+@@ -0,0 +1,328 @@
++/*_
++ * Copyright 2010-2011 Scyphus Solutions Co. Ltd.  All rights reserved.
++ *
++ * Authors:
++ *      Hirochika Asai
++ */
++
++#include "url_parser.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <ctype.h>
++
++/*
++ * Prototype declarations
++ */
++static __inline__ int _is_scheme_char(int);
++
++/*
++ * Check whether the character is permitted in scheme string
++ */
++static __inline__ int
++_is_scheme_char(int c)
++{
++    return (!isalpha(c) && '+' != c && '-' != c && '.' != c) ? 0 : 1;
++}
++
++/*
++ * See RFC 1738, 3986
++ */
++struct parsed_url *
++parse_url(const char *url)
++{
++    struct parsed_url *purl;
++    const char *tmpstr;
++    const char *curstr;
++    int len;
++    int i;
++    int userpass_flag;
++    int bracket_flag;
++
++    /* Allocate the parsed url storage */
++    purl = malloc(sizeof(struct parsed_url));
++    if ( NULL == purl ) {
++        return NULL;
++    }
++    purl->scheme = NULL;
++    purl->host = NULL;
++    purl->port = NULL;
++    purl->path = NULL;
++    purl->query = NULL;
++    purl->fragment = NULL;
++    purl->username = NULL;
++    purl->password = NULL;
++
++    curstr = url;
++
++    /*
++     * <scheme>:<scheme-specific-part>
++     * <scheme> := [a-z\+\-\.]+
++     *             upper case = lower case for resiliency
++     */
++    /* Read scheme */
++    tmpstr = strchr(curstr, ':');
++    if ( NULL == tmpstr ) {
++        /* Not found the character */
++        parsed_url_free(purl);
++        return NULL;
++    }
++    /* Get the scheme length */
++    len = tmpstr - curstr;
++    /* Check restrictions */
++    for ( i = 0; i < len; i++ ) {
++        if ( !_is_scheme_char(curstr[i]) ) {
++            /* Invalid format */
++            parsed_url_free(purl);
++            return NULL;
++        }
++    }
++    /* Copy the scheme to the storage */
++    purl->scheme = malloc(sizeof(char) * (len + 1));
++    if ( NULL == purl->scheme ) {
++        parsed_url_free(purl);
++        return NULL;
++    }
++    (void)strncpy(purl->scheme, curstr, len);
++    purl->scheme[len] = '\0';
++    /* Make the character to lower if it is upper case. */
++    for ( i = 0; i < len; i++ ) {
++        purl->scheme[i] = tolower(purl->scheme[i]);
++    }
++    /* Skip ':' */
++    tmpstr++;
++    curstr = tmpstr;
++
++    /*
++     * //<user>:<password>@<host>:<port>/<url-path>
++     * Any ":", "@" and "/" must be encoded.
++     */
++    /* Eat "//" */
++    for ( i = 0; i < 2; i++ ) {
++        if ( '/' != *curstr ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        curstr++;
++    }
++
++    /* Check if the user (and password) are specified. */
++    userpass_flag = 0;
++    tmpstr = curstr;
++    while ( '\0' != *tmpstr ) {
++        if ( '@' == *tmpstr ) {
++            /* Username and password are specified */
++            userpass_flag = 1;
++            break;
++        } else if ( '/' == *tmpstr ) {
++            /* End of <host>:<port> specification */
++            userpass_flag = 0;
++            break;
++        }
++        tmpstr++;
++    }
++
++    /* User and password specification */
++    tmpstr = curstr;
++    if ( userpass_flag ) {
++        /* Read username */
++        while ( '\0' != *tmpstr && ':' != *tmpstr && '@' != *tmpstr ) {
++            tmpstr++;
++        }
++        len = tmpstr - curstr;
++        purl->username = malloc(sizeof(char) * (len + 1));
++        if ( NULL == purl->username ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        (void)strncpy(purl->username, curstr, len);
++        purl->username[len] = '\0';
++        /* Proceed current pointer */
++        curstr = tmpstr;
++        if ( ':' == *curstr ) {
++            /* Skip ':' */
++            curstr++;
++            /* Read password */
++            tmpstr = curstr;
++            while ( '\0' != *tmpstr && '@' != *tmpstr ) {
++                tmpstr++;
++            }
++            len = tmpstr - curstr;
++            purl->password = malloc(sizeof(char) * (len + 1));
++            if ( NULL == purl->password ) {
++                parsed_url_free(purl);
++                return NULL;
++            }
++            (void)strncpy(purl->password, curstr, len);
++            purl->password[len] = '\0';
++            curstr = tmpstr;
++        }
++        /* Skip '@' */
++        if ( '@' != *curstr ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        curstr++;
++    }
++
++    if ( '[' == *curstr ) {
++        bracket_flag = 1;
++    } else {
++        bracket_flag = 0;
++    }
++    /* Proceed on by delimiters with reading host */
++    tmpstr = curstr;
++    while ( '\0' != *tmpstr ) {
++        if ( bracket_flag && ']' == *tmpstr ) {
++            /* End of IPv6 address. */
++            tmpstr++;
++            break;
++        } else if ( !bracket_flag && (':' == *tmpstr || '/' == *tmpstr) ) {
++            /* Port number is specified. */
++            break;
++        }
++        tmpstr++;
++    }
++    len = tmpstr - curstr;
++    purl->host = malloc(sizeof(char) * (len + 1));
++    if ( NULL == purl->host || len <= 0 ) {
++        parsed_url_free(purl);
++        return NULL;
++    }
++    (void)strncpy(purl->host, curstr, len);
++    purl->host[len] = '\0';
++    curstr = tmpstr;
++
++    /* Is port number specified? */
++    if ( ':' == *curstr ) {
++        curstr++;
++        /* Read port number */
++        tmpstr = curstr;
++        while ( '\0' != *tmpstr && '/' != *tmpstr ) {
++            tmpstr++;
++        }
++        len = tmpstr - curstr;
++        purl->port = malloc(sizeof(char) * (len + 1));
++        if ( NULL == purl->port ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        (void)strncpy(purl->port, curstr, len);
++        purl->port[len] = '\0';
++        curstr = tmpstr;
++    }
++
++    /* End of the string */
++    if ( '\0' == *curstr ) {
++        return purl;
++    }
++
++    /* Skip '/' */
++    if ( '/' != *curstr ) {
++        parsed_url_free(purl);
++        return NULL;
++    }
++    curstr++;
++
++    /* Parse path */
++    tmpstr = curstr;
++    while ( '\0' != *tmpstr && '#' != *tmpstr  && '?' != *tmpstr ) {
++        tmpstr++;
++    }
++    len = tmpstr - curstr;
++    purl->path = malloc(sizeof(char) * (len + 1));
++    if ( NULL == purl->path ) {
++        parsed_url_free(purl);
++        return NULL;
++    }
++    (void)strncpy(purl->path, curstr, len);
++    purl->path[len] = '\0';
++    curstr = tmpstr;
++
++    /* Is query specified? */
++    if ( '?' == *curstr ) {
++        /* Skip '?' */
++        curstr++;
++        /* Read query */
++        tmpstr = curstr;
++        while ( '\0' != *tmpstr && '#' != *tmpstr ) {
++            tmpstr++;
++        }
++        len = tmpstr - curstr;
++        purl->query = malloc(sizeof(char) * (len + 1));
++        if ( NULL == purl->query ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        (void)strncpy(purl->query, curstr, len);
++        purl->query[len] = '\0';
++        curstr = tmpstr;
++    }
++
++    /* Is fragment specified? */
++    if ( '#' == *curstr ) {
++        /* Skip '#' */
++        curstr++;
++        /* Read fragment */
++        tmpstr = curstr;
++        while ( '\0' != *tmpstr ) {
++            tmpstr++;
++        }
++        len = tmpstr - curstr;
++        purl->fragment = malloc(sizeof(char) * (len + 1));
++        if ( NULL == purl->fragment ) {
++            parsed_url_free(purl);
++            return NULL;
++        }
++        (void)strncpy(purl->fragment, curstr, len);
++        purl->fragment[len] = '\0';
++        curstr = tmpstr;
++    }
++
++    return purl;
++}
++
++/*
++ * Free memory of parsed url
++ */
++void
++parsed_url_free(struct parsed_url *purl)
++{
++    if ( NULL != purl ) {
++        if ( NULL != purl->scheme ) {
++            free(purl->scheme);
++        }
++        if ( NULL != purl->host ) {
++            free(purl->host);
++        }
++        if ( NULL != purl->port ) {
++            free(purl->port);
++        }
++        if ( NULL != purl->path ) {
++            free(purl->path);
++        }
++        if ( NULL != purl->query ) {
++            free(purl->query);
++        }
++        if ( NULL != purl->fragment ) {
++            free(purl->fragment);
++        }
++        if ( NULL != purl->username ) {
++            free(purl->username);
++        }
++        if ( NULL != purl->password ) {
++            free(purl->password);
++        }
++        free(purl);
++    }
++}
++
++/*
++ * Local variables:
++ * tab-width: 4
++ * c-basic-offset: 4
++ * End:
++ * vim600: sw=4 ts=4 fdm=marker
++ * vim<600: sw=4 ts=4
++ */
+diff --git a/lib/url_parser.h b/lib/url_parser.h
+new file mode 100644
+index 0000000..f4cc4b8
+--- /dev/null
++++ b/lib/url_parser.h
+@@ -0,0 +1,48 @@
++/*_
++ * Copyright 2010 Scyphus Solutions Co. Ltd.  All rights reserved.
++ *
++ * Authors:
++ *      Hirochika Asai
++ */
++
++#ifndef _URL_PARSER_H
++#define _URL_PARSER_H
++
++/*
++ * URL storage
++ */
++struct parsed_url {
++    char *scheme;               /* mandatory */
++    char *host;                 /* mandatory */
++    char *port;                 /* optional */
++    char *path;                 /* optional */
++    char *query;                /* optional */
++    char *fragment;             /* optional */
++    char *username;             /* optional */
++    char *password;             /* optional */
++};
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++    /*
++     * Declaration of function prototypes
++     */
++    struct parsed_url * parse_url(const char *);
++    void parsed_url_free(struct parsed_url *);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _URL_PARSER_H */
++
++/*
++ * Local variables:
++ * tab-width: 4
++ * c-basic-offset: 4
++ * End:
++ * vim600: sw=4 ts=4 fdm=marker
++ * vim<600: sw=4 ts=4
++ */
+diff --git a/streamtokenizer.c b/streamtokenizer.c
+new file mode 100644
+index 0000000..58ea857
+--- /dev/null
++++ b/streamtokenizer.c
+@@ -0,0 +1,172 @@
++#include <assert.h>
++#include <string.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include "streamtokenizer.h"
++#include "hashset.h"
++
++static int CharHash(const void *elemAddr, int numBuckets) {
++    unsigned char c = ((char*)elemAddr)[0];
++
++    return tolower(c) % numBuckets;
++}
++
++static int CharCompare(const void *left, const void *right)
++{
++    char l = ((char*)left)[0], r = ((char*)right)[0];
++
++    return tolower(l) - tolower(r);
++}
++
++static void InitDelimiterSet(hashset *set, const char *delimiters)
++{
++    HashSetNew(set, sizeof(char), 127, CharHash, CharCompare, NULL);
++    for (size_t i = 0; i < strlen(delimiters); i++) {
++        HashSetEnter(set, &delimiters[i]);
++    }
++}
++
++void STNew(streamtokenizer *st, FILE *infile, const char *delimiters, bool discardDelimiters)
++{
++    assert(infile != NULL);
++    assert(delimiters != NULL);
++    assert(strlen(delimiters) > 0);
++
++    st->infile = infile;
++    st->discardDelimiters = discardDelimiters;
++    InitDelimiterSet(&st->delimiters, delimiters);
++}
++
++void STDispose(streamtokenizer *st)
++{
++    HashSetDispose(&st->delimiters);
++}
++
++bool STNextToken(streamtokenizer *st, char buffer[], int bufferLength)
++{
++    assert(buffer != NULL);
++    assert(bufferLength > 1);
++
++    int tokenLength = 0;
++    int next;
++
++    while ((next = fgetc(st->infile)) != EOF && tokenLength < bufferLength - 1) {
++        if (next < 0) { // Ignore characters with 1 bit set to 1.
++            continue;
++        }
++        // Oh, a delimiter ahead.
++        if (HashSetLookup(&st->delimiters, &next) != NULL) {
++            if (tokenLength > 0) {
++                buffer[tokenLength] = '\0';
++                // If delimiters should not be discarded put it back into the stream.
++                if (!st->discardDelimiters) {
++                    ungetc(next, st->infile);
++                }
++                return true;
++            }
++
++            // If delimiters should not be discarded return it as a token.
++            if (st->discardDelimiters == false) {
++                buffer[tokenLength++] = next;
++                buffer[tokenLength++] = '\0';
++                return true;
++            }
++
++            continue;
++        }
++
++        // Regular char, build longer token.
++        buffer[tokenLength++] = next;
++    }
++
++    if (tokenLength > 0) {
++        buffer[tokenLength] = '\0';
++    }
++
++    return tokenLength > 0;
++}
++
++bool STNextTokenUsingDifferentDelimiters(streamtokenizer *st, char buffer[], int bufferLength, const char *delimiters)
++{
++    // For a duration of STNextToken replace delimiters hashset
++    // with new one.
++    hashset saved = st->delimiters;
++    hashset tmp;
++    InitDelimiterSet(&tmp, delimiters);
++    st->delimiters = tmp;
++    
++    bool result = STNextToken(st, buffer, bufferLength);
++    st->delimiters = saved; // Restore previous delimiters.
++    HashSetDispose(&tmp);
++
++    return result;
++}
++
++int STSkipOver(streamtokenizer *st, const char *skipSet)
++{
++    hashset skip;
++    InitDelimiterSet(&skip, skipSet);
++    int next;
++
++    while ((next = fgetc(st->infile)) != EOF) {
++        if (HashSetLookup(&skip, &next) == NULL) {
++            // Put back into the stream character that was not found in the skipSet.
++            ungetc(next, st->infile);
++            break;
++        }
++    }
++
++    HashSetDispose(&skip);
++
++    return next;
++}
++
++int STSkipUntil(streamtokenizer *st, const char *skipUntilSet)
++{
++    hashset until;
++    InitDelimiterSet(&until, skipUntilSet);
++    int next;
++
++    while ((next = fgetc(st->infile)) != EOF) {
++        if (HashSetLookup(&until, &next) != NULL) {
++            // Put back into the stream "until" character.
++            ungetc(next, st->infile);
++            break;
++        }
++    }
++
++    HashSetDispose(&until);
++
++    return next;
++}
++
++bool STTrySkipPrefix(streamtokenizer *st, const char *skipPrefix)
++{
++    char chars[16];
++    int max = strlen(skipPrefix);
++    assert(max <= 16);
++    int count = 0;
++    int next = fgetc(st->infile);
++    chars[count] = next;
++
++    while (next != EOF && count < max) {
++        if (skipPrefix[count] != next) {
++            break;
++        }
++
++        count += 1;
++
++        if (count == max) {
++            return true;
++        }
++
++        next = fgetc(st->infile);
++        chars[count] = next;
++    }
++
++    for (; count >= 0; count--) {
++        ungetc(chars[count], st->infile);
++    }
++    
++    return false;
++}
+diff --git a/streamtokenizer.h b/streamtokenizer.h
+index ba250b0..aa2ceb0 100644
+--- a/streamtokenizer.h
++++ b/streamtokenizer.h
+@@ -3,6 +3,7 @@
+ 
+ #include "bool.h"
+ #include <stdio.h>
++#include "hashset.h"
+ 
+ /**
+  * Type: streamtokenizer
+@@ -39,7 +40,7 @@
+ 
+ typedef struct {
+   FILE *infile;
+-  const char *delimiters;
++  hashset delimiters;
+   bool discardDelimiters;
+ } streamtokenizer;
+ 
+@@ -197,4 +198,16 @@ int STSkipOver(streamtokenizer *st, const char *skipSet);
+ 
+ int STSkipUntil(streamtokenizer *st, const char *skipUntilSet);
+ 
++/*
++ * Function: STTrySkipPrefix
++ * ---------------------
++ * Tries to consume at most next 16 characters as provided in
++ * the skipPrefix parameter.
++ * This operation will try to consume characters in exact order.
++ * If it fails, all consumed characters are put back into the stream.
++ * An assert is thrown in skipPrefix argument has more than 16 characters.
++ */
++
++bool STTrySkipPrefix(streamtokenizer *st, const char *skipPrefix);
++
+ #endif
+diff --git a/url.c b/url.c
+new file mode 100644
+index 0000000..55673a4
+--- /dev/null
++++ b/url.c
+@@ -0,0 +1,107 @@
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++#include <assert.h>
++#include "url.h"
++#include "lib/url_parser.h"
++
++static const char *kEmpty = "";
++
++static const char *shost(const char *scheme, const char *host)
++{
++    size_t tl = strlen(scheme) + 3 + strlen(host) + 1; // <scheme>://<host>\0
++    char *res = malloc(tl);
++    assert(tl - 1 == snprintf(res, tl, "%s://%s", scheme, host));
++    return res;
++}
++
++static const char *fullpath(const char *shost, const char *path)
++{
++    if (path == NULL) {
++        return strdup(shost);
++    }
++
++    size_t tl = strlen(shost) + 2 + strlen(path);
++    char *res = malloc(tl);
++    assert(tl - 1 == snprintf(res, tl, "%s/%s", shost, path));
++    return res;
++}
++
++#ifdef __DEBUG__
++static void debugParsedUrl(struct parsed_url *parsed)
++{
++    printf("struct parsed_url {\n");
++    printf("  serverName : \"%s\"\n", parsed->scheme);
++    printf("  scheme     : \"%s\"\n", parsed->scheme);
++    printf("  host       : \"%s\"\n", parsed->host);
++    printf("  port       : \"%s\"\n", parsed->port);
++    printf("  path       : \"%s\"\n", parsed->path);
++    printf("  query      : \"%s\"\n", parsed->query);
++    printf("  fragment   : \"%s\"\n", parsed->fragment);
++    printf("  username   : \"%s\"\n", parsed->username);
++    printf("  password   : \"%s\"\n", parsed->password);
++    printf("}\n\n");
++}
++
++static void debugUrl(url *u)
++{
++    printf("url {\n");
++    printf("  fullName   : \"%s\"\n", u->fullName);
++    printf("  serverName : \"%s\"\n", u->serverName);
++    printf("  fileName   : \"%s\"\n", u->fileName);
++    printf("  port       : %d\n", u->port);
++    printf("}\n\n");
++}
++#endif // #ifdef __DEBUG__
++
++void URLNewAbsolute(url *u, const char *absolutePath)
++{
++    struct parsed_url *parsed = parse_url(absolutePath);
++    assert(parsed != NULL);
++#ifdef __DEBUG__
++    debugParsedUrl(parsed);
++#endif
++    u->serverName = shost(parsed->scheme, parsed->host);
++    u->fullName = fullpath(u->serverName, parsed->path);
++    u->port = 443;
++
++    if (parsed->path == NULL) {
++        u->fileName = kEmpty;
++    } else {
++        u->fileName = strdup(parsed->path);
++    }
++#ifdef __DEBUG__
++    debugUrl(u);
++#endif
++    parsed_url_free(parsed);
++}
++
++void URLNewRelative(url *u, const url *parentURL, const char *relativePath)
++{
++    assert(strlen(relativePath) > 1);
++
++    if (relativePath[0] == '/') {
++        u->serverName = strdup(parentURL->serverName);
++        u->fullName = fullpath(u->serverName, relativePath + 1);
++        u->fileName = strdup(relativePath + 1);
++        u->port = parentURL->port;
++#ifdef __DEBUG__
++    debugUrl(u);
++#endif
++    } else {
++        URLNewAbsolute(u, relativePath);
++    }
++}
++
++void URLDispose(url *u)
++{
++    if (u->fullName != kEmpty) {
++        free((void*)u->fullName);
++    }
++    if (u->serverName != kEmpty) {
++        free((void*)u->serverName);
++    }
++    if (u->fileName != kEmpty) {
++        free((void*)u->fileName);
++    }
++}
+diff --git a/urlconnection.c b/urlconnection.c
+new file mode 100644
+index 0000000..bb3f1da
+--- /dev/null
++++ b/urlconnection.c
+@@ -0,0 +1,125 @@
++#include <assert.h>
++#include <netdb.h>
++#include <stdio.h>
++#include <string.h>
++#include <unistd.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <wctype.h>
++#include <curl/curl.h>
++#include "url.h"
++#include "urlconnection.h"
++#include "streamtokenizer.h"
++#include "http-utils.h"
++
++#ifdef __CACHE__
++uint32_t crc32b(const uint8_t *str) {
++    // Source: https://stackoverflow.com/a/21001712
++    unsigned int byte, crc, mask;
++    int i = 0, j;
++    crc = 0xFFFFFFFF;
++    while (str[i] != 0) {
++        byte = str[i];
++        crc = crc ^ byte;
++        for (j = 7; j >= 0; j--) {
++            mask = -(crc & 1);
++            crc = (crc >> 1) ^ (0xEDB88320 & mask);
++        }
++        i = i + 1;
++    }
++    return ~crc;
++}
++#endif
++
++static const char* kMessageEmpty = "(Empty)";
++
++void URLConnectionNew(urlconnection *urlconn, const url* u)
++{
++    // Was something like but HTTPS:
++    // https://stackoverflow.com/questions/22077802/simple-c-example-of-doing-an-http-post-and-consuming-the-response
++    // Default values.
++    urlconn->responseCode = 0;
++    urlconn->dataStream = NULL;
++    urlconn->newUrl = NULL;
++    urlconn->contentType = NULL;
++    urlconn->responseMessage = kMessageEmpty;
++    urlconn->fullUrl = strdup(u->fullName);
++
++    http_data hd;
++    hd.reason_phrase = NULL;
++    hd.data = NULL;
++    hd.content_length = 0;
++#ifdef __CACHE__
++    char path[256];
++    sprintf(path, "./cache/%lu", (size_t)crc32b(urlconn->fullUrl));
++    FILE *cache = fopen(path, "r");
++    if (cache != NULL && access(path, F_OK) == 0) {
++        urlconn->dataStream = cache;
++        urlconn->responseCode = 200;
++        return;
++    }
++#endif
++
++    CURL *curl = curl_easy_init();
++    assert(curl != NULL);
++
++    curl_easy_setopt(curl, CURLOPT_URL, u->fullName);
++    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
++    curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS | CURLPROTO_HTTP);
++    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0 | CURL_HTTP_VERSION_1_1);
++    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, parse_header);
++    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hd);
++    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &hd);
++    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, save_data);
++
++    int cres = curl_easy_perform(curl);
++    curl_easy_cleanup(curl);
++
++    if (cres != 0) {
++        return;
++    }
++
++    urlconn->responseCode = hd.status;
++    if (hd.reason_phrase != NULL) {
++        urlconn->responseMessage = hd.reason_phrase;
++        hd.reason_phrase = NULL;
++    }
++
++#ifdef __CACHE__
++    if (urlconn->responseCode == 200) {
++        rewind(hd.data);
++        char buf[512];
++        FILE *cache = fopen(path, "w");
++        while (fgets(buf, 510, hd.data) > 0) {
++            fputs(buf, cache);
++        }
++        fflush(cache);
++        fclose(cache);
++    }
++#endif
++
++    urlconn->contentType = hd.mime;
++    hd.mime = NULL;
++
++    urlconn->dataStream = hd.data;
++    rewind(urlconn->dataStream);
++}
++
++void URLConnectionDispose(urlconnection* urlconn)
++{
++    if (urlconn->dataStream != NULL) {
++        fclose(urlconn->dataStream);
++    }
++    if (urlconn->newUrl != NULL) {
++        free((void*)urlconn->newUrl);
++    }
++    if (urlconn->contentType != NULL) {
++        free((void*)urlconn->contentType);
++    }
++    if (urlconn->responseMessage != NULL && urlconn->responseMessage != kMessageEmpty) {
++        free((void*)urlconn->responseMessage);
++    }
++    if (urlconn->fullUrl != NULL) {
++        free((void*)urlconn->fullUrl);
++    }
++}
+diff --git a/vector.c b/vector.c
+new file mode 100644
+index 0000000..5b6778e
+--- /dev/null
++++ b/vector.c
+@@ -0,0 +1,163 @@
++// vim: set fdl=0 fdm=syntax:
++#include "vector.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <assert.h>
++#include <search.h>
++
++static const int kVecDefaultAllocationChunk = 16;
++
++static void VectorGrow(vector *v)
++{
++    v->elems = realloc(v->elems, v->elemSize * (v->allocatedLength + v->allocationChunk));
++    v->allocatedLength = v->allocatedLength + v->allocationChunk;
++    assert(v->elems != NULL);
++}
++
++void VectorNew(vector *v, int elemSize, VectorFreeFunction freeFn, int initialAllocation)
++{
++    assert(initialAllocation >= 0);
++    assert(elemSize > 0);
++
++    v->logicalLength = 0;
++    v->elemSize = elemSize;
++    v->freeFn = freeFn;
++    if (initialAllocation > 0) {
++        v->allocationChunk = initialAllocation;
++        v->elems = malloc(elemSize * initialAllocation);
++        v->allocatedLength = initialAllocation;
++    } else {
++        v->allocationChunk = kVecDefaultAllocationChunk;
++        v->elems = malloc(elemSize * kVecDefaultAllocationChunk);
++        v->allocatedLength = kVecDefaultAllocationChunk;
++    }
++}
++
++void VectorDispose(vector *v)
++{
++    if (v->freeFn != NULL) {
++        char* ptr = v->elems;
++        for (int i = 0; i < v->logicalLength; i++) {
++            v->freeFn(ptr + (i * v->elemSize));
++        }
++    }
++
++    free(v->elems);
++}
++
++int VectorLength(const vector *v)
++{ return v->logicalLength; }
++
++void *VectorNth(const vector *v, int position)
++{
++    assert(position >= 0 && position < v->logicalLength);
++    return (char*)v->elems + (position * v->elemSize);
++}
++
++void VectorReplace(vector *v, const void *elemAddr, int position)
++{
++    assert(elemAddr != NULL);
++    assert(position >= 0 && position < v->logicalLength);
++
++    void *item = (char*)v->elems + (position * v->elemSize);
++    if (item == elemAddr) {
++        return;
++    }
++
++    memmove(item, elemAddr, v->elemSize);
++}
++
++void VectorInsert(vector *v, const void *elemAddr, int position)
++{
++    assert(elemAddr != NULL);
++    assert(position <= v->logicalLength && position >= 0);
++
++    if (position == v->logicalLength) {
++        return VectorAppend(v, elemAddr);
++    }
++
++    if (v->logicalLength == v->allocatedLength) {
++        VectorGrow(v);
++    }
++
++    void *tail = (char*)v->elems + (position * v->elemSize);
++    int tailLen = (v->logicalLength - position) * v->elemSize;
++    memmove((char*)tail + v->elemSize, tail, tailLen);
++    void *item = (char*)v->elems + (v->elemSize * position);
++    memcpy(item, elemAddr, v->elemSize);
++    v->logicalLength++;
++}
++
++void VectorAppend(vector *v, const void *elemAddr)
++{
++    assert(elemAddr != NULL);
++
++    if (v->logicalLength == v->allocatedLength) {
++        VectorGrow(v);
++    }
++    memcpy((char*)v->elems + (v->logicalLength * v->elemSize), elemAddr, v->elemSize);
++    v->logicalLength++;
++}
++
++void VectorDelete(vector *v, int position)
++{
++    assert(position >= 0 && position < v->logicalLength);
++
++    void *item = (char*)v->elems + position * v->elemSize;
++    if (v->freeFn != NULL) {
++        v->freeFn(item);
++    }
++
++    if (position < v->logicalLength - 1) {
++        void *tail = (char*)v->elems + (position + 1) * v->elemSize;
++        int tailLen = (v->logicalLength - (position + 1)) * v->elemSize;
++        memmove(item, tail, tailLen);
++    }
++    
++    v->logicalLength--;
++}
++
++void VectorSort(vector *v, VectorCompareFunction compare)
++{
++    assert(compare != NULL);
++
++    if (v->logicalLength <= 1) {
++        return;
++    }
++
++    qsort(v->elems, v->logicalLength, v->elemSize, compare);
++}
++
++void VectorMap(vector *v, VectorMapFunction mapFn, void *auxData)
++{
++    assert(mapFn != NULL);
++
++    for (int i = 0; i < v->logicalLength; i++) {
++        mapFn((char*)v->elems + (i * v->elemSize), auxData);
++    }
++}
++
++static const int kNotFound = -1;
++int VectorSearch(const vector *v, const void *key, VectorCompareFunction searchFn, int startIndex, bool isSorted)
++{
++    assert(startIndex >= 0 && startIndex <= v->logicalLength);
++    assert(key != NULL);
++    assert(searchFn != NULL);
++
++    void* base = (char*)v->elems + v->elemSize * startIndex;
++    size_t nel = v->logicalLength - startIndex;
++
++    void* result = isSorted
++        ? bsearch(key, base, nel, v->elemSize, searchFn)
++        : lfind(key, base, &nel, v->elemSize, searchFn);
++
++    if (result == NULL) {
++        return kNotFound;
++    }
++
++    int index = ((char*)result - (char*)v->elems) / v->elemSize;
++
++    return index;
++} 
++
+-- 
+2.39.1
+

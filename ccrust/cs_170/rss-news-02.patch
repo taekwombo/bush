@@ -1,0 +1,112 @@
+From 2a2e02e3926ae872ed68d9c4c7ea2d002733f481 Mon Sep 17 00:00:00 2001
+From: taekwombo <88032359+taekwombo@users.noreply.github.com>
+Date: Mon, 20 Feb 2023 20:44:27 +0100
+Subject: [PATCH 2/3] rss-news: add html-utils
+
+---
+ html-utils.c | 80 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ html-utils.h |  2 +-
+ 2 files changed, 81 insertions(+), 1 deletion(-)
+ create mode 100644 html-utils.c
+
+diff --git a/html-utils.c b/html-utils.c
+new file mode 100644
+index 0000000..ca98d90
+--- /dev/null
++++ b/html-utils.c
+@@ -0,0 +1,80 @@
++#include <assert.h>
++#include <string.h>
++#include "html-utils.h"
++
++void RemoveEscapeCharacters(char text[])
++{
++    // Hmm...
++}
++
++bool GetNextTag(streamtokenizer *st, char htmlBuffer[], int htmlBufferLength)
++{
++    STSkipUntil(st, "<");
++    bool found = STNextTokenUsingDifferentDelimiters(st, htmlBuffer, htmlBufferLength, ">");
++    if (found) {
++        int tokLen = strlen(htmlBuffer);
++        assert(tokLen + 2 < htmlBufferLength);
++        int gt = STSkipUntil(st, ">");
++        assert(gt != EOF);
++        htmlBuffer[tokLen] = gt;
++        htmlBuffer[tokLen + 1] = '\0';
++        STSkipOver(st, ">");
++    }
++
++    return found;
++}
++
++#define BR_IF_EMPTY if (tok == false) break
++
++void SkipUntilClosingTag(streamtokenizer *st, char *buffer, unsigned long buflen, char *token)
++{
++    /* Expect 4 tokens: "<" "/" (token) ">" */
++    bool tok;
++    while (true) {
++        STSkipUntil(st, "<");
++        tok = STNextToken(st, buffer, buflen);
++        BR_IF_EMPTY;
++        if (strcasecmp(buffer, "<") != 0) {
++            continue;
++        }
++
++        tok = STNextToken(st, buffer, buflen);
++        BR_IF_EMPTY;
++        if (strcasecmp(buffer, "/") != 0) {
++            continue;
++        }
++
++        tok = STNextToken(st, buffer, buflen);
++        BR_IF_EMPTY;
++        if (strcasecmp(buffer, token) != 0) {
++            continue;
++        }
++
++        STSkipUntil(st, ">");
++        STSkipOver(st, ">");
++        return;
++    }
++}
++
++void SkipIrrelevantContent(streamtokenizer *st, char *buffer, unsigned long buflen)
++{
++    STNextToken(st, buffer, buflen);
++
++    if (strcasecmp(buffer, "head") == 0) {
++        SkipUntilClosingTag(st, buffer, buflen, "head");
++        return;
++    }
++
++    if (strcasecmp(buffer, "script") == 0) {
++        SkipUntilClosingTag(st, buffer, buflen, "script");
++        return;
++    }
++
++    if (strcasecmp(buffer, "style") == 0) {
++        SkipUntilClosingTag(st, buffer, buflen, "style");
++        return;
++    }
++
++    STSkipUntil(st, ">");
++    STSkipOver(st, ">");
++}
+diff --git a/html-utils.h b/html-utils.h
+index 7fc6921..f50484c 100644
+--- a/html-utils.h
++++ b/html-utils.h
+@@ -54,6 +54,6 @@ bool GetNextTag(streamtokenizer *st, char htmlBuffer[], int htmlBufferLength);
+  * indices.
+  */
+ 
+-void SkipIrrelevantContent(streamtokenizer *st);
++void SkipIrrelevantContent(streamtokenizer *st, char *buffer, unsigned long buflen);
+ 
+ #endif
+-- 
+2.39.1
+

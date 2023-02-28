@@ -1,0 +1,16 @@
+[package]
+name = "gluty"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "create"
+
+[dependencies]
+gl = { version = "0.14.0" }
+glutin = { version = "0.30.6", features = ["egl", "wgl"] }
+glutin-winit = { version = "0.3.0" }
+winit = { version = "0.28.1" }
+
+[dev-dependencies]
+image = { version = "0.24.5" }

@@ -12,8 +12,10 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use glutin::prelude::*;
 
 pub mod program;
+pub mod utils;
 
 pub use program::Program;
+pub use utils::{Attributes, Buffer, Texture};
 
 /// All the things needed to display something.
 pub struct Glindow {

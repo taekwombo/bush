@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "vector.h" // Implementation from assignment 3.
+#include "vector.h"
+#include "hashset.h"
 
 #ifdef P1
 // Problem 1: sparsestringarray {{{
@@ -223,4 +224,151 @@ int main(int argc, char **argv) {
     return 0;
 }
 // Problem: 2 }}}
+#endif
+
+#ifdef P3
+// Problem 3: multitable
+typedef int (*MultiTableHashFunction)(const void *keyAddr, int numBuckets);
+typedef int (*MultiTableCompareFunction)(const void *keyAddr1, const void *keyAddr2);
+typedef void (*MultiTableMapFunction)(void *keyAddr, void *valueAddr, void *auxData);
+
+/**
+ * mappings item:
+ * [<keySize bytes>, vector]
+ */
+typedef struct {
+    hashset mappings;
+    int keySize;
+    int valueSize;
+} multitable;
+
+/**
+ * Function: MultiTableNew
+ * -----------------------
+ * Initializes the raw space addressed by mt to be an empty
+ * multitable otherwise capable of storing keys and values of
+ * the specified sizes. The numBuckets, hash, and compare parameters
+ * are supplied with the understanding that they will simply be passed to HashSetNew,
+ * as the interface clearly advertises that a hashset is used.
+ * You should otherwise interact with the hashset (and any vectors) using only
+ * functions which have the authority to manipulate them.
+ */
+void MultiTableNew(multitable *mt, int keySizeInBytes, int valueSizeInBytes,
+    int numBuckets, MultiTableHashFunction hashfn, MultiTableCompareFunction cmpfn)
+{
+    assert(hashfn != NULL);
+    assert(cmpfn != NULL);
+
+    mt->keySize = keySizeInBytes;
+    mt->valueSize = valueSizeInBytes;
+
+    HashSetNew(&mt->mappings, keySizeInBytes + sizeof(vector), numBuckets, hashfn, cmpfn, NULL);
+}
+
+/**
+ * Function: MultiTableMap
+ * -----------------------
+ * Applies the specified MultiTableMapFunction to each key/value pair
+ * stored inside the specified multitable. The auxData parameter
+ * is ultimately channeled in as the third parameter to every single
+ * invocation of the MultiTableMapFunction. Just to be clear, a
+ * multitable with seven keys, where each key is associated with
+ * three different values, would prompt MultiTableMap to invoke the
+ * specified MultiTableMapFunction twenty-one times.
+ */
+void MultiTableEnter(multitable *mt, const void *keyAddr, const void *valueAddr)
+{
+    void *res = HashSetLookup(&mt->mappings, keyAddr);
+    if (res == NULL) {
+        void *kv = alloca(mt->keySize + sizeof(vector));
+        vector *vec = (vector*)((char*)kv + mt->keySize);
+        memcpy(kv, keyAddr, mt->keySize);
+        VectorNew(vec, mt->valueSize, NULL, 4);
+        VectorAppend(vec, valueAddr);
+        HashSetEnter(&mt->mappings, kv);
+    } else {
+        // Add to vector.
+        vector *vec = (vector*)((char*)res + mt->keySize);
+        VectorAppend(vec, valueAddr);
+    }
+}
+
+typedef struct {
+    void *auxData;
+    multitable *mt;
+    MultiTableMapFunction mapfn;
+} mt_map;
+
+void MultitableHashsetMap(void *elemAddr, void *auxData)
+{
+    mt_map *data = auxData;
+    void *keyAddr = elemAddr;
+    vector *vec = (vector*)((char*)elemAddr + data->mt->keySize);
+    int len = VectorLength(vec);
+    int i = 0;
+    while (i < len) {
+        data->mapfn(keyAddr, VectorNth(vec, i), data->auxData);
+        i++;
+    }
+}
+
+/**
+ * Function: MultiTableMap
+ * -----------------------
+ * Applies the specified MultiTableMapFunction to each key/value pair
+ * stored inside the specified multitable. The auxData parameter
+ * is ultimately channeled in as the third parameter to every single
+ * invocation of the MultiTableMapFunction. Just to be clear, a
+ * multitable with seven keys, where each key is associated with
+ * three different values, would prompt MultiTableMap to invoke the
+ * specified MultiTableMapFunction twenty-one times.
+ */
+void MultiTableMap(multitable *mt, MultiTableMapFunction map, void *auxData)
+{
+    mt_map data = {
+        .auxData = auxData,
+        .mt = mt,
+        .mapfn = map,
+    };
+    HashSetMap(&mt->mappings, MultitableHashsetMap, &data);
+}
+
+int IntHash(const void *value, int numBuckets)
+{
+    assert(*(int*)value >= 0);
+    return *(int*)value % numBuckets;
+}
+
+int IntCmp(const void *left, const void *right)
+{
+    return left - right;
+}
+
+// Map Function that increments `auxData` by 1 on each invocation.
+// Expects auxData to be *int.
+void IntMap(void *key, void *value, void *auxData)
+{
+    *(int*)auxData += 1;
+}
+
+int main()
+{
+    multitable mt;
+    MultiTableNew(&mt, sizeof(int), sizeof(int), 10, IntHash, IntCmp);
+
+    // Insert 20 keys.
+    for (int i = 0; i < 20; i++) {
+        MultiTableEnter(&mt, &i, &i);
+    }
+
+    int aux = 0;
+
+    MultiTableMap(&mt, IntMap, &aux);
+
+    printf("Map function called: %d times.\n", aux);
+
+    assert(aux == 20);
+
+    return 0;
+}
 #endif

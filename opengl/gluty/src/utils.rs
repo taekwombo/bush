@@ -1,3 +1,5 @@
+use super::opengl;
+
 struct Attribute {
     index: u32,
     elem_count: u32,
@@ -38,7 +40,7 @@ impl Attributes {
         let stride = self.get_stride();
 
         for (index, attr) in self.attrs.iter().enumerate() {
-            unsafe {
+            opengl! {
                 gl::VertexAttribPointer(
                     attr.index,
                     attr.elem_size as i32,
@@ -64,7 +66,7 @@ impl Buffer {
     pub fn new(gl_type: u32) -> Self {
         let mut gl_id: u32 = 0;
 
-        unsafe {
+        opengl! {
             gl::GenBuffers(1, &mut gl_id);
         }
 
@@ -74,33 +76,39 @@ impl Buffer {
         }
     }
 
-    pub unsafe fn data<T>(&self, data: &[T]) -> &Self {
+    pub fn data<T>(&self, data: &[T]) -> &Self {
         use std::mem::size_of;
 
-        gl::BufferData(
-            self.gl_type,
-            (data.len() * size_of::<T>()) as isize,
-            data.as_ptr() as *const _,
-            gl::STATIC_DRAW,
-        );
+        opengl! {
+            gl::BufferData(
+                self.gl_type,
+                (data.len() * size_of::<T>()) as isize,
+                data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+        }
 
         self
     }
 
-    pub unsafe fn bind(&self) -> &Self {
-        gl::BindBuffer(self.gl_type, self.gl_id);
+    pub fn bind(&self) -> &Self {
+        opengl! {
+            gl::BindBuffer(self.gl_type, self.gl_id);
+        }
         self
     }
 
-    pub unsafe fn unbind(&self) -> &Self {
-        gl::BindBuffer(self.gl_type, 0);
+    pub fn unbind(&self) -> &Self {
+        opengl! {
+            gl::BindBuffer(self.gl_type, 0);
+        }
         self
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) -> () {
-        unsafe {
+        opengl! {
             gl::DeleteBuffers(1, &self.gl_id);
         }
     }
@@ -129,7 +137,7 @@ impl Texture {
 
         let mut gl_id = 0;
 
-        unsafe {
+        opengl! {
             gl::GenTextures(1, &mut gl_id);
             gl::BindTexture(gl_type, gl_id);
             gl::TexParameteri(gl_type, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -159,15 +167,19 @@ impl Texture {
         })
     }
 
-    pub unsafe fn bind(&self) -> &Self {
-        gl::ActiveTexture(self.slot);
-        gl::BindTexture(self.gl_type, self.gl_id);
+    pub fn bind(&self) -> &Self {
+        opengl! {
+            gl::ActiveTexture(self.slot);
+            gl::BindTexture(self.gl_type, self.gl_id);
+        }
 
         self
     }
 
-    pub unsafe fn unbind(&self) -> &Self {
-        gl::BindTexture(self.gl_type, 0);
+    pub fn unbind(&self) -> &Self {
+        opengl! {
+            gl::BindTexture(self.gl_type, 0);
+        }
 
         self
     }
@@ -175,7 +187,7 @@ impl Texture {
 
 impl Drop for Texture {
     fn drop(&mut self) -> () {
-        unsafe {
+        opengl! {
             gl::DeleteTextures(1, &self.gl_id);
         }
     }

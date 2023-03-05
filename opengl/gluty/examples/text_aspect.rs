@@ -2,7 +2,7 @@
 //!
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
-use gluty::{Glindow, Program, Attributes, Buffer, Texture};
+use gluty::{Glindow, Program, Attributes, Buffer, Texture, opengl};
 use glam::f32::{Mat4, Vec3};
 
 fn to_f(val: u32) -> f32 {
@@ -165,40 +165,43 @@ fn main() {
     let mut attrs = Attributes::new();
 
     // General setup, binding static data.
-    unsafe {
+    opengl! {
         // Vertex Arrays.
         gl::GenVertexArrays(1, &mut vao);
         gl::BindVertexArray(vao);
-
-        // Vertex Buffer.
-        vbo.bind().data::<f32>(&[
-            // Position  Texture
-            1.0,  1.0,   1.0,  1.0, // Top Right
-            1.0, -1.0,   1.0,  0.0, // Bottom Right
-           -1.0, -1.0,   0.0,  0.0, // Bottom Left
-           -1.0,  1.0,   0.0,  1.0, // Top Left
-        ]);
-
-        attrs
-            // Vertex position attribute.
-            .add::<f32>(0, 2, gl::FLOAT)
-            // Texture coordinate attribute.
-            .add::<f32>(1, 2, gl::FLOAT)
-            .bind();
-
-        // Index buffer for DrawElements.
-        ebo.bind().data::<u32>(&[
-            0, 2, 1,
-            0, 3, 2,
-        ]);
-
-        // Set texture as active.
-        texture.bind();
-        gl::Uniform1i(program.get_uniform("uTexture\0"), 0);
-
-        // Set u_projection uniform value.
-        state.update_uniform();
     }
+
+    // Vertex Buffer.
+    vbo.bind().data::<f32>(&[
+        // Position  Texture
+        1.0,  1.0,   1.0,  1.0, // Top Right
+        1.0, -1.0,   1.0,  0.0, // Bottom Right
+       -1.0, -1.0,   0.0,  0.0, // Bottom Left
+       -1.0,  1.0,   0.0,  1.0, // Top Left
+    ]);
+
+    attrs
+        // Vertex position attribute.
+        .add::<f32>(0, 2, gl::FLOAT)
+        // Texture coordinate attribute.
+        .add::<f32>(1, 2, gl::FLOAT)
+        .bind();
+
+    // Index buffer for DrawElements.
+    ebo.bind().data::<u32>(&[
+        0, 2, 1,
+        0, 3, 2,
+    ]);
+
+    // Set texture as active.
+    texture.bind();
+
+    opengl! {
+        gl::Uniform1i(program.get_uniform("uTexture\0"), 0);
+    }
+
+    // Set u_projection uniform value.
+    state.update_uniform();
 
     // Start event loop.
     #[allow(unused_variables)]
@@ -215,7 +218,7 @@ fn main() {
                 WindowEvent::CloseRequested =>  {
                     control_flow.set_exit();
                     // Delete the only resource without Drop impl.
-                    unsafe {
+                    opengl! {
                         gl::DeleteVertexArrays(1, &vao);
                     }
                 },
@@ -227,7 +230,7 @@ fn main() {
                             size.height.try_into().unwrap(),
                         );
                         state.window_resized(size.width, size.height);
-                        unsafe {
+                        opengl! {
                             gl::Viewport(0, 0, size.width as i32, size.height as i32);
                         }
                         window.request_redraw();
@@ -255,10 +258,10 @@ fn main() {
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                unsafe { 
+                opengl! { 
                     gl::Clear(gl::COLOR_BUFFER_BIT);
-                    gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null())
-                };
+                    gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+                }
                 surface.swap_buffers(&context).expect("I want to swap!");
             },
             _ => (),

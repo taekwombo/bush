@@ -5,7 +5,7 @@
 //! Supported GLSL: 4.10
 //! https://registry.khronos.org/OpenGL/specs/gl/glspec41.core.pdf
 
-use gluty::{Glindow, Program, gl_call};
+use gluty::{Glindow, Program, opengl};
 use std::mem::size_of;
 use winit::event::{Event, WindowEvent};
 use glutin::prelude::*;
@@ -45,7 +45,7 @@ fn main() {
     #[allow(unused_assignments)]
     let mut u_frame: i32 = 0;
 
-    unsafe {
+    opengl! {
         gl::ClearColor(0.0, 0.4, 0.7, 1.0);
 
         gl::GenVertexArrays(1, &mut vao);
@@ -79,10 +79,13 @@ fn main() {
             gl::STATIC_DRAW,
         );
 
-        program.use_program();
-        #[cfg(debug_assertions)]
-        program.validate().expect("Program to be valid");
+    }
 
+    program.use_program();
+    #[cfg(debug_assertions)]
+    program.validate().expect("Program to be valid");
+
+    opengl! {
         u_col = gl::GetUniformLocation(program.gl_id, "uColor\0".as_ptr() as *const _);
         u_frame = gl::GetUniformLocation(program.gl_id, "uFrame\0".as_ptr() as *const _);
 
@@ -99,7 +102,7 @@ fn main() {
         match event {
             Event::RedrawRequested(_) => {
                 frame = frame.wrapping_add(1);
-                unsafe {
+                opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::Uniform1ui(u_frame, frame);
                     gl::DrawElements(
@@ -121,10 +124,10 @@ fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                unsafe {
-                    gl_call!(gl::DeleteVertexArrays(1, &vao));
-                    gl_call!(gl::DeleteBuffers(1, &vbo));
-                    gl_call!(gl::DeleteBuffers(1, &ebo));
+                opengl! {
+                    gl::DeleteVertexArrays(1, &vao);
+                    gl::DeleteBuffers(1, &vbo);
+                    gl::DeleteBuffers(1, &ebo);
                 }
                 control_flow.set_exit();
             },

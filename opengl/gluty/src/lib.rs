@@ -147,29 +147,45 @@ fn print_gl(prefix: &str, about: gl::types::GLenum) {
 }
 
 #[macro_export]
-macro_rules! gl_call {
-    ($($v:expr)*) => {
-        #[cfg(debug_assertions)]
-        $crate::with_get_error(|| { $($v)*; }, stringify!($($v)*), line!(), file!());
-        #[cfg(not(debug_assertions))]
-        $($v)*;
-    }
+macro_rules! opengl {
+    ($($st:stmt;)+) => {
+        $(
+            opengl!($st);
+        )+
+    };
+
+    ($st:stmt) => {
+        unsafe {
+            $crate::with_get_error(
+                || { $st },
+                stringify!($st),
+                file!(),
+            )
+        }
+    };
 }
 
-pub unsafe fn with_get_error<F: FnOnce() -> ()>(work: F, source: &'static str, line: u32, file: &'static str) {
+#[inline(always)]
+pub unsafe fn with_get_error<R, F: FnOnce() -> R>(work: F, source: &'static str, file: &'static str) -> R {
+    #[cfg(debug_assertions)]
     while gl::GetError() != gl::NO_ERROR { }
 
-    work();
+    let res = work();
     
-    let mut errored = false;
-    let mut error: gl::types::GLenum = gl::GetError();
-    while error != gl::NO_ERROR {
-        errored = true;
-        eprintln!("\x1b[91mCheck error: {}\x1b[0m", error);
-        error = gl::GetError();
+    #[cfg(debug_assertions)]
+    {
+        let mut errored = false;
+        let mut error: gl::types::GLenum = gl::GetError();
+        while error != gl::NO_ERROR {
+            errored = true;
+            eprintln!("\x1b[91mCheck error: {}\x1b[0m", error);
+            error = gl::GetError();
+        }
+        if errored {
+            eprintln!("\x1b[91mAt: {}\x1b[0m\n{}", file, source);
+            panic!("GL Assertion failed.");
+        }
     }
-    if errored {
-        eprintln!("\x1b[91mAt: {}:{}\x1b[0m\n{}", file, line, source);
-        panic!("GL Assertion failed.");
-    }
+
+    res
 }

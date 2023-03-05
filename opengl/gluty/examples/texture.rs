@@ -1,7 +1,7 @@
 //! Displaying texture on rectangle.
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
-use gluty::{Glindow, Program, gl_call};
+use gluty::{Glindow, Program, opengl};
 use image::io::Reader;
 use std::mem::size_of;
 
@@ -37,9 +37,10 @@ fn main() {
     let mut vbo: u32 = 0;
     let mut ebo: u32 = 0;
 
-    unsafe {
-        program.use_program();
+    program.use_program();
 
+    opengl! {
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
         // Generate and bind VAO.
@@ -88,15 +89,15 @@ fn main() {
         );
 
         // Generate texture.
-        gl_call!(gl::GenTextures(1, &mut texture_id));
-        gl_call!(gl::ActiveTexture(gl::TEXTURE0));
-        gl_call!(gl::BindTexture(gl::TEXTURE_2D, texture_id));
-        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32));
-        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32));
-        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32));
-        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32));
+        gl::GenTextures(1, &mut texture_id);
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, texture_id);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
 
-        gl_call!(gl::TexImage2D(
+        gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
             gl::RGBA32F as i32,
@@ -106,10 +107,10 @@ fn main() {
             gl::RGBA,
             gl::FLOAT,
             image.as_raw().as_ptr() as *const _
-        ));
+        );
 
         // Set uTexture uniform value to bound texure slot.
-        gl_call!(gl::Uniform1i(program.get_uniform("uTexture\0"), 0));
+        gl::Uniform1i(program.get_uniform("uTexture\0"), 0);
     }
 
     #[allow(unused_variables)]
@@ -125,7 +126,7 @@ fn main() {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
                     control_flow.set_exit();
-                    unsafe {
+                    opengl! {
                         gl::DeleteVertexArrays(1, &vao);
                         gl::DeleteBuffers(1, &vbo);
                         gl::DeleteBuffers(1, &ebo);
@@ -139,7 +140,7 @@ fn main() {
                             size.width.try_into().unwrap(),
                             size.height.try_into().unwrap(),
                         );
-                        unsafe {
+                        opengl! {
                             gl::Viewport(
                                 0,
                                 0,
@@ -153,10 +154,10 @@ fn main() {
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                unsafe { 
+                opengl! { 
                     gl::Clear(gl::COLOR_BUFFER_BIT);
-                    gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null())
-                };
+                    gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
+                }
                 surface.swap_buffers(&context).expect("I want to swap!");
             },
             _ => (),

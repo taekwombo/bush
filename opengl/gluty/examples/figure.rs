@@ -2,7 +2,7 @@
 //! 
 //! https://docs.gl/
 
-use gluty::{Glindow, Program};
+use gluty::{Glindow, Program, opengl};
 use std::mem::size_of;
 
 fn main() {
@@ -62,7 +62,7 @@ fn main() {
     let mut vao: u32 = 0; // Attributes
     let mut ibo: u32 = 0; // Indices
 
-    unsafe {
+    opengl! {
         gl::ClearColor(1.0, 0.0, 0.5, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -92,9 +92,13 @@ fn main() {
             gl::STATIC_DRAW,
         );
 
-        program.use_program();
-        #[cfg(debug_assertions)]
-        program.validate().expect("Program to be valid");
+    }
+
+    program.use_program();
+    #[cfg(debug_assertions)]
+    program.validate().expect("Program to be valid");
+
+    opengl! {
         gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
     }
 

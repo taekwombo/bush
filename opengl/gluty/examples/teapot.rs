@@ -3,6 +3,7 @@
 use gluty::{Glindow, Program, Attributes, opengl};
 
 fn main() {
+    // https://users.cs.utah.edu/~natevm/newell_teaset/
     let (vertices, indices) = model::load("./examples/resources/teapot_newell.obj");
     let glin = Glindow::new();
 

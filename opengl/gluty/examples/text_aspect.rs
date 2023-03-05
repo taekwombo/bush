@@ -216,7 +216,7 @@ fn main() {
                     control_flow.set_exit();
                     // Delete the only resource without Drop impl.
                     unsafe {
-                        gl::DeleteBuffers(1, &vao);
+                        gl::DeleteVertexArrays(1, &vao);
                     }
                 },
                 WindowEvent::Resized(size) => {

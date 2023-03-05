@@ -126,7 +126,7 @@ fn main() {
                 WindowEvent::CloseRequested => {
                     control_flow.set_exit();
                     unsafe {
-                        gl::DeleteBuffers(1, &vao);
+                        gl::DeleteVertexArrays(1, &vao);
                         gl::DeleteBuffers(1, &vbo);
                         gl::DeleteBuffers(1, &ebo);
                         gl::DeleteTextures(1, &texture_id);

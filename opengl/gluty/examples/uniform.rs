@@ -122,7 +122,7 @@ fn main() {
                 ..
             } => {
                 unsafe {
-                    gl_call!(gl::DeleteBuffers(1, &vao));
+                    gl_call!(gl::DeleteVertexArrays(1, &vao));
                     gl_call!(gl::DeleteBuffers(1, &vbo));
                     gl_call!(gl::DeleteBuffers(1, &ebo));
                 }

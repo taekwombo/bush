@@ -43,6 +43,7 @@ fn main() {
 
     opengl! {
         gl::Enable(gl::DEPTH_TEST);
+        gl::Enable(gl::MULTISAMPLE);
         gl::ClearColor(0.2, 0.2, 0.2, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -86,6 +87,24 @@ fn main() {
                         }
                     },
                     _ => (),
+                },
+                WindowEvent::Resized(size) => {
+                    if size.width != 0 && size.height != 0 {
+                        surface.resize(
+                            &context,
+                            size.width.try_into().unwrap(),
+                            size.height.try_into().unwrap(),
+                        );
+                        camera.resized((size.width as i32 as f32) / (size.height as i32 as f32));
+                        opengl! {
+                            gl::Viewport(0, 0, size.width as i32, size.height as i32);
+                            gl::UniformMatrix4fv(
+                                u_proj, 1, gl::FALSE,
+                                camera.get_proj().as_ref() as *const _
+                            );
+                        }
+                        window.request_redraw();
+                    }
                 },
                 WindowEvent::CloseRequested =>  {
                     control_flow.set_exit();
@@ -242,12 +261,18 @@ mod camera {
         /// Defines position of the camera in the world coordinate space.
         pub camera_to_world: Mat4,
         projection: Mat4,
+        fov: f32,
+        near: f32,
+        far: f32,
     }
 
     impl Camera {
         pub fn new(fov: f32, width: u32, height: u32) -> Self {
             Self {
                 camera_to_world: Mat4::IDENTITY,
+                fov,
+                near: 0.1,
+                far: 100.0,
                 projection: Mat4::perspective_rh_gl(
                     fov.to_radians(),
                     (width as i32 as f32) / (height as i32 as f32),
@@ -271,6 +296,16 @@ mod camera {
                     1.0,
                 ),
             ));
+            self
+        }
+
+        pub fn resized(&mut self, ratio: f32) -> &mut Self {
+            self.projection = Mat4::perspective_rh_gl(
+                self.fov.to_radians(),
+                ratio,
+                self.near,
+                self.far,
+            );
             self
         }
 

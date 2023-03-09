@@ -11,12 +11,18 @@ use glutin::surface::{Surface, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use glutin::prelude::*;
 
+pub use gl;
+pub use glam;
+
 mod program;
 mod texture;
 mod attributes;
 mod buffer;
+mod mesh;
+
 pub mod obj;
 
+pub use mesh::Mesh;
 pub use buffer::Buffer;
 pub use program::Program;
 pub use texture::Texture;

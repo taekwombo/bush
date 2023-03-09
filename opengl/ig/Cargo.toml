@@ -1,0 +1,8 @@
+[package]
+name = "ig"
+version = "0.1.0"
+edition = "2021"
+description = "https://graphics.cs.utah.edu/courses/cs6610/spring2021/"
+
+[dependencies]
+gluty = { path = "../gluty" }

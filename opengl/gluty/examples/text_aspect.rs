@@ -160,8 +160,8 @@ fn main() {
         )
     };
     let mut vao: u32 = 0;
-    let vbo = Buffer::new(gl::ARRAY_BUFFER);
-    let ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER);
+    let vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
+    let ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
     let mut attrs = Attributes::new();
 
     // General setup, binding static data.

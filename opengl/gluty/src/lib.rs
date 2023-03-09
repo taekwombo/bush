@@ -11,11 +11,16 @@ use glutin::surface::{Surface, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use glutin::prelude::*;
 
-pub mod program;
-pub mod utils;
+mod program;
+mod texture;
+mod attributes;
+mod buffer;
+pub mod obj;
 
+pub use buffer::Buffer;
 pub use program::Program;
-pub use utils::{Attributes, Buffer, Texture};
+pub use texture::Texture;
+pub use attributes::Attributes;
 
 /// All the things needed to display something.
 pub struct Glindow {

@@ -16,10 +16,14 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(vbo_data: &[f32], ebo_data: &[u32], attrs: Attributes) -> Self {
+    pub fn new<F>(vbo_data: &[f32], ebo_data: &[u32], add_attrs: F) -> Self 
+        where
+            F: FnOnce(&mut Attributes),
+    {
         let mut vao: u32 = 0;
         let vbo: Buffer;
         let ebo: Buffer;
+        let mut attrs = Attributes::new();
 
         opengl! {
             // Create and bind Vertex Array.
@@ -34,6 +38,7 @@ impl Mesh {
         ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
         ebo.bind().data(ebo_data);
 
+        add_attrs(&mut attrs);
         // Enable vertex attributes.
         attrs.bind();
 
@@ -64,9 +69,23 @@ impl Mesh {
         self
     }
 
-    pub fn rotate_y(&mut self, y: f32) -> &mut Self {
+    pub fn rotate_y(&mut self, y_deg: f32) -> &mut Self {
         self.model_to_world *= Mat4::from_rotation_y(
-            y.to_radians(),
+            y_deg.to_radians(),
+        );
+        self
+    }
+
+    pub fn rotate_x(&mut self, x_deg: f32) -> &mut Self {
+        self.model_to_world *= Mat4::from_rotation_x(
+            x_deg.to_radians(),
+        );
+        self
+    }
+
+    pub fn rotate_z(&mut self, z_deg: f32) -> &mut Self {
+        self.model_to_world *= Mat4::from_rotation_z(
+            z_deg.to_radians(),
         );
         self
     }

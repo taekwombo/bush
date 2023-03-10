@@ -1,6 +1,6 @@
 //! Displaying .obj model with lighting and camera.
 
-use gluty::{Mesh, Glindow, Program, Attributes, opengl, obj};
+use gluty::{Mesh, Glindow, Program, Camera, opengl, obj};
 
 fn main() {
     // https://users.cs.utah.edu/~natevm/newell_teaset/
@@ -15,17 +15,16 @@ fn main() {
         .expect("Program created.")
         .use_program();
 
-    let mut attrs = Attributes::new();
-    attrs
-        // Position attribute.
-        .add::<f32>(0, 3, gl::FLOAT)
-        // Vertex normal attribute.
-        .add::<f32>(1, 3, gl::FLOAT);
-
     let mut teapot = Mesh::new(
         &vertices,
         &indices,
-        attrs,
+        |attrs| {
+            attrs
+                // Position attribute.
+                .add::<f32>(0, 3, gl::FLOAT)
+                // Vertex normal attribute.
+                .add::<f32>(1, 3, gl::FLOAT);
+        }
     );
     teapot
         .translate(0.0, -0.5, 0.0)
@@ -33,7 +32,7 @@ fn main() {
 
     let mut camera = {
         let size = glin.window.inner_size();
-        camera::Camera::new(60.0, size.width, size.height)
+        Camera::new(60.0, size.width, size.height)
     };
     camera.translate(0.0, 0.0, 5.0);
 
@@ -115,11 +114,9 @@ fn main() {
                         let dy = position.y - prev_y;
                         let size = window.inner_size();
 
-                        camera.rotate(
-                            (dy / size.height as f64) as f32,
-                            (dx / size.width as f64) as f32,
-                            0.0,
-                        );
+                        camera
+                            .rotate_x((dy / size.height as f64) as f32)
+                            .rotate_y((dx / size.width as f64) as f32);
                         opengl!(
                             gl::UniformMatrix4fv(
                                 u_proj, 1, gl::FALSE,
@@ -159,67 +156,5 @@ fn main() {
             _ => (),
         }
     });
-}
-
-mod camera {
-    use glam::{Mat4, Vec3, Vec4, Quat};
-
-    pub struct Camera {
-        /// Defines position of the camera in the world coordinate space.
-        pub camera_to_world: Mat4,
-        projection: Mat4,
-        fov: f32,
-        near: f32,
-        far: f32,
-    }
-
-    impl Camera {
-        pub fn new(fov: f32, width: u32, height: u32) -> Self {
-            Self {
-                camera_to_world: Mat4::IDENTITY,
-                fov,
-                near: 0.1,
-                far: 100.0,
-                projection: Mat4::perspective_rh_gl(
-                    fov.to_radians(),
-                    (width as i32 as f32) / (height as i32 as f32),
-                    0.1,
-                    100.0,
-                ),
-            }
-        }
-
-        pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-            self.camera_to_world *= Mat4::from_translation(Vec3::new(x, y, z));
-            self
-        }
-
-        pub fn rotate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
-            self.camera_to_world *= Mat4::from_quat(Quat::from_vec4(
-                Vec4::new(
-                    x,
-                    y,
-                    z,
-                    1.0,
-                ),
-            ));
-            self
-        }
-
-        pub fn resized(&mut self, ratio: f32) -> &mut Self {
-            self.projection = Mat4::perspective_rh_gl(
-                self.fov.to_radians(),
-                ratio,
-                self.near,
-                self.far,
-            );
-            self
-        }
-
-        pub fn get_proj(&self) -> Mat4 {
-            // Projection * World to Camera (inverse of the camera to world).
-            self.projection * self.camera_to_world.inverse()
-        }
-    }
 }
 

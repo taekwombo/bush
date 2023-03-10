@@ -1,26 +1,14 @@
 use std::path::Path;
-use std::error::Error;
 use gl::types::GLenum;
 use super::opengl;
 
-#[derive(Debug)]
-struct Oopsie(&'static str);
-
-impl std::fmt::Display for Oopsie {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fmt.write_str(&self.0)
-    }
-}
-
-impl Error for Oopsie {}
-
-fn load_shader_from_path<P>(path: &P, shader_type: GLenum) -> Result<u32, Box<dyn std::error::Error>>
+fn load_shader_from_path<P>(path: &P, shader_type: GLenum) -> Result<u32, &'static str>
 where P: AsRef<Path>
 {
     use std::fs::read;
 
-    let shader_source = read(path.as_ref())?;
-    let src_len: i32 = i32::try_from(shader_source.len())?;
+    let shader_source = read(path.as_ref()).expect("Shader source to exist.");
+    let src_len: i32 = i32::try_from(shader_source.len()).expect("Shader length must fit in i32.");
     let src_ptr = shader_source.as_ptr() as *const _;
 
     let shader = opengl!(gl::CreateShader(shader_type));
@@ -53,7 +41,7 @@ where P: AsRef<Path>
 
         opengl!(gl::DeleteShader(shader));
 
-        return Err(Box::new(Oopsie("Failed to compile shader.")));
+        return Err("Failed to compile shader.");
     }
 
     Ok(shader)

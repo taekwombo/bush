@@ -8,6 +8,10 @@ where P: AsRef<Path>
     use std::fs::read;
 
     let shader_source = read(path.as_ref()).expect("Shader source to exist.");
+    compile_shader(&shader_source, shader_type)
+}
+
+fn compile_shader(shader_source: &[u8], shader_type: GLenum) -> Result<u32, &'static str> {
     let src_len: i32 = i32::try_from(shader_source.len()).expect("Shader length must fit in i32.");
     let src_ptr = shader_source.as_ptr() as *const _;
 
@@ -71,6 +75,26 @@ impl Program {
         )
     }
 
+    pub fn attach_shader(&mut self, shader: u32) -> Result<&mut Self, ()> {
+        opengl!(gl::AttachShader(self.gl_id, shader));
+        self.shaders[self.shader_cnt as usize] = shader;
+        self.shader_cnt += 1;
+
+        Ok(self)
+    }
+
+    pub fn attach_shader_source_str(&mut self, source: &[u8], shader_type: GLenum) -> Result<&mut Self, ()> {
+        let shader = match compile_shader(source, shader_type) {
+            Err(err) => {
+                eprintln!("[shader_source_str]: {}", err);
+                return Err(());
+            },
+            Ok(shader) => shader,
+        };
+
+        self.attach_shader(shader)
+    }
+
     pub fn attach_shader_source<P: AsRef<Path>>(&mut self, path: P, shader_type: GLenum) -> Result<&mut Self, ()> {
         let shader = match load_shader_from_path(&path, shader_type) {
             Err(err) => {
@@ -80,11 +104,7 @@ impl Program {
             Ok(shader) => shader,
         };
 
-        opengl!(gl::AttachShader(self.gl_id, shader));
-        self.shaders[self.shader_cnt as usize] = shader;
-        self.shader_cnt += 1;
-
-        Ok(self)
+        self.attach_shader(shader)
     }
 
     pub fn link(&self) -> Result<&Self, ()> {

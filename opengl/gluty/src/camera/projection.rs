@@ -25,11 +25,7 @@ pub struct Projection {
 
 impl Projection {
     pub fn is_orthographic(&self) -> bool {
-        if let ProjectionKind::Orthographic(_) = self.kind {
-            true
-        } else {
-            false
-        }
+        matches!(self.kind, ProjectionKind::Orthographic(_))
     }
     pub fn orthographic(bounds: [f32; 6]) -> Self {
         let kind = ProjectionKind::Orthographic(bounds);
@@ -45,9 +41,9 @@ impl Projection {
         Self { kind, matrix }
     }
 
-    pub fn resize(&mut self, width: f32, height: f32) -> &mut Self {
+    pub fn resize(&mut self, aspect: f32) -> &mut Self {
         if let ProjectionKind::Perspective(v) = &mut self.kind {
-            v[1] = width / height; 
+            v[1] = aspect;
             self.matrix = self.kind.to_matrix();
         }
 

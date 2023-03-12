@@ -1,7 +1,7 @@
 /// Expects: "<f32> <f32> <f32>\n" string slice.
 /// Parses floats and appends them to the vec parameter.
 fn parse_vector(line: &str) -> [f32; 3] {
-    let mut split = line.split(' ').skip_while(|v| v.len() == 0);
+    let mut split = line.split(' ').skip_while(|v| v.is_empty());
     [
         split
             .next().expect("Component exists.")
@@ -21,7 +21,7 @@ fn parse_face(line: &str) -> ([(u32, u32); 4], usize) {
     let mut index = 0;
 
     for value in line.split(' ') {
-        if value.len() == 0 {
+        if value.is_empty() {
             continue;
         }
 
@@ -94,16 +94,16 @@ pub fn load(path: &str) -> (Vec<f32>, Vec<u32>) {
     let file = String::from_utf8_lossy(&file);
 
     for line in file.lines() {
-        if line.starts_with("v ") {
-            loaded_vertices.push(parse_vector(&line[2..]));
-        } else if line.starts_with("vn ") {
-            loaded_vertex_normals.push(parse_vector(&line[3..]));
-        } else if line.starts_with("f ") {
-            let (vn, len) = parse_face(&line[2..]);
+        if let Some(suffix) = line.strip_prefix("v ") {
+            loaded_vertices.push(parse_vector(suffix));
+        } else if let Some(suffix) = line.strip_prefix("vn ") {
+            loaded_vertex_normals.push(parse_vector(suffix));
+        } else if let Some(suffix) = line.strip_prefix("f ") {
+            let (vn, len) = parse_face(suffix);
             for pair in &vn[0..3] {
                 append_vertex(
-                    &mut loaded_vertices,
-                    &mut loaded_vertex_normals,
+                    &loaded_vertices,
+                    &loaded_vertex_normals,
                     &mut vbo_data,
                     &mut ebo_data,
                     &mut vertex_map,
@@ -115,8 +115,8 @@ pub fn load(path: &str) -> (Vec<f32>, Vec<u32>) {
             if len == 4 {
                 for pair in &[vn[2], vn[3], vn[0]] {
                     append_vertex(
-                        &mut loaded_vertices,
-                        &mut loaded_vertex_normals,
+                        &loaded_vertices,
+                        &loaded_vertex_normals,
                         &mut vbo_data,
                         &mut ebo_data,
                         &mut vertex_map,

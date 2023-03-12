@@ -1,7 +1,12 @@
-use gluty::{opengl, gl, Program, Mesh, obj, FlyCamera, Projection, glam::Mat4};
+use gluty::{opengl, gl, Program, FlyCamera, Projection};
 use gluty::winit::event::*;
 use gluty::winit::dpi::{PhysicalSize, PhysicalPosition};
-use std::time::Instant;
+
+mod input;
+mod light;
+
+pub use light::*;
+pub use input::*;
 
 const NEAR: f32 = 0.01;
 const FAR: f32 = 1000.0;
@@ -12,19 +17,21 @@ const ORHO: [f32; 6] = [
     NEAR, FAR,
 ];
 
-fn create_program() -> Result<Program, ()> {
+pub fn create_program(dir: Option<&'static str>) -> Result<Program, ()> {
     let mut program = Program::create();
 
-    program
-        .attach_shader_source("./shaders/p2/shader.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./shaders/p2/shader.frag", gl::FRAGMENT_SHADER))
-        .and_then(|p| p.link())?;
+    if let Some(dir) = dir {
+        program
+            .attach_shader_source(format!("{}/shader.vert", dir), gl::VERTEX_SHADER)
+            .and_then(|p| p.attach_shader_source(format!("{}/shader.frag", dir), gl::FRAGMENT_SHADER))
+            .and_then(|p| p.link())?;
+    }
 
     Ok(program)
 }
 
 pub fn get_model_path() -> String {
-    let path_arg = std::env::args().skip(1).next();
+    let path_arg = std::env::args().nth(2);
 
     path_arg.map_or_else(
         || String::from("./resources/teapot.obj"),
@@ -32,96 +39,92 @@ pub fn get_model_path() -> String {
     )
 }
 
-pub struct Project {
-    pub prog: Program,
-    pub mouse: Option<MouseButton>,
-    pub mesh: Mesh,
-    pub camera: FlyCamera,
-    uniforms: Vec<(&'static str, Box<dyn Fn(&Self) -> Mat4>, i32)>,
-    size: PhysicalSize<f32>,
-    movement_timestamp: Option<Instant>,
-    cursor_position: Option<PhysicalPosition<f32>>,
+type CreateProgram = fn() -> Result<Program, ()>;
+
+pub trait Controller {
+    fn state(&mut self) -> &mut InputState;
+    fn upload_uniforms(&self, camera: &FlyCamera);
+    fn program_changed(&mut self, program: &Program);
 }
 
-impl Project {
-    pub fn new(win_size: PhysicalSize<u32>) -> Self {
-        let (v, i) = obj::load(&get_model_path());
+pub struct Project<T: Controller> {
+    pub prog: Program,
+    pub camera: FlyCamera,
+    pub controller: T,
+    size: PhysicalSize<f32>,
+    create_program: CreateProgram,
+}
+
+impl<T: Controller> Project<T> {
+    pub fn new(controller: T, win_size: PhysicalSize<u32>, create_program: CreateProgram) -> Self {
         let size = PhysicalSize::new(win_size.width as i32 as f32, win_size.height as i32 as f32);
 
-        Self {
+        let mut result = Self {
             size,
-            prog: create_program().unwrap(),
-            mouse: None,
-            mesh: Mesh::new(&v, &i, |a| {
-                a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
-            }),
+            create_program,
+            controller,
+            prog: create_program().expect("Program must be created."),
             camera: FlyCamera::new(|| Projection::perspective(FOV, size.width / size.height, NEAR, FAR)),
-            uniforms: Vec::new(),
-            movement_timestamp: None,
-            cursor_position: None,
-        }
+        };
+
+        result.controller.program_changed(&result.prog);
+        result.upload_uniforms();
+
+        result
     }
 
-    pub fn add_uniform(&mut self, name: &'static str, getter: Box<dyn Fn(&Self) -> Mat4>) -> &mut Self {
-        self.uniforms.push((name, getter, self.prog.get_uniform(name)));
+    pub fn ctrl(&mut self) -> &mut T {
+        &mut self.controller
+    }
+
+    pub fn upload_uniforms(&mut self) -> &mut Self {
+        self.prog.use_program();
+        self.controller.upload_uniforms(&self.camera);
         self
     }
 
-    pub fn refresh_uniform_locations(&mut self) -> &mut Self {
-        for i in 0..self.uniforms.len() {
-            let uni = &mut self.uniforms[i];
-            uni.2 = self.prog.get_uniform(uni.0);
+    pub fn resize(&mut self, size: PhysicalSize<u32>) -> &mut Self {
+        self.size = PhysicalSize::new(
+            size.width as i32 as f32,
+            size.height as i32 as f32,
+        );
+        self.camera.projection.resize(
+            self.size.width / self.size.height
+        );
+        opengl! {
+            gl::Viewport(
+                0, 0,
+                size.width as i32,
+                size.height as i32,
+            );
         }
-        self
-    }
 
-    pub fn upload_uniforms(&self) -> &Self {
-        for i in 0..self.uniforms.len() {
-            let uni = &self.uniforms[i];
-
-            debug_assert!(uni.2 >= 0);
-
-            opengl! {
-                gl::UniformMatrix4fv(
-                    uni.2,        
-                    1,
-                    gl::FALSE,
-                    uni.1(self).as_ref() as *const _,
-                );
-            }
-        }
+        self.upload_uniforms();
 
         self
     }
 
-    pub fn lmb(&self) -> bool {
-        if let Some(MouseButton::Left) = self.mouse { true } else { false }
-    }
+    pub fn handle_key_code(&mut self, input: &KeyboardInput) -> bool {
+        let Some(keycode) = input.virtual_keycode else {
+            return false;
+        };
 
-    pub fn rmb(&self) -> bool {
-        if let Some(MouseButton::Right) = self.mouse { true } else { false }
-    }
+        let state = self.controller.state();
 
-    pub fn handle_key_code(&mut self, state: &ElementState, keycode: &VirtualKeyCode) -> &mut Self {
-        if *state != ElementState::Pressed {
-            match keycode {
-                VirtualKeyCode::W | VirtualKeyCode::S | VirtualKeyCode::A | VirtualKeyCode::D => {
-                    self.movement_timestamp = None;
-                },
-                _ => (),
-            }
+        if input.state != ElementState::Pressed {
+            state.key_release();
 
-            return self;
+            return false;
         }
 
         match keycode {
             // Reload shaders on R key press.
-            VirtualKeyCode::R => match create_program() {
+            VirtualKeyCode::R => match (self.create_program)() {
                 Ok(prog) => {
                     println!("Reloading shaders.");
                     self.prog = prog;
-                    self.prog.use_program();
-                    self.refresh_uniform_locations().upload_uniforms();
+                    self.controller.program_changed(&self.prog);
+                    self.upload_uniforms();
                 },
                 Err(_) => {
                     println!("Could not reload program.");
@@ -139,75 +142,41 @@ impl Project {
                 } else {
                     self.camera.projection.replace(Projection::orthographic(ORHO));
                 }
+
                 self.upload_uniforms();
             },
             // Initial movement event.
-            VirtualKeyCode::W
-                | VirtualKeyCode::S
-                | VirtualKeyCode::A
-                | VirtualKeyCode::D if self.movement_timestamp.is_none() => {
-                self.movement_timestamp = Some(Instant::now());
-            }
-            VirtualKeyCode::W | VirtualKeyCode::S => {
-                let elapsed = self.movement_timestamp.as_ref().unwrap().elapsed().as_secs_f32();
-                let direction = if *keycode == VirtualKeyCode::W { -1.0 } else { 1.0 };
-                self.movement_timestamp.replace(Instant::now());
-
-                self.camera.accelerate_z(elapsed * direction).update();
-                self.upload_uniforms();
+            VirtualKeyCode::W | VirtualKeyCode::S | VirtualKeyCode::A | VirtualKeyCode::D => {
+                match state.key_movement(&keycode) {
+                    None => return false,
+                    Some((axis, change)) => {
+                        if let MovementAxis::X = axis {
+                            self.camera.accelerate_x(change).update();
+                        } else {
+                            self.camera.accelerate_z(change).update();
+                        }
+                        self.upload_uniforms();
+                    }
+                }
             },
-            VirtualKeyCode::A | VirtualKeyCode::D => {
-                let elapsed = self.movement_timestamp.as_ref().unwrap().elapsed().as_secs_f32();
-                let direction = if *keycode == VirtualKeyCode::A { -1.0 } else { 1.0 };
-                self.movement_timestamp.replace(Instant::now());
-
-                self.camera.accelerate_x(elapsed * direction).update();
-                self.upload_uniforms();
-            },
-            _ => (),
-        };
-        self
-    }
-
-    pub fn handle_mouse_btn(&mut self, state: &ElementState, button: &MouseButton) -> &mut Self {
-        if *state == ElementState::Released {
-            let _ = self.mouse.take();
-            let _ = self.cursor_position.take();
-            return self;
-        }
-
-        match button {
-            MouseButton::Left | MouseButton::Right => {
-                self.mouse.replace(*button);
-            }
-            _ => (),
+            _ => return false,
         };
 
-        self
+        true
     }
 
     pub fn handle_cursor_move(&mut self, pos: &PhysicalPosition<f64>) -> bool {
-        if self.mouse.is_none() {
+        let state = self.controller.state();
+
+        if state.mouse.is_none() {
             return false;
         }
 
-        if self.cursor_position.is_none() {
-            self.cursor_position.replace(PhysicalPosition::new(
-                pos.x as f32,
-                pos.y as f32,
-            ));
-
+        let Some((delta_x, delta_y)) = state.cursor_move(pos) else {
             return false;
-        }
+        };
 
-        let prev = self.cursor_position.as_ref().unwrap();
-        let x = pos.x as f32;
-        let y = pos.y as f32;
-        let delta_x = (x - prev.x) / (self.size.width / 100.0);
-        let delta_y = (y - prev.y) / (self.size.height / -100.0);
-        self.cursor_position.replace(PhysicalPosition::new(x, y));
-
-        match self.mouse.unwrap() {
+        match state.mouse.unwrap() {
             MouseButton::Right => {
                 self.camera.accelerate_z(delta_y).accelerate_x(delta_x).update();
             },
@@ -219,6 +188,6 @@ impl Project {
 
         self.upload_uniforms();
 
-        return true;
+        true
     }
 }

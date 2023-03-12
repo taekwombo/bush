@@ -21,8 +21,6 @@ impl Mesh {
             F: FnOnce(&mut Attributes),
     {
         let mut vao: u32 = 0;
-        let vbo: Buffer;
-        let ebo: Buffer;
         let mut attrs = Attributes::new();
 
         opengl! {
@@ -32,10 +30,10 @@ impl Mesh {
         }
 
         // Bind vertex buffer.
-        vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
+        let vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
         vbo.bind().data(vbo_data);
         // Bind element buffer.
-        ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
+        let ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
         ebo.bind().data(ebo_data);
 
         add_attrs(&mut attrs);

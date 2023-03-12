@@ -28,7 +28,7 @@ impl FlyCamera {
         F: FnOnce() -> Projection,
     {
         let position = Vec3::ZERO;
-        let front = Vec3::Z;
+        let front = Vec3::new(0.0, 0.0, -1.0);
         let up = Vec3::Y;
         let view_matrix = Mat4::look_at_rh(position, front, up);
 
@@ -79,24 +79,39 @@ impl FlyCamera {
         ).normalize();
         
         self.right = self.front.cross(Vec3::Y);
-        let up = self.front.cross(self.right);
+        // Just make sure up vector actually points up
+        // when calling this function for the first time.
+        let up = self.right.cross(self.front);
 
+        // look_at_rh(
+        //   position (looking from this position),
+        //   center (position of thing camera is looking at),
+        //   up
+        // )
         // look_to_rh(
         //   position (looking from this position),
         //   front    (looking in this direction),
         //   up
         // )
-        self.view_matrix = Mat4::look_to_rh(self.position, self.front, up);
+
+        // While normally view transform is: Translation * Rotation and
+        // it needs to be inversed to apply to vertex position.
+        // This one is already inversed and ready to apply to vertex position.
+        self.view_matrix = Mat4::look_to_rh(
+            self.position,
+            self.front,
+            up,
+        );
 
         self
     }
 
-    pub fn get_view(&self) -> Mat4 {
-        self.view_matrix
+    pub fn get_view(&self) -> &Mat4 {
+        &self.view_matrix
     }
 
-    pub fn get_proj(&self) -> Mat4 {
-        self.projection.matrix
+    pub fn get_proj(&self) -> &Mat4 {
+        &self.projection.matrix
     }
 
     pub fn get_view_proj(&self) -> Mat4 {

@@ -18,7 +18,7 @@ pub struct Attributes {
 impl Attributes {
     fn get_stride(&self) -> u32 {
         self.attrs.iter().fold(0, |acc, attr| {
-            acc + attr.elem_size * attr.elem_count as u32
+            acc + attr.elem_size * attr.elem_count
         })
     }
 

@@ -3,8 +3,8 @@ use glam::{Mat4, Vec3};
 mod fly;
 mod projection;
 
-pub use projection::Projection;
 pub use fly::FlyCamera;
+pub use projection::Projection;
 
 /// Basic camera, doesn't follow any particular implementation.
 /// Somehow works, then it's good enough.
@@ -57,18 +57,15 @@ impl Camera {
     }
 
     pub fn resized(&mut self, ratio: f32) -> &mut Self {
-        self.projection = Mat4::perspective_rh_gl(
-            self.fov.to_radians(),
-            ratio,
-            self.near,
-            self.far,
-        );
+        self.projection =
+            Mat4::perspective_rh_gl(self.fov.to_radians(), ratio, self.near, self.far);
         self
     }
 
     pub fn get_proj(&self) -> Mat4 {
         // View-Projection matrix = Projection * Inverse(Camera_World).
-        let rotation = Mat4::from_rotation_x(self.rotation.0) * Mat4::from_rotation_y(self.rotation.1);
+        let rotation =
+            Mat4::from_rotation_x(self.rotation.0) * Mat4::from_rotation_y(self.rotation.1);
         self.projection * (self.camera_to_world * rotation).inverse()
     }
 }

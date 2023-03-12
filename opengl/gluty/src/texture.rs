@@ -9,6 +9,7 @@ pub struct Texture {
 }
 
 impl Texture {
+    #[allow(clippy::result_unit_err)]
     pub fn create<S: AsRef<std::path::Path>>(path: S, gl_type: u32, slot: u32) -> Result<Self, ()> {
         use image::io::Reader;
 
@@ -72,7 +73,7 @@ impl Texture {
 }
 
 impl Drop for Texture {
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         opengl! {
             gl::DeleteTextures(1, &self.gl_id);
         }

@@ -1,8 +1,8 @@
 //! Let's start it easy. How about a triangle?!
-//! 
+//!
 //! https://docs.gl/
 
-use gluty::{Glindow, Program, opengl};
+use gluty::{opengl, Glindow, Program};
 use std::mem::size_of;
 
 fn main() {
@@ -37,6 +37,7 @@ fn main() {
     //
     // Data for ARRAY_BUFFER.
     // Mapped by VertexAttribPointer.
+    #[rustfmt::skip]
     let positions: &[f32] = &[
         -0.5,  0.5,     // 0
          0.5,  0.5,     // 1
@@ -49,6 +50,7 @@ fn main() {
     ];
 
     // Data for ELEMENT_ARRAY_BUFFER.
+    #[rustfmt::skip]
     let indices: &[u32] = &[
         0, 2, 1,
         0, 3, 2,
@@ -77,7 +79,7 @@ fn main() {
 
         // https://learnopengl.com/Getting-started/Hello-Triangle
         // > Core OpenGL requires that we use a VAO so it knows what to do with our vertex inputs.
-        // > If we fail to bind a VAO, OpenGL will most likely refuse to draw anything. 
+        // > If we fail to bind a VAO, OpenGL will most likely refuse to draw anything.
         gl::GenVertexArrays(1, &mut vao);
         gl::BindVertexArray(vao);
         gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (2 * size_of::<f32>()) as i32, std::ptr::null());

@@ -52,10 +52,9 @@ impl Buffer {
 }
 
 impl Drop for Buffer {
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         opengl! {
             gl::DeleteBuffers(1, &self.gl_id);
         }
     }
 }
-

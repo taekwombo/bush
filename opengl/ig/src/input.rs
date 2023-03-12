@@ -1,6 +1,6 @@
-use std::time::Instant;
+use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::event::*;
-use gluty::winit::dpi::{PhysicalSize, PhysicalPosition};
+use std::time::Instant;
 
 #[derive(Debug)]
 pub enum MovementAxis {
@@ -42,10 +42,8 @@ impl InputState {
 
     pub fn cursor_move(&mut self, pos: &PhysicalPosition<f64>) -> Option<(f32, f32)> {
         if self.cursor_position.is_none() {
-            self.cursor_position.replace(PhysicalPosition::new(
-                pos.x as f32,
-                pos.y as f32,
-            ));
+            self.cursor_position
+                .replace(PhysicalPosition::new(pos.x as f32, pos.y as f32));
 
             return None;
         }
@@ -72,7 +70,12 @@ impl InputState {
             return None;
         }
 
-        let elapsed = self.movement_timestamp.as_ref().unwrap().elapsed().as_secs_f32();
+        let elapsed = self
+            .movement_timestamp
+            .as_ref()
+            .unwrap()
+            .elapsed()
+            .as_secs_f32();
         self.movement_timestamp.replace(Instant::now());
 
         Some(match keycode {

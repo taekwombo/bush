@@ -1,6 +1,6 @@
 //! Displaying .obj model with lighting and camera.
 
-use gluty::{Mesh, Glindow, Program, Camera, opengl, obj};
+use gluty::{obj, opengl, Camera, Glindow, Mesh, Program};
 
 fn main() {
     // https://users.cs.utah.edu/~natevm/newell_teaset/
@@ -15,20 +15,14 @@ fn main() {
         .expect("Program created.")
         .use_program();
 
-    let mut teapot = Mesh::new(
-        &vertices,
-        &indices,
-        |attrs| {
-            attrs
-                // Position attribute.
-                .add::<f32>(0, 3, gl::FLOAT)
-                // Vertex normal attribute.
-                .add::<f32>(1, 3, gl::FLOAT);
-        }
-    );
-    teapot
-        .translate(0.0, -0.5, 0.0)
-        .scale(0.3, 0.3, 0.3);
+    let mut teapot = Mesh::new(&vertices, &indices, |attrs| {
+        attrs
+            // Position attribute.
+            .add::<f32>(0, 3, gl::FLOAT)
+            // Vertex normal attribute.
+            .add::<f32>(1, 3, gl::FLOAT);
+    });
+    teapot.translate(0.0, -0.5, 0.0).scale(0.3, 0.3, 0.3);
 
     let mut camera = {
         let size = glin.window.inner_size();
@@ -53,7 +47,13 @@ fn main() {
     }
 
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = glin;
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = glin;
     let mut rotating = false;
     let mut prev_x: f64 = -1.0;
     let mut prev_y: f64 = -1.0;
@@ -139,13 +139,13 @@ fn main() {
                             prev_x = -1.0;
                             prev_y = -1.0;
                         }
-                    } 
+                    }
                 },
                 _ => (),
             },
             Event::RedrawRequested(_) => {
                 teapot.rotate_y(0.5);
-                opengl! { 
+                opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                     gl::UniformMatrix4fv(u_model, 1, gl::FALSE, teapot.model_to_world.as_ref() as *const _);
                 };
@@ -157,4 +157,3 @@ fn main() {
         }
     });
 }
-

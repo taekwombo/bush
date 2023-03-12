@@ -1,4 +1,4 @@
-use super::{Attributes, Buffer, opengl};
+use super::{opengl, Attributes, Buffer};
 use glam::{Mat4, Vec3};
 
 pub struct Mesh {
@@ -16,9 +16,9 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new<F>(vbo_data: &[f32], ebo_data: &[u32], add_attrs: F) -> Self 
-        where
-            F: FnOnce(&mut Attributes),
+    pub fn new<F>(vbo_data: &[f32], ebo_data: &[u32], add_attrs: F) -> Self
+    where
+        F: FnOnce(&mut Attributes),
     {
         let mut vao: u32 = 0;
         let mut attrs = Attributes::new();
@@ -49,7 +49,7 @@ impl Mesh {
 
         Self {
             vao,
-            vbo, 
+            vbo,
             ebo,
             attrs,
             indices: ebo_data.len() as i32,
@@ -68,23 +68,17 @@ impl Mesh {
     }
 
     pub fn rotate_y(&mut self, y_deg: f32) -> &mut Self {
-        self.model_to_world *= Mat4::from_rotation_y(
-            y_deg.to_radians(),
-        );
+        self.model_to_world *= Mat4::from_rotation_y(y_deg.to_radians());
         self
     }
 
     pub fn rotate_x(&mut self, x_deg: f32) -> &mut Self {
-        self.model_to_world *= Mat4::from_rotation_x(
-            x_deg.to_radians(),
-        );
+        self.model_to_world *= Mat4::from_rotation_x(x_deg.to_radians());
         self
     }
 
     pub fn rotate_z(&mut self, z_deg: f32) -> &mut Self {
-        self.model_to_world *= Mat4::from_rotation_z(
-            z_deg.to_radians(),
-        );
+        self.model_to_world *= Mat4::from_rotation_z(z_deg.to_radians());
         self
     }
 

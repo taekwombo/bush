@@ -2,8 +2,8 @@
 //!
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
-use gluty::{Glindow, Program, Attributes, Buffer, Texture, opengl};
 use glam::f32::{Mat4, Vec3};
+use gluty::{opengl, Attributes, Buffer, Glindow, Program, Texture};
 
 fn to_f(val: u32) -> f32 {
     //! Good enough u32 -> f32 conversion for this example.
@@ -44,9 +44,12 @@ impl State {
         screen_height: u32,
         gl_uniform: i32,
     ) -> Self {
-        let aspect_matrix = Mat4::from_scale(
-            Self::get_aspect(image_width, image_height, screen_width, screen_height)
-        );
+        let aspect_matrix = Mat4::from_scale(Self::get_aspect(
+            image_width,
+            image_height,
+            screen_width,
+            screen_height,
+        ));
         Self {
             tx: 0.0,
             ty: 0.0,
@@ -63,7 +66,7 @@ impl State {
     fn get_aspect(img_w: u32, img_h: u32, screen_w: u32, screen_h: u32) -> Vec3 {
         let img_aspect = to_f(img_w) / to_f(img_h);
         let screen_aspect = to_f(screen_w) / to_f(screen_h);
-        
+
         if img_aspect > screen_aspect {
             Vec3::new(1.0, screen_aspect / img_aspect, 1.0)
         } else {
@@ -74,7 +77,12 @@ impl State {
     /// Update u_projection uniform on the GPU.
     fn update_uniform(&self) -> &Self {
         unsafe {
-            gl::UniformMatrix4fv(self.gl_uniform, 1, gl::FALSE, self.image.as_ref() as *const _);
+            gl::UniformMatrix4fv(
+                self.gl_uniform,
+                1,
+                gl::FALSE,
+                self.image.as_ref() as *const _,
+            );
         }
 
         self
@@ -83,9 +91,12 @@ impl State {
     /// Handle window resize.
     fn window_resized(&mut self, screen_width: u32, screen_height: u32) -> &mut Self {
         // Create completely new aspect ratio matrix.
-        self.image = Mat4::from_scale(
-            Self::get_aspect(self.image_width, self.image_height, screen_width, screen_height)
-        );
+        self.image = Mat4::from_scale(Self::get_aspect(
+            self.image_width,
+            self.image_height,
+            screen_width,
+            screen_height,
+        ));
         self.aspect_image = self.image;
         self.apply_transformations();
         self.update_uniform();
@@ -141,10 +152,13 @@ fn main() {
 
     let glin = Glindow::new();
     let mut program = Program::create();
-    let texture = Texture::create("./examples/resources/opossum.jpg", gl::TEXTURE_2D, 0).expect("Texture created.");
+    let texture = Texture::create("./examples/resources/opossum.jpg", gl::TEXTURE_2D, 0)
+        .expect("Texture created.");
     program
         .attach_shader_source("./examples/shaders/text_aspect.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./examples/shaders/text_aspect.frag", gl::FRAGMENT_SHADER))
+        .and_then(|p| {
+            p.attach_shader_source("./examples/shaders/text_aspect.frag", gl::FRAGMENT_SHADER)
+        })
         .and_then(|p| p.link())
         .expect("Program created.")
         .use_program();
@@ -172,6 +186,7 @@ fn main() {
     }
 
     // Vertex Buffer.
+    #[rustfmt::skip]
     vbo.bind().data::<f32>(&[
         // Position  Texture
         1.0,  1.0,   1.0,  1.0, // Top Right
@@ -188,6 +203,7 @@ fn main() {
         .bind();
 
     // Index buffer for DrawElements.
+    #[rustfmt::skip]
     ebo.bind().data::<u32>(&[
         0, 2, 1,
         0, 3, 2,
@@ -205,23 +221,29 @@ fn main() {
 
     // Start event loop.
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = glin;
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = glin;
 
     event_loop.run(move |event, _, control_flow| {
-        use winit::event::{Event, WindowEvent, MouseScrollDelta};
         use glutin::prelude::*;
+        use winit::event::{Event, MouseScrollDelta, WindowEvent};
 
         control_flow.set_wait();
 
         match event {
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested =>  {
+                WindowEvent::CloseRequested => {
                     control_flow.set_exit();
                     // Delete the only resource without Drop impl.
                     opengl! {
                         gl::DeleteVertexArrays(1, &vao);
                     }
-                },
+                }
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
                         surface.resize(
@@ -235,16 +257,16 @@ fn main() {
                         }
                         window.request_redraw();
                     }
-                },
+                }
                 WindowEvent::TouchpadMagnify { delta, .. } => {
                     state.zoom(delta as f32);
                     window.request_redraw();
-                },
+                }
                 WindowEvent::MouseWheel { delta, .. } => {
                     match delta {
                         MouseScrollDelta::LineDelta(_, __) => {
                             // Do noting.
-                        },
+                        }
                         MouseScrollDelta::PixelDelta(pos) => {
                             let size = window.inner_size();
                             let w: f64 = size.width.into();
@@ -252,20 +274,19 @@ fn main() {
 
                             state.translate((pos.x / w) as f32, -1.0 * (pos.y / h) as f32);
                             window.request_redraw();
-                        },
+                        }
                     }
-                },
+                }
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                opengl! { 
+                opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
                 }
                 surface.swap_buffers(&context).expect("I want to swap!");
-            },
+            }
             _ => (),
         }
     });
 }
-

@@ -1,29 +1,28 @@
-use gluty::{opengl, gl, Program, FlyCamera, Projection};
+use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::event::*;
-use gluty::winit::dpi::{PhysicalSize, PhysicalPosition};
+use gluty::{gl, opengl, FlyCamera, Program, Projection};
 
 mod input;
 mod light;
 
-pub use light::*;
 pub use input::*;
+pub use light::*;
 
 const NEAR: f32 = 0.01;
 const FAR: f32 = 1000.0;
 const FOV: f32 = 60.0;
-const ORHO: [f32; 6] = [
-    -50.0, 50.0,
-    -50.0, 50.0,
-    NEAR, FAR,
-];
+const ORHO: [f32; 6] = [-50.0, 50.0, -50.0, 50.0, NEAR, FAR];
 
+#[allow(clippy::result_unit_err)]
 pub fn create_program(dir: Option<&'static str>) -> Result<Program, ()> {
     let mut program = Program::create();
 
     if let Some(dir) = dir {
         program
             .attach_shader_source(format!("{}/shader.vert", dir), gl::VERTEX_SHADER)
-            .and_then(|p| p.attach_shader_source(format!("{}/shader.frag", dir), gl::FRAGMENT_SHADER))
+            .and_then(|p| {
+                p.attach_shader_source(format!("{}/shader.frag", dir), gl::FRAGMENT_SHADER)
+            })
             .and_then(|p| p.link())?;
     }
 
@@ -33,10 +32,7 @@ pub fn create_program(dir: Option<&'static str>) -> Result<Program, ()> {
 pub fn get_model_path() -> String {
     let path_arg = std::env::args().nth(2);
 
-    path_arg.map_or_else(
-        || String::from("./resources/teapot.obj"),
-        |v| v,
-    )
+    path_arg.map_or_else(|| String::from("./resources/teapot.obj"), |v| v)
 }
 
 type CreateProgram = fn() -> Result<Program, ()>;
@@ -64,7 +60,9 @@ impl<T: Controller> Project<T> {
             create_program,
             controller,
             prog: create_program().expect("Program must be created."),
-            camera: FlyCamera::new(|| Projection::perspective(FOV, size.width / size.height, NEAR, FAR)),
+            camera: FlyCamera::new(|| {
+                Projection::perspective(FOV, size.width / size.height, NEAR, FAR)
+            }),
         };
 
         result.controller.program_changed(&result.prog);
@@ -84,13 +82,10 @@ impl<T: Controller> Project<T> {
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) -> &mut Self {
-        self.size = PhysicalSize::new(
-            size.width as i32 as f32,
-            size.height as i32 as f32,
-        );
-        self.camera.projection.resize(
-            self.size.width / self.size.height
-        );
+        self.size = PhysicalSize::new(size.width as i32 as f32, size.height as i32 as f32);
+        self.camera
+            .projection
+            .resize(self.size.width / self.size.height);
         opengl! {
             gl::Viewport(
                 0, 0,
@@ -125,10 +120,10 @@ impl<T: Controller> Project<T> {
                     self.prog = prog;
                     self.controller.program_changed(&self.prog);
                     self.upload_uniforms();
-                },
+                }
                 Err(_) => {
                     println!("Could not reload program.");
-                },
+                }
             },
             // Toggle projection matrix.
             VirtualKeyCode::P => {
@@ -140,11 +135,13 @@ impl<T: Controller> Project<T> {
                         FAR,
                     ));
                 } else {
-                    self.camera.projection.replace(Projection::orthographic(ORHO));
+                    self.camera
+                        .projection
+                        .replace(Projection::orthographic(ORHO));
                 }
 
                 self.upload_uniforms();
-            },
+            }
             // Initial movement event.
             VirtualKeyCode::W | VirtualKeyCode::S | VirtualKeyCode::A | VirtualKeyCode::D => {
                 match state.key_movement(&keycode) {
@@ -158,7 +155,7 @@ impl<T: Controller> Project<T> {
                         self.upload_uniforms();
                     }
                 }
-            },
+            }
             _ => return false,
         };
 
@@ -178,11 +175,14 @@ impl<T: Controller> Project<T> {
 
         match state.mouse.unwrap() {
             MouseButton::Right => {
-                self.camera.accelerate_z(delta_y).accelerate_x(delta_x).update();
-            },
+                self.camera
+                    .accelerate_z(delta_y)
+                    .accelerate_x(delta_x)
+                    .update();
+            }
             MouseButton::Left => {
                 self.camera.rotate(delta_y, delta_x).update();
-            },
+            }
             _ => (),
         }
 

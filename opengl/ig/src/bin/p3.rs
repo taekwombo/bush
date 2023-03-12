@@ -1,6 +1,6 @@
-use gluty::{gl, Glindow, opengl, obj, Mesh, FlyCamera, Program};
+use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::event::*;
-use gluty::winit::dpi::{PhysicalSize, PhysicalPosition};
+use gluty::{gl, obj, opengl, FlyCamera, Glindow, Mesh, Program};
 use ig::*;
 
 // TODO: Add lighting (ambient, diffuse, specular)
@@ -49,22 +49,22 @@ impl Ctrl {
         match keycode {
             VirtualKeyCode::Key1 => {
                 self.light.color.w = Lighting::Normal as i32 as f32;
-            },
+            }
             VirtualKeyCode::Key2 => {
                 self.light.color.w = Lighting::Ambient as i32 as f32;
-            },
+            }
             VirtualKeyCode::Key3 => {
                 self.light.color.w = Lighting::Diffuse as i32 as f32;
-            },
+            }
             VirtualKeyCode::Key4 => {
                 self.light.color.w = Lighting::Specular as i32 as f32;
-            },
+            }
             VirtualKeyCode::Key5 => {
                 self.light.color.w = Lighting::Phong as i32 as f32;
-            },
+            }
             VirtualKeyCode::Key6 => {
                 self.light.color.w = Lighting::Blinn as i32 as f32;
-            },
+            }
             _ => return false,
         }
         true
@@ -74,7 +74,7 @@ impl Ctrl {
         match keycode {
             VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
                 self.ctrl_pressed = *state == ElementState::Pressed;
-            },
+            }
             _ => (),
         }
     }
@@ -93,10 +93,10 @@ impl Ctrl {
         match self.state.mouse.unwrap() {
             MouseButton::Right => {
                 self.light.translate(0.0, 0.0, delta_y * speed);
-            },
+            }
             MouseButton::Left => {
                 self.light.translate(delta_x * speed, delta_y * speed, 0.0);
-            },
+            }
             _ => (),
         }
 
@@ -119,10 +119,8 @@ impl Controller for Ctrl {
             gl::Uniform4f(self.u_lighting, color.x, color.y, color.z, color.w);
         }
         // Lighting has own program bind automatically when calling Light::upload_uniforms;
-        self.light.upload_uniforms(
-            camera.get_view(),
-            camera.get_proj()
-        );
+        self.light
+            .upload_uniforms(camera.get_view(), camera.get_proj());
     }
 
     fn program_changed(&mut self, program: &Program) {
@@ -160,7 +158,9 @@ enum Lighting {
 fn main() {
     let glin = Glindow::new();
     let size = glin.window.inner_size();
-    let mut project = Project::new(Ctrl::new(size), size, || create_program(Some("./shaders/p3")));
+    let mut project = Project::new(Ctrl::new(size), size, || {
+        create_program(Some("./shaders/p3"))
+    });
 
     project.camera.goto(0.0, 0.0, 60.0).update();
     project.ctrl().light.translate(-20.0, 20.0, 30.0);
@@ -172,7 +172,13 @@ fn main() {
     }
 
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = glin;
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = glin;
 
     event_loop.run(move |event, _, control_flow| {
         use gluty::glutin::prelude::*;
@@ -188,7 +194,7 @@ fn main() {
                 project.ctrl().mesh.draw();
                 project.ctrl().light.draw();
                 surface.swap_buffers(&context).expect("I want to swap!");
-            },
+            }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
@@ -201,11 +207,15 @@ fn main() {
                         project.upload_uniforms();
                         window.request_redraw();
                     }
-                },
+                }
                 WindowEvent::CloseRequested => {
                     control_flow.set_exit();
-                },
-                WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
+                }
+                WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic: false,
+                    ..
+                } => {
                     let Some(keycode) = input.virtual_keycode else {
                         return;
                     };
@@ -223,17 +233,22 @@ fn main() {
                         project.upload_uniforms();
                         window.request_redraw();
                     }
-                },
-                WindowEvent::MouseInput { state: mouse_state, button, .. } => {
+                }
+                WindowEvent::MouseInput {
+                    state: mouse_state,
+                    button,
+                    ..
+                } => {
                     project.ctrl().state.mouse_click(&mouse_state, &button);
-                },
+                }
                 WindowEvent::CursorMoved { position, .. } => {
                     if project.ctrl().handle_cursor_move(&position)
-                        || project.handle_cursor_move(&position) {
+                        || project.handle_cursor_move(&position)
+                    {
                         project.upload_uniforms();
                         window.request_redraw();
                     }
-                },
+                }
                 _ => (),
             },
             _ => (),

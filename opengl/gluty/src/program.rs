@@ -1,9 +1,10 @@
-use std::path::Path;
-use gl::types::GLenum;
 use super::opengl;
+use gl::types::GLenum;
+use std::path::Path;
 
 fn load_shader_from_path<P>(path: &P, shader_type: GLenum) -> Result<u32, &'static str>
-where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     use std::fs::read;
 
@@ -37,7 +38,12 @@ fn compile_shader(shader_source: &[u8], shader_type: GLenum) -> Result<u32, &'st
         let info_ptr = info_log.as_mut_ptr();
         let mut written: i32 = 0;
 
-        opengl!(gl::GetShaderInfoLog(shader, info_len, &mut written, info_ptr as *mut _));
+        opengl!(gl::GetShaderInfoLog(
+            shader,
+            info_len,
+            &mut written,
+            info_ptr as *mut _
+        ));
         unsafe {
             info_log.set_len(written as usize);
         }
@@ -70,11 +76,13 @@ impl Program {
     /// Note: name must end with \0 character.
     pub fn get_uniform(&self, name: &str) -> i32 {
         debug_assert!(name.get((name.len() - 1)..).unwrap() == "\0");
-        opengl!(
-            gl::GetUniformLocation(self.gl_id, name.as_ptr() as *const _)
-        )
+        opengl!(gl::GetUniformLocation(
+            self.gl_id,
+            name.as_ptr() as *const _
+        ))
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn attach_shader(&mut self, shader: u32) -> Result<&mut Self, ()> {
         opengl!(gl::AttachShader(self.gl_id, shader));
         self.shaders[self.shader_cnt as usize] = shader;
@@ -83,30 +91,41 @@ impl Program {
         Ok(self)
     }
 
-    pub fn attach_shader_source_str(&mut self, source: &[u8], shader_type: GLenum) -> Result<&mut Self, ()> {
+    #[allow(clippy::result_unit_err)]
+    pub fn attach_shader_source_str(
+        &mut self,
+        source: &[u8],
+        shader_type: GLenum,
+    ) -> Result<&mut Self, ()> {
         let shader = match compile_shader(source, shader_type) {
             Err(err) => {
                 eprintln!("[shader_source_str]: {}", err);
                 return Err(());
-            },
+            }
             Ok(shader) => shader,
         };
 
         self.attach_shader(shader)
     }
 
-    pub fn attach_shader_source<P: AsRef<Path>>(&mut self, path: P, shader_type: GLenum) -> Result<&mut Self, ()> {
+    #[allow(clippy::result_unit_err)]
+    pub fn attach_shader_source<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        shader_type: GLenum,
+    ) -> Result<&mut Self, ()> {
         let shader = match load_shader_from_path(&path, shader_type) {
             Err(err) => {
                 eprintln!("[{}]: {}", path.as_ref().to_string_lossy(), err);
                 return Err(());
-            },
+            }
             Ok(shader) => shader,
         };
 
         self.attach_shader(shader)
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn link(&self) -> Result<&Self, ()> {
         opengl!(gl::LinkProgram(self.gl_id));
         self.check_program_iv(gl::LINK_STATUS)
@@ -116,7 +135,11 @@ impl Program {
         static mut LOGS: [u8; 512] = [0; 512];
 
         let mut info_len: i32 = 0;
-        opengl!(gl::GetProgramiv(self.gl_id, gl::INFO_LOG_LENGTH, &mut info_len));
+        opengl!(gl::GetProgramiv(
+            self.gl_id,
+            gl::INFO_LOG_LENGTH,
+            &mut info_len
+        ));
 
         println!("Info len: {}", info_len);
         debug_assert!(info_len > 0);
@@ -124,7 +147,12 @@ impl Program {
         let info_ptr = unsafe { LOGS.as_mut_ptr() };
         let mut written: i32 = 0;
 
-        opengl!(gl::GetProgramInfoLog(self.gl_id, 512, &mut written, info_ptr as *mut _));
+        opengl!(gl::GetProgramInfoLog(
+            self.gl_id,
+            512,
+            &mut written,
+            info_ptr as *mut _
+        ));
         eprintln!("{}", unsafe { String::from_utf8_lossy(&LOGS) });
     }
 
@@ -144,6 +172,7 @@ impl Program {
         Ok(self)
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn validate(&self) -> Result<&Self, ()> {
         opengl!(gl::ValidateProgram(self.gl_id));
         self.check_program_iv(gl::VALIDATE_STATUS)

@@ -1,36 +1,38 @@
 //! Module with any useful things needed to create a couple of OpenGL examples
 //! without damaging C and V buttons.
 
-use winit::window::{Window, WindowBuilder};
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::EventLoop;
 use glutin::config::ConfigTemplateBuilder;
-use glutin::context::{GlProfile, PossiblyCurrentContext, ContextAttributesBuilder, NotCurrentGlContextSurfaceAccessor};
+use glutin::context::{
+    ContextAttributesBuilder, GlProfile, NotCurrentGlContextSurfaceAccessor, PossiblyCurrentContext,
+};
 use glutin::display::{Display, GetGlDisplay, GlDisplay};
+use glutin::prelude::*;
 use glutin::surface::{Surface, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
-use glutin::prelude::*;
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::window::{Window, WindowBuilder};
 
 pub use gl;
 pub use glam;
-pub use winit;
 pub use glutin;
+pub use winit;
 
-mod program;
-mod texture;
 mod attributes;
 mod buffer;
-mod mesh;
 mod camera;
+mod mesh;
+mod program;
+mod texture;
 
 pub mod obj;
 
+pub use attributes::*;
+pub use buffer::*;
 pub use camera::*;
 pub use mesh::*;
-pub use buffer::*;
 pub use program::*;
 pub use texture::*;
-pub use attributes::*;
 
 /// All the things needed to display something.
 pub struct Glindow {
@@ -39,6 +41,12 @@ pub struct Glindow {
     pub display: Display,
     pub context: PossiblyCurrentContext,
     pub surface: Surface<WindowSurface>,
+}
+
+impl Default for Glindow {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Glindow {
@@ -50,9 +58,13 @@ impl Glindow {
         let window_builder = WindowBuilder::new();
         let template = ConfigTemplateBuilder::new().with_alpha_size(8);
         let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
-        let (window, gl_config) = display_builder.build(&event_loop, template, |mut configs| {
-            configs.next().expect("Failed to pick config - out of None.")
-        }).expect("Failed to create display.");
+        let (window, gl_config) = display_builder
+            .build(&event_loop, template, |mut configs| {
+                configs
+                    .next()
+                    .expect("Failed to pick config - out of None.")
+            })
+            .expect("Failed to create display.");
         let window = window.expect("Failed to obtain window.");
         let display = gl_config.display();
         let context_attributes = ContextAttributesBuilder::new()
@@ -69,7 +81,9 @@ impl Glindow {
                 .create_window_surface(&gl_config, &win_attrs)
                 .expect("Failed to create surface.")
         };
-        let context = context.make_current(&surface).expect("Failed to make current context.");
+        let context = context
+            .make_current(&surface)
+            .expect("Failed to make current context.");
 
         #[cfg(debug_assertions)]
         {
@@ -114,7 +128,13 @@ impl Glindow {
     /// Any drawing must happen before this function call.
     pub fn run_until_close(self) -> ! {
         #[allow(unused_variables)]
-        let Self { window, surface, context, event_loop, display } = self;
+        let Self {
+            window,
+            surface,
+            context,
+            event_loop,
+            display,
+        } = self;
 
         if !surface.is_single_buffered() {
             surface.swap_buffers(&context).expect("I want to swap!");
@@ -125,24 +145,34 @@ impl Glindow {
             control_flow.set_wait();
 
             // Do nothing but close the window.
+            #[allow(clippy::single_match)]
             match event {
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         control_flow.set_exit();
-                    },
+                    }
                     WindowEvent::Resized(size) => {
                         #[cfg(debug_assertions)]
                         println!("New size: {:?}", size);
 
                         if size.width != 0 && size.height != 0 {
-                            surface.resize(&context, size.width.try_into().unwrap(), size.height.try_into().unwrap());
+                            surface.resize(
+                                &context,
+                                size.width.try_into().unwrap(),
+                                size.height.try_into().unwrap(),
+                            );
                             unsafe {
-                                gl::Viewport(0, 0, size.width.try_into().unwrap(), size.height.try_into().unwrap())
+                                gl::Viewport(
+                                    0,
+                                    0,
+                                    size.width.try_into().unwrap(),
+                                    size.height.try_into().unwrap(),
+                                )
                             };
                         }
-                    },
+                    }
                     _ => (),
-                }
+                },
                 _ => (),
             }
         });
@@ -156,7 +186,11 @@ fn print_gl(prefix: &str, about: gl::types::GLenum) {
     unsafe {
         let cstr = gl::GetString(about);
         if !cstr.is_null() {
-            println!("{}: {}", prefix, CStr::from_ptr(cstr.cast()).to_string_lossy());
+            println!(
+                "{}: {}",
+                prefix,
+                CStr::from_ptr(cstr.cast()).to_string_lossy()
+            );
         }
     }
 }
@@ -181,12 +215,17 @@ macro_rules! opengl {
 }
 
 #[inline(always)]
-pub unsafe fn with_get_error<R, F: FnOnce() -> R>(work: F, source: &'static str, file: &'static str) -> R {
+#[allow(clippy::missing_safety_doc)]
+pub unsafe fn with_get_error<R, F: FnOnce() -> R>(
+    work: F,
+    source: &'static str,
+    file: &'static str,
+) -> R {
     #[cfg(debug_assertions)]
-    while gl::GetError() != gl::NO_ERROR { }
+    while gl::GetError() != gl::NO_ERROR {}
 
     let res = work();
-    
+
     #[cfg(debug_assertions)]
     {
         let mut errored = false;

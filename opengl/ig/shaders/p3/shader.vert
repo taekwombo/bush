@@ -8,7 +8,6 @@ uniform mat4 u_light_pos;
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_normal;
 
-out vec3 v_position;        // Vertex position in world coordinate space.
 out vec3 v_normal;          // Surface normal in view coordinate space.
 out vec3 v_light_direction; // Direction towards light position in view coordinate space.
 

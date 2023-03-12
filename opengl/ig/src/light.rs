@@ -1,6 +1,6 @@
-use gluty::{Mesh, Program, opengl};
 use gluty::gl;
 use gluty::glam::{Mat4, Vec4};
+use gluty::{opengl, Mesh, Program};
 
 const VERTEX_SOURCE: &[u8] = b"
 #version 410 core
@@ -26,6 +26,7 @@ void main() {
 }
 ";
 
+#[rustfmt::skip]
 const CUBE_VERTICES: &[f32] = &[
     -1.0,  1.0,  1.0, // 0  3─────2
      1.0,  1.0,  1.0, // 1  │╲    │╲
@@ -123,5 +124,11 @@ impl Light {
 
     pub fn get_color(&self) -> Vec4 {
         self.color
+    }
+}
+
+impl Default for Light {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -5,34 +5,46 @@
 //! Supported GLSL: 4.10
 //! https://registry.khronos.org/OpenGL/specs/gl/glspec41.core.pdf
 
-use gluty::{Glindow, Program, opengl};
+use glutin::prelude::*;
+use gluty::{opengl, Glindow, Program};
 use std::mem::size_of;
 use winit::event::{Event, WindowEvent};
-use glutin::prelude::*;
 
 fn main() {
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = Glindow::new();
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = Glindow::new();
 
-    surface.set_swap_interval(
-        &context,
-        glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(5).unwrap()),
-    ).expect("Set interval OK.");
+    surface
+        .set_swap_interval(
+            &context,
+            glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(5).unwrap()),
+        )
+        .expect("Set interval OK.");
 
     let mut frame: u32 = 0;
     let mut program = Program::create();
     program
         .attach_shader_source("./examples/shaders/uniform.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./examples/shaders/uniform.frag", gl::FRAGMENT_SHADER))
+        .and_then(|p| {
+            p.attach_shader_source("./examples/shaders/uniform.frag", gl::FRAGMENT_SHADER)
+        })
         .and_then(|p| p.link())
         .expect("Program created.");
 
+    #[rustfmt::skip]
     let positions: &[f32] = &[
         -0.5,  0.5,     // 0
          0.5,  0.5,     // 1
          0.5, -0.5,     // 2
         -0.5, -0.5,     // 3
     ];
+    #[rustfmt::skip]
     let indices: &[u32] = &[
         0, 2, 1,
         0, 3, 2,
@@ -113,13 +125,13 @@ fn main() {
                     );
                 }
                 surface.swap_buffers(&context).expect("swap_buffers OK.");
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { .. },
                 ..
             } => {
                 window.request_redraw();
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
@@ -130,7 +142,7 @@ fn main() {
                     gl::DeleteBuffers(1, &ebo);
                 }
                 control_flow.set_exit();
-            },
+            }
             _ => (),
         }
     });

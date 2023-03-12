@@ -1,7 +1,7 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=2
 
-use gluty::{gl, Glindow, opengl, obj, Mesh, Program, FlyCamera};
 use gluty::winit::dpi::PhysicalSize;
+use gluty::{gl, obj, opengl, FlyCamera, Glindow, Mesh, Program};
 use ig::*;
 
 struct Ctrl {
@@ -49,10 +49,12 @@ impl Controller for Ctrl {
     }
 }
 
-fn main () {
+fn main() {
     let glin = Glindow::new();
     let size = glin.window.inner_size();
-    let mut project = Project::new(Ctrl::new(size), size, || create_program(Some("./shaders/p2")));
+    let mut project = Project::new(Ctrl::new(size), size, || {
+        create_program(Some("./shaders/p2"))
+    });
 
     project.camera.goto(0.0, 0.0, 60.0).update();
     project.upload_uniforms();
@@ -63,11 +65,17 @@ fn main () {
     }
 
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = glin;
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = glin;
 
     event_loop.run(move |event, _, control_flow| {
-        use gluty::winit::event::{Event, WindowEvent};
         use gluty::glutin::prelude::*;
+        use gluty::winit::event::{Event, WindowEvent};
 
         control_flow.set_wait();
 
@@ -78,24 +86,32 @@ fn main () {
                 }
                 project.ctrl().mesh.draw();
                 surface.swap_buffers(&context).expect("I want to swap!");
-            },
+            }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
                     control_flow.set_exit();
-                },
-                WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
+                }
+                WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic: false,
+                    ..
+                } => {
                     if project.handle_key_code(&input) {
                         window.request_redraw();
                     }
-                },
-                WindowEvent::MouseInput { state: mouse_state, button, .. } => {
+                }
+                WindowEvent::MouseInput {
+                    state: mouse_state,
+                    button,
+                    ..
+                } => {
                     project.ctrl().state.mouse_click(&mouse_state, &button);
-                },
+                }
                 WindowEvent::CursorMoved { position, .. } => {
                     if project.handle_cursor_move(&position) {
                         window.request_redraw();
                     }
-                },
+                }
                 _ => (),
             },
             _ => (),

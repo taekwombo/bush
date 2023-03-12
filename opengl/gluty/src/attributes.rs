@@ -15,11 +15,17 @@ pub struct Attributes {
     attrs: Vec<Attribute>,
 }
 
+impl Default for Attributes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Attributes {
     fn get_stride(&self) -> u32 {
-        self.attrs.iter().fold(0, |acc, attr| {
-            acc + attr.elem_size * attr.elem_count
-        })
+        self.attrs
+            .iter()
+            .fold(0, |acc, attr| acc + attr.elem_size * attr.elem_count)
     }
 
     pub fn new() -> Self {
@@ -45,11 +51,13 @@ impl Attributes {
 
         // Check if Vertex Array object is bound.
         // Not needed since 4.5 thanks to `glEnableVertexArrayAttrib`.
-        debug_assert!(0 != unsafe {
-            let mut bound_vao: i32 = 0;
-            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
-            bound_vao
-        });
+        debug_assert!(
+            0 != unsafe {
+                let mut bound_vao: i32 = 0;
+                gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
+                bound_vao
+            }
+        );
 
         for (index, attr) in self.attrs.iter().enumerate() {
             opengl! {
@@ -70,4 +78,3 @@ impl Attributes {
         self
     }
 }
-

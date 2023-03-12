@@ -1,7 +1,7 @@
 //! Displaying texture on rectangle.
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
-use gluty::{Glindow, Program, opengl};
+use gluty::{opengl, Glindow, Program};
 use image::io::Reader;
 use std::mem::size_of;
 
@@ -10,7 +10,9 @@ fn main() {
     let mut program = Program::create();
     program
         .attach_shader_source("./examples/shaders/texture.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./examples/shaders/texture.frag", gl::FRAGMENT_SHADER))
+        .and_then(|p| {
+            p.attach_shader_source("./examples/shaders/texture.frag", gl::FRAGMENT_SHADER)
+        })
         .and_then(|p| p.link())
         .expect("Program created.");
 
@@ -23,12 +25,14 @@ fn main() {
     let (i_width, i_height) = image.dimensions();
 
     let mut texture_id: u32 = 0;
+    #[rustfmt::skip]
     let positions: &[f32] = &[
         -0.5,  0.5, 0.0, 1.0,     // 0
          0.5,  0.5, 1.0, 1.0,     // 1
          0.5, -0.5, 1.0, 0.0,     // 2
         -0.5, -0.5, 0.0, 0.0,     // 3
     ];
+    #[rustfmt::skip]
     let indices: &[u32] = &[
         0, 2, 1,
         0, 3, 2,
@@ -114,7 +118,13 @@ fn main() {
     }
 
     #[allow(unused_variables)]
-    let Glindow { window, event_loop, display, surface, context } = glin;
+    let Glindow {
+        window,
+        event_loop,
+        display,
+        surface,
+        context,
+    } = glin;
 
     event_loop.run(move |event, _, control_flow| {
         use winit::event::{Event, WindowEvent};
@@ -140,24 +150,22 @@ fn main() {
                             size.width.try_into().unwrap(),
                             size.height.try_into().unwrap(),
                         );
-                        opengl! {
-                            gl::Viewport(
-                                0,
-                                0,
-                                size.width as i32,
-                                size.height as i32,
-                            );
-                        }
+                        opengl!(gl::Viewport(
+                            0,
+                            0,
+                            size.width as i32,
+                            size.height as i32,
+                        ));
                         window.request_redraw();
                     }
                 },
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                opengl! { 
+                opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
-                }
+                };
                 surface.swap_buffers(&context).expect("I want to swap!");
             },
             _ => (),

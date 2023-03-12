@@ -4,14 +4,20 @@ fn parse_vector(line: &str) -> [f32; 3] {
     let mut split = line.split(' ').skip_while(|v| v.is_empty());
     [
         split
-            .next().expect("Component exists.")
-            .parse::<f32>().expect("Component value is f32."),
+            .next()
+            .expect("Component exists.")
+            .parse::<f32>()
+            .expect("Component value is f32."),
         split
-            .next().expect("Component exists.")
-            .parse::<f32>().expect("Component value is f32."),
+            .next()
+            .expect("Component exists.")
+            .parse::<f32>()
+            .expect("Component value is f32."),
         split
-            .next().expect("Component exists.")
-            .parse::<f32>().expect("Component value is f32."),
+            .next()
+            .expect("Component exists.")
+            .parse::<f32>()
+            .expect("Component value is f32."),
     ]
 }
 
@@ -32,10 +38,16 @@ fn parse_face(line: &str) -> ([(u32, u32); 4], usize) {
 
         let mut split = value.split('/');
 
-        let vertex = split.next().unwrap()
-            .parse::<i32>().expect("Vertex index to be u32.");
-        let normal = split.last().unwrap()
-            .parse::<i32>().expect("Vertex normal index to be u32.");
+        let vertex = split
+            .next()
+            .unwrap()
+            .parse::<i32>()
+            .expect("Vertex index to be u32.");
+        let normal = split
+            .last()
+            .unwrap()
+            .parse::<i32>()
+            .expect("Vertex normal index to be u32.");
 
         debug_assert!(vertex >= 0);
         debug_assert!(normal >= 0);
@@ -68,20 +80,16 @@ fn append_vertex(
         let index = vbo_data.len() / 6;
         vertex_map.insert(*pair, index);
         ebo_data.push(u32::try_from(index).expect("Index must fit into u32."));
-        vbo_data.extend_from_slice(
-            &loaded_vertices[pair.0 as usize]
-        );
-        vbo_data.extend_from_slice(
-            &loaded_vertex_normals[pair.1 as usize]
-        );
+        vbo_data.extend_from_slice(&loaded_vertices[pair.0 as usize]);
+        vbo_data.extend_from_slice(&loaded_vertex_normals[pair.1 as usize]);
     }
 }
 
 /// Loads some parts of .obj file.
 /// Just enough to render teapot.
 pub fn load(path: &str) -> (Vec<f32>, Vec<u32>) {
-    use std::fs::read;
     use std::collections::HashMap;
+    use std::fs::read;
 
     let mut ebo_data: Vec<u32> = Vec::new();
     let mut vbo_data: Vec<f32> = Vec::new();
@@ -107,7 +115,7 @@ pub fn load(path: &str) -> (Vec<f32>, Vec<u32>) {
                     &mut vbo_data,
                     &mut ebo_data,
                     &mut vertex_map,
-                    pair
+                    pair,
                 );
             }
 

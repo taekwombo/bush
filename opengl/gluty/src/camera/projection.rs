@@ -8,12 +8,12 @@ pub enum ProjectionKind {
 impl ProjectionKind {
     fn to_matrix(&self) -> Mat4 {
         match self {
-            Self::Orthographic([l, r, b, t, n, f]) => Mat4::orthographic_rh_gl(
-                *l, *r, *b, *t, *n, *f
-            ),
-            Self::Perspective([fov, aspect, n, f]) => Mat4::perspective_rh_gl(
-                *fov, *aspect, *n, *f
-            ),
+            Self::Orthographic([l, r, b, t, n, f]) => {
+                Mat4::orthographic_rh_gl(*l, *r, *b, *t, *n, *f)
+            }
+            Self::Perspective([fov, aspect, n, f]) => {
+                Mat4::perspective_rh_gl(*fov, *aspect, *n, *f)
+            }
         }
     }
 }

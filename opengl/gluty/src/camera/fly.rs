@@ -1,5 +1,5 @@
-use glam::{Mat4, Vec3};
 use super::Projection;
+use glam::{Mat4, Vec3};
 
 /// Follows https://learnopengl.com/Getting-started/Camera
 pub struct FlyCamera {
@@ -76,8 +76,9 @@ impl FlyCamera {
             f32::cos(yaw) * f32::cos(pitch),
             f32::sin(pitch),
             f32::sin(yaw) * f32::cos(pitch),
-        ).normalize();
-        
+        )
+        .normalize();
+
         self.right = self.front.cross(Vec3::Y);
         // Just make sure up vector actually points up
         // when calling this function for the first time.
@@ -97,11 +98,7 @@ impl FlyCamera {
         // While normally view transform is: Translation * Rotation and
         // it needs to be inversed to apply to vertex position.
         // This one is already inversed and ready to apply to vertex position.
-        self.view_matrix = Mat4::look_to_rh(
-            self.position,
-            self.front,
-            up,
-        );
+        self.view_matrix = Mat4::look_to_rh(self.position, self.front, up);
 
         self
     }
@@ -118,5 +115,3 @@ impl FlyCamera {
         self.projection.matrix * self.view_matrix
     }
 }
-
-

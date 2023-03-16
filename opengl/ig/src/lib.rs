@@ -30,7 +30,7 @@ pub fn create_program(dir: Option<&'static str>) -> Result<Program, ()> {
 }
 
 pub fn get_model_path() -> String {
-    let path_arg = std::env::args().nth(2);
+    let path_arg = std::env::args().nth(1);
 
     path_arg.map_or_else(|| String::from("./resources/teapot.obj"), |v| v)
 }
@@ -105,10 +105,9 @@ impl<T: Controller> Project<T> {
         };
 
         let state = self.controller.state();
+        state.modifiers(&input.state, &keycode);
 
         if input.state != ElementState::Pressed {
-            state.key_release();
-
             return false;
         }
 

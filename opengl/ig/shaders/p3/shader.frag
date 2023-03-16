@@ -1,7 +1,5 @@
 #version 410 core
 
-uniform mat4 u_light_pos;
-uniform mat4 u_view_t;
 uniform vec4 u_lighting;
 
 in vec3 v_normal;

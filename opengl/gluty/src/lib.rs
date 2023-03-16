@@ -16,21 +16,22 @@ use winit::window::{Window, WindowBuilder};
 pub use gl;
 pub use glam;
 pub use glutin;
+pub use image;
 pub use winit;
 
 mod attributes;
 mod buffer;
 mod camera;
 mod mesh;
+mod obj;
 mod program;
 mod texture;
-
-pub mod obj;
 
 pub use attributes::*;
 pub use buffer::*;
 pub use camera::*;
 pub use mesh::*;
+pub use obj::*;
 pub use program::*;
 pub use texture::*;
 

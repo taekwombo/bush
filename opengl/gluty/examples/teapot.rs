@@ -1,10 +1,10 @@
 //! Displaying .obj model with lighting and camera.
 
-use gluty::{obj, opengl, Camera, Glindow, Mesh, Program};
+use gluty::{opengl, Camera, Glindow, Mesh, Obj, Program};
 
 fn main() {
     // https://users.cs.utah.edu/~natevm/newell_teaset/
-    let (vertices, indices) = obj::load("./examples/resources/teapot_newell.obj");
+    let (vertices, indices) = Obj::load_vvn("./examples/resources/teapot_newell.obj");
     let glin = Glindow::new();
 
     let mut program = Program::create();

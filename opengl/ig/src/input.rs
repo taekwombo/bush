@@ -13,6 +13,8 @@ pub struct InputState {
     pub cursor_position: Option<PhysicalPosition<f32>>,
     pub mouse: Option<MouseButton>,
     pub size: PhysicalSize<f32>,
+    pub alt: bool,
+    pub ctrl: bool,
 }
 
 impl InputState {
@@ -22,6 +24,8 @@ impl InputState {
             movement_timestamp: None,
             cursor_position: None,
             mouse: None,
+            alt: false,
+            ctrl: false,
         }
     }
 
@@ -60,8 +64,18 @@ impl InputState {
         Some((delta_x, delta_y))
     }
 
-    pub fn key_release(&mut self) {
+    pub fn modifiers(&mut self, state: &ElementState, keycode: &VirtualKeyCode) {
         self.movement_timestamp = None;
+
+        match keycode {
+            VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
+                self.ctrl = *state == ElementState::Pressed;
+            }
+            VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
+                self.alt = *state == ElementState::Pressed;
+            }
+            _ => (),
+        }
     }
 
     pub fn key_movement(&mut self, keycode: &VirtualKeyCode) -> Option<(MovementAxis, f32)> {

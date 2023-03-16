@@ -1,7 +1,7 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=2
 
 use gluty::winit::dpi::PhysicalSize;
-use gluty::{gl, obj, opengl, FlyCamera, Glindow, Mesh, Program};
+use gluty::{gl, opengl, FlyCamera, Glindow, Mesh, Obj, Program};
 use ig::*;
 
 struct Ctrl {
@@ -16,7 +16,7 @@ impl Ctrl {
     fn new(size: PhysicalSize<u32>) -> Self {
         Ctrl {
             mesh: {
-                let (v, i) = obj::load(&get_model_path());
+                let (v, i) = Obj::load_vvn(&get_model_path());
                 Mesh::new(&v, &i, |a| {
                     a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
                 })

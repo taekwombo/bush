@@ -10,7 +10,11 @@ pub struct Texture {
 
 impl Texture {
     #[allow(clippy::result_unit_err)]
-    pub fn create<S: AsRef<std::path::Path>>(path: S, gl_type: u32, slot: u32) -> Result<Self, ()> {
+    pub fn create<S: AsRef<std::path::Path>>(
+        path: &S,
+        gl_type: u32,
+        slot: u32,
+    ) -> Result<Self, ()> {
         use image::io::Reader;
 
         let image = Reader::open(path.as_ref())
@@ -26,11 +30,13 @@ impl Texture {
 
         opengl! {
             gl::GenTextures(1, &mut gl_id);
+
+            gl::ActiveTexture(gl::TEXTURE0 + slot);
             gl::BindTexture(gl_type, gl_id);
             gl::TexParameteri(gl_type, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl_type, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl_type, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
-            gl::TexParameteri(gl_type, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
+            gl::TexParameteri(gl_type, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl::TexParameteri(gl_type, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             gl::TexImage2D(
                 gl_type,
                 0,

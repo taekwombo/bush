@@ -11,7 +11,7 @@ pub struct Texture {
 impl Texture {
     #[allow(clippy::result_unit_err)]
     pub fn create<S: AsRef<std::path::Path>>(
-        path: &S,
+        path: S,
         gl_type: u32,
         slot: u32,
     ) -> Result<Self, ()> {

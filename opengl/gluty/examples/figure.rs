@@ -63,6 +63,14 @@ fn main() {
     let mut vbo: u32 = 0; // Vertices
     let mut vao: u32 = 0; // Attributes
     let mut ibo: u32 = 0; // Indices
+    let mut vbo2: u32 = 0;
+
+    // Data for Instanced Draw.
+    // Vertex attributes are considered instanced if their divisor is greater than 0.
+    // This can be set using VertexAttribDivisor(uint, uint);
+    let instance_data: &[f32] = &[
+        1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2,
+    ];
 
     opengl! {
         gl::ClearColor(1.0, 0.0, 0.5, 1.0);
@@ -85,6 +93,18 @@ fn main() {
         gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (2 * size_of::<f32>()) as i32, std::ptr::null());
         gl::EnableVertexAttribArray(0);
 
+        gl::GenBuffers(1, &mut vbo2);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo2);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (instance_data.len() * size_of::<f32>()) as isize,
+            instance_data.as_ptr().cast(),
+            gl::STATIC_DRAW,
+        );
+        gl::VertexAttribPointer(1, 1, gl::FLOAT, gl::FALSE, (1 * size_of::<f32>()) as i32, std::ptr::null());
+        gl::VertexAttribDivisor(1, 1);
+        gl::EnableVertexAttribArray(1);
+
         gl::GenBuffers(1, &mut ibo);
         gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
         gl::BufferData(
@@ -101,7 +121,8 @@ fn main() {
     program.validate().expect("Program to be valid");
 
     opengl! {
-        gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
+        // gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
+        gl::DrawElementsInstanced(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, 0 as *const _, instance_data.len() as i32);
     }
 
     glin.run_until_close();

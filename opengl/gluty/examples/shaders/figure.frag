@@ -2,6 +2,14 @@
 
 layout(location = 0) out vec4 color;
 
+in float vmul;
+
 void main() {
-    color = vec4(1.0);
+    float diff = 2.0 - vmul;
+    color = vec4(
+        0.0,
+        0.0,
+        (diff * 0.5),
+        1.0
+    );
 }

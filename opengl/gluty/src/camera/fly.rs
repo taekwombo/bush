@@ -6,9 +6,9 @@ pub struct FlyCamera {
     /// Position of the camera in world space.
     position: Vec3,
     /// Vector opposite to the Z+ of the camera coordinate space.
-    front: Vec3,
+    pub front: Vec3,
     /// X vector of camera coordinate space.
-    right: Vec3,
+    pub right: Vec3,
     /// Rotation along Y axis in degrees.
     /// Looking left or right.
     yaw: f32,

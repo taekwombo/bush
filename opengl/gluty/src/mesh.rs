@@ -1,6 +1,7 @@
-use super::{opengl, Attributes, Buffer};
+use super::{opengl, Attributes, Buffer, Material};
 use glam::{Mat4, Vec3};
 
+#[derive(Debug)]
 pub struct Mesh {
     vao: u32,
     #[allow(dead_code)]
@@ -13,6 +14,7 @@ pub struct Mesh {
     attrs: Attributes,
     /// Defines position of the model in the world coordinate system.
     pub model_to_world: Mat4,
+    pub material: Option<Material>,
 }
 
 impl Mesh {
@@ -54,6 +56,7 @@ impl Mesh {
             attrs,
             indices: ebo_data.len() as i32,
             model_to_world: Mat4::IDENTITY,
+            material: None,
         }
     }
 

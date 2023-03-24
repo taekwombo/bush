@@ -99,7 +99,7 @@ impl Light {
         self
     }
 
-    pub fn upload_uniforms(&self, u_view: &Mat4, u_proj: &Mat4) -> &Self {
+    pub fn update_uniforms(&self, u_view: &Mat4, u_proj: &Mat4) -> &Self {
         self.program.use_program();
 
         opengl! {
@@ -111,15 +111,13 @@ impl Light {
         self
     }
 
-    pub fn draw(&mut self) -> &mut Self {
+    pub fn draw(&self) {
         self.program.use_program();
         self.mesh.draw();
 
         opengl! {
             gl::UseProgram(0);
         }
-
-        self
     }
 
     pub fn get_color(&self) -> Vec4 {

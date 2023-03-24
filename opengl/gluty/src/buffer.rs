@@ -1,5 +1,6 @@
 use super::opengl;
 
+#[derive(Debug)]
 pub struct Buffer {
     pub gl_id: u32,
     gl_type: u32,

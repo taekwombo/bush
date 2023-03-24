@@ -4,6 +4,7 @@ use super::opengl;
 ///
 /// https://docs.gl/gl4/glVertexAttribPointer
 /// https://docs.gl/gl4/glEnableVertexAttribArray
+#[derive(Debug)]
 struct Attribute {
     index: u32,
     elem_count: u32,
@@ -11,6 +12,7 @@ struct Attribute {
     gl_type: u32,
 }
 
+#[derive(Debug)]
 pub struct Attributes {
     attrs: Vec<Attribute>,
 }

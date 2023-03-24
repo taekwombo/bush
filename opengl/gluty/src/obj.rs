@@ -34,6 +34,17 @@ impl Vertex {
     }
 }
 
+#[derive(Default)]
+pub struct BuildOptions {
+    tex: bool,
+}
+
+impl BuildOptions {
+    pub fn with_tex() -> Self {
+        Self { tex: true }
+    }
+}
+
 pub struct Obj {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
@@ -60,11 +71,11 @@ impl Obj {
     }
 
     pub fn load_vvn(path: &str) -> (Vec<f32>, Vec<u32>) {
-        Obj::new().parse(path).build(false)
+        Obj::new().parse(path).build(Default::default())
     }
 
-    pub fn build(&self, tex: bool) -> (Vec<f32>, Vec<u32>) {
-        let vertex_size = if tex { 9 } else { 6 };
+    pub fn build(&self, opt: BuildOptions) -> (Vec<f32>, Vec<u32>) {
+        let vertex_size = if opt.tex { 9 } else { 6 };
 
         let mut vbo_data = Vec::new();
         let mut ebo_data = Vec::new();
@@ -74,7 +85,7 @@ impl Obj {
 
         for triangle in &self.triangles {
             for vertex in triangle {
-                let key = vertex.as_key(tex);
+                let key = vertex.as_key(opt.tex);
 
                 if let Entry::Vacant(entry) = vertex_map.entry(key) {
                     debug_assert!(vertex_index as usize == (vbo_data.len() / vertex_size));
@@ -84,7 +95,7 @@ impl Obj {
                     // Push normal data.
                     vbo_data.extend_from_slice(&self.normals[key.1 as usize]);
                     // Push texture data.
-                    if tex {
+                    if opt.tex {
                         vbo_data.extend_from_slice(&self.texture_coords[key.2 as usize]);
                     }
                     ebo_data.push(vertex_index);

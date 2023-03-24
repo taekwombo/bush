@@ -1,31 +1,25 @@
 use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::event::*;
-use std::time::Instant;
 
 #[derive(Debug)]
-pub enum MovementAxis {
-    X,
-    Z,
-}
-
 pub struct InputState {
-    pub movement_timestamp: Option<Instant>,
     pub cursor_position: Option<PhysicalPosition<f32>>,
     pub mouse: Option<MouseButton>,
     pub size: PhysicalSize<f32>,
     pub alt: bool,
     pub ctrl: bool,
+    pub shift: bool,
 }
 
 impl InputState {
     pub fn new(size: PhysicalSize<u32>) -> Self {
         Self {
             size: PhysicalSize::new(size.width as f32, size.height as f32),
-            movement_timestamp: None,
             cursor_position: None,
             mouse: None,
             alt: false,
             ctrl: false,
+            shift: false,
         }
     }
 
@@ -65,8 +59,6 @@ impl InputState {
     }
 
     pub fn modifiers(&mut self, state: &ElementState, keycode: &VirtualKeyCode) {
-        self.movement_timestamp = None;
-
         match keycode {
             VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
                 self.ctrl = *state == ElementState::Pressed;
@@ -74,30 +66,10 @@ impl InputState {
             VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
                 self.alt = *state == ElementState::Pressed;
             }
+            VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
+                self.shift = *state == ElementState::Pressed;
+            }
             _ => (),
         }
-    }
-
-    pub fn key_movement(&mut self, keycode: &VirtualKeyCode) -> Option<(MovementAxis, f32)> {
-        if self.movement_timestamp.is_none() {
-            self.movement_timestamp.replace(Instant::now());
-            return None;
-        }
-
-        let elapsed = self
-            .movement_timestamp
-            .as_ref()
-            .unwrap()
-            .elapsed()
-            .as_secs_f32();
-        self.movement_timestamp.replace(Instant::now());
-
-        Some(match keycode {
-            VirtualKeyCode::W => (MovementAxis::Z, elapsed * 1.0),
-            VirtualKeyCode::S => (MovementAxis::Z, elapsed * -1.0),
-            VirtualKeyCode::A => (MovementAxis::X, elapsed * -1.0),
-            VirtualKeyCode::D => (MovementAxis::X, elapsed * 1.0),
-            _ => unreachable!(),
-        })
     }
 }

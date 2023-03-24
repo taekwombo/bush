@@ -1,132 +1,107 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=3
 
-use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::event::*;
 use gluty::{gl, opengl, FlyCamera, Glindow, Mesh, Obj, Program};
 use ig::*;
 
-struct Ctrl {
-    state: InputState,
-    mesh: Mesh,
-    light: Light,
-    u_model: i32,
-    u_view: i32,
-    u_proj: i32,
-    u_lighting: i32,
-    u_light_pos: i32,
-    ctrl_pressed: bool,
+struct Uniforms {
+    model: i32,
+    view: i32,
+    proj: i32,
+    lighting: i32,
+    light_pos: i32,
 }
 
-impl Ctrl {
-    fn new(size: PhysicalSize<u32>) -> Self {
+impl SOUniforms for Uniforms {
+    fn new(program: &Program) -> Self {
+        Self {
+            view: program.get_uniform("u_view_t\0"),
+            proj: program.get_uniform("u_proj_t\0"),
+            model: program.get_uniform("u_model_t\0"),
+            lighting: program.get_uniform("u_lighting\0"),
+            light_pos: program.get_uniform("u_light_pos\0"),
+        }
+    }
+
+    fn update_camera(&self, camera: &FlyCamera) {
+        opengl! {
+            gl::UniformMatrix4fv(self.view, 1, gl::FALSE, camera.get_view().as_ref() as *const _);
+            gl::UniformMatrix4fv(self.proj, 1, gl::FALSE, camera.get_proj().as_ref() as *const _);
+        }
+    }
+
+    fn update_model(&self, model: &Mesh) {
+        opengl!(gl::UniformMatrix4fv(
+            self.model,
+            1,
+            gl::FALSE,
+            model.model_to_world.as_ref() as *const _
+        ));
+    }
+
+    fn update_light(&self, light: &Light) {
+        opengl! {
+            gl::UniformMatrix4fv(self.light_pos, 1, gl::FALSE, light.position.as_ref() as *const _);
+            gl::Uniform4f(self.lighting, light.color.x, light.color.y, light.color.z, light.color.w);
+        }
+    }
+}
+
+struct Ctrl;
+
+impl SOController for Ctrl {
+    type Uniforms = Uniforms;
+
+    fn create_program() -> Program {
+        create_program(Some("./shaders/p3/shader")).expect("Project 3 program compiles.")
+    }
+
+    fn load_mesh() -> Mesh {
+        let (v, i) = Obj::load_vvn(&get_model_path());
+        Mesh::new(&v, &i, |a| {
+            a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
+        })
+    }
+
+    fn create_light() -> Option<Light> {
         let mut light = Light::new();
         light.color.w = 0.0;
-        Self {
-            ctrl_pressed: false,
-            u_model: -1,
-            u_view: -1,
-            u_proj: -1,
-            u_light_pos: -1,
-            u_lighting: -1,
-            state: InputState::new(size),
-            light,
-            mesh: {
-                let (v, i) = Obj::load_vvn(&get_model_path());
-                Mesh::new(&v, &i, |a| {
-                    a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
-                })
-            },
-        }
+
+        Some(light)
     }
 
-    fn change_lighting(&mut self, state: &ElementState, keycode: &VirtualKeyCode) -> bool {
-        if *state == ElementState::Released {
+    fn handled_key_input(&mut self, ctx: KeyInputContext<'_, Self::Uniforms>) -> bool {
+        if *ctx.state == ElementState::Released {
             return false;
         }
 
-        match keycode {
-            VirtualKeyCode::Key1 => {
-                self.light.color.w = Lighting::Normal as i32 as f32;
-            }
-            VirtualKeyCode::Key2 => {
-                self.light.color.w = Lighting::Ambient as i32 as f32;
-            }
-            VirtualKeyCode::Key3 => {
-                self.light.color.w = Lighting::Diffuse as i32 as f32;
-            }
-            VirtualKeyCode::Key4 => {
-                self.light.color.w = Lighting::Specular as i32 as f32;
-            }
-            VirtualKeyCode::Key5 => {
-                self.light.color.w = Lighting::Phong as i32 as f32;
-            }
-            VirtualKeyCode::Key6 => {
-                self.light.color.w = Lighting::Blinn as i32 as f32;
-            }
-            _ => return false,
-        }
-        true
-    }
-
-    fn handle_control_keypress(&mut self, state: &ElementState, keycode: &VirtualKeyCode) {
-        match keycode {
-            VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
-                self.ctrl_pressed = *state == ElementState::Pressed;
-            }
-            _ => (),
-        }
-    }
-
-    fn handle_cursor_move(&mut self, position: &PhysicalPosition<f64>) -> bool {
-        if !self.ctrl_pressed || self.state.mouse.is_none() {
-            return false;
-        }
-
-        let Some((delta_x, delta_y)) = self.state.cursor_move(position) else {
+        let Some(light) = ctx.light else {
             return false;
         };
 
-        let speed = 4.0_f32;
-
-        match self.state.mouse.unwrap() {
-            MouseButton::Right => {
-                self.light.translate(0.0, 0.0, delta_y * speed);
+        match ctx.keycode {
+            VirtualKeyCode::Key1 => {
+                light.color.w = Lighting::Normal as i32 as f32;
             }
-            MouseButton::Left => {
-                self.light.translate(delta_x * speed, delta_y * speed, 0.0);
+            VirtualKeyCode::Key2 => {
+                light.color.w = Lighting::Ambient as i32 as f32;
             }
-            _ => (),
+            VirtualKeyCode::Key3 => {
+                light.color.w = Lighting::Diffuse as i32 as f32;
+            }
+            VirtualKeyCode::Key4 => {
+                light.color.w = Lighting::Specular as i32 as f32;
+            }
+            VirtualKeyCode::Key5 => {
+                light.color.w = Lighting::Phong as i32 as f32;
+            }
+            VirtualKeyCode::Key6 => {
+                light.color.w = Lighting::Blinn as i32 as f32;
+            }
+            _ => return false,
         }
 
         true
-    }
-}
-
-impl Controller for Ctrl {
-    fn state(&mut self) -> &mut InputState {
-        &mut self.state
-    }
-
-    fn upload_uniforms(&self, camera: &FlyCamera) {
-        let color = self.light.color;
-        opengl! {
-            gl::UniformMatrix4fv(self.u_model,  1, gl::FALSE, self.mesh.model_to_world.as_ref() as *const _);
-            gl::UniformMatrix4fv(self.u_view,   1, gl::FALSE, camera.get_view().as_ref() as *const _);
-            gl::UniformMatrix4fv(self.u_proj,   1, gl::FALSE, camera.get_proj().as_ref() as *const _);
-            gl::UniformMatrix4fv(self.u_light_pos, 1, gl::FALSE, self.light.position.as_ref() as *const _);
-            gl::Uniform4f(self.u_lighting, color.x, color.y, color.z, color.w);
-        }
-        // Lighting has own program bind automatically when calling Light::upload_uniforms;
-        self.light
-            .upload_uniforms(camera.get_view(), camera.get_proj());
-    }
-
-    fn program_changed(&mut self, program: &Program) {
-        self.u_model = program.get_uniform("u_model_t\0");
-        self.u_view = program.get_uniform("u_view_t\0");
-        self.u_proj = program.get_uniform("u_proj_t\0");
-        self.u_light_pos = program.get_uniform("u_light_pos\0");
-        self.u_lighting = program.get_uniform("u_lighting\0");
     }
 }
 
@@ -156,13 +131,14 @@ enum Lighting {
 fn main() {
     let glin = Glindow::new();
     let size = glin.window.inner_size();
-    let mut project = Project::new(Ctrl::new(size), size, || {
-        create_program(Some("./shaders/p3"))
-    });
+    let mut project = SOProject::new(Ctrl, size);
 
     project.camera.goto(0.0, 0.0, 60.0).update();
-    project.ctrl().light.translate(-20.0, 20.0, 30.0);
-    project.upload_uniforms();
+    project
+        .light
+        .as_mut()
+        .map(|light| light.translate(-20.0, 20.0, 30.0));
+    project.update_uniforms();
 
     opengl! {
         gl::Enable(gl::DEPTH_TEST);
@@ -188,66 +164,26 @@ fn main() {
                 opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
-                project.prog.use_program();
-                project.ctrl().mesh.draw();
-                project.ctrl().light.draw();
+                project.draw();
                 surface.swap_buffers(&context).expect("I want to swap!");
             }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(size) => {
-                    if size.width != 0 && size.height != 0 {
-                        surface.resize(
-                            &context,
-                            size.width.try_into().unwrap(),
-                            size.height.try_into().unwrap(),
+                    surface.resize(
+                        &context,
+                        size.width.try_into().unwrap(),
+                        size.height.try_into().unwrap(),
+                    );
+                    opengl! {
+                        gl::Viewport(
+                            0, 0,
+                            size.width as i32,
+                            size.height as i32,
                         );
-                        project.resize(size);
-                        project.upload_uniforms();
-                        window.request_redraw();
                     }
+                    project.resize(&size);
                 }
-                WindowEvent::CloseRequested => {
-                    control_flow.set_exit();
-                }
-                WindowEvent::KeyboardInput {
-                    input,
-                    is_synthetic: false,
-                    ..
-                } => {
-                    let Some(keycode) = input.virtual_keycode else {
-                        return;
-                    };
-
-                    let controller = project.ctrl();
-                    controller.handle_control_keypress(&input.state, &keycode);
-
-                    if controller.change_lighting(&input.state, &keycode) {
-                        project.upload_uniforms();
-                        window.request_redraw();
-                        return;
-                    }
-
-                    if project.handle_key_code(&input) {
-                        project.upload_uniforms();
-                        window.request_redraw();
-                    }
-                }
-                WindowEvent::MouseInput {
-                    state: mouse_state,
-                    button,
-                    ..
-                } => {
-                    project.ctrl().state.mouse_click(&mouse_state, &button);
-                }
-                WindowEvent::CursorMoved { position, .. } => {
-                    if project.ctrl().handle_cursor_move(&position)
-                        || project.handle_cursor_move(&position)
-                    {
-                        project.upload_uniforms();
-                        window.request_redraw();
-                    }
-                }
-                _ => (),
+                event => project.handle_window_events(&event, control_flow, &window),
             },
             _ => (),
         };

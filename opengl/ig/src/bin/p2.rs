@@ -1,63 +1,32 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=2
 
-use gluty::winit::dpi::PhysicalSize;
-use gluty::{gl, opengl, FlyCamera, Glindow, Mesh, Obj, Program};
+use gluty::{gl, opengl, Glindow, Mesh, Obj, Program};
 use ig::*;
 
-struct Ctrl {
-    mesh: Mesh,
-    state: InputState,
-    u_model: i32,
-    u_view: i32,
-    u_proj: i32,
-}
+struct Ctrl;
 
-impl Ctrl {
-    fn new(size: PhysicalSize<u32>) -> Self {
-        Ctrl {
-            mesh: {
-                let (v, i) = Obj::load_vvn(&get_model_path());
-                Mesh::new(&v, &i, |a| {
-                    a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
-                })
-            },
-            state: InputState::new(size),
-            u_model: -1,
-            u_view: -1,
-            u_proj: -1,
-        }
-    }
-}
+impl SOController for Ctrl {
+    type Uniforms = so_uniforms::Uniforms;
 
-impl Controller for Ctrl {
-    fn state(&mut self) -> &mut InputState {
-        &mut self.state
+    fn create_program() -> Program {
+        create_program(Some("./shaders/p2/shader")).expect("Project 2 program compiles.")
     }
 
-    fn upload_uniforms(&self, camera: &FlyCamera) {
-        opengl! {
-            gl::UniformMatrix4fv(self.u_model,  1, gl::FALSE, self.mesh.model_to_world.as_ref() as *const _);
-            gl::UniformMatrix4fv(self.u_view,   1, gl::FALSE, camera.get_view().as_ref() as *const _);
-            gl::UniformMatrix4fv(self.u_proj,   1, gl::FALSE, camera.get_proj().as_ref() as *const _);
-        }
-    }
-
-    fn program_changed(&mut self, program: &Program) {
-        self.u_model = program.get_uniform("u_model_t\0");
-        self.u_view = program.get_uniform("u_view_t\0");
-        self.u_proj = program.get_uniform("u_proj_t\0");
+    fn load_mesh() -> Mesh {
+        let (v, i) = Obj::load_vvn(&get_model_path());
+        Mesh::new(&v, &i, |a| {
+            a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
+        })
     }
 }
 
 fn main() {
     let glin = Glindow::new();
     let size = glin.window.inner_size();
-    let mut project = Project::new(Ctrl::new(size), size, || {
-        create_program(Some("./shaders/p2"))
-    });
+    let mut project = SOProject::new(Ctrl, size);
 
     project.camera.goto(0.0, 0.0, 60.0).update();
-    project.upload_uniforms();
+    project.update_uniforms();
 
     opengl! {
         gl::Enable(gl::DEPTH_TEST);
@@ -75,7 +44,7 @@ fn main() {
 
     event_loop.run(move |event, _, control_flow| {
         use gluty::glutin::prelude::*;
-        use gluty::winit::event::{Event, WindowEvent};
+        use gluty::winit::event::*;
 
         control_flow.set_wait();
 
@@ -84,35 +53,26 @@ fn main() {
                 opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
-                project.ctrl().mesh.draw();
+                project.draw();
                 surface.swap_buffers(&context).expect("I want to swap!");
             }
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    control_flow.set_exit();
-                }
-                WindowEvent::KeyboardInput {
-                    input,
-                    is_synthetic: false,
-                    ..
-                } => {
-                    if project.handle_key_code(&input) {
-                        window.request_redraw();
+                WindowEvent::Resized(size) => {
+                    surface.resize(
+                        &context,
+                        size.width.try_into().unwrap(),
+                        size.height.try_into().unwrap(),
+                    );
+                    opengl! {
+                        gl::Viewport(
+                            0, 0,
+                            size.width as i32,
+                            size.height as i32,
+                        );
                     }
+                    project.resize(&size);
                 }
-                WindowEvent::MouseInput {
-                    state: mouse_state,
-                    button,
-                    ..
-                } => {
-                    project.ctrl().state.mouse_click(&mouse_state, &button);
-                }
-                WindowEvent::CursorMoved { position, .. } => {
-                    if project.handle_cursor_move(&position) {
-                        window.request_redraw();
-                    }
-                }
-                _ => (),
+                event => project.handle_window_events(&event, control_flow, &window),
             },
             _ => (),
         };

@@ -1,9 +1,9 @@
-use super::{InputState, Light};
+use super::{InputState, Light, size_u_to_f32};
 use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::{event::*, event_loop::ControlFlow, window::Window};
 use gluty::{gl, opengl, FlyCamera, Mesh, Program, Projection};
 
-mod camera_consts {
+pub mod camera_consts {
     pub const NEAR: f32 = 0.01;
     pub const FAR: f32 = 1000.0;
     pub const FOV: f32 = 60.0;
@@ -28,7 +28,7 @@ impl<T: SOController> SOProject<T> {
         let program = T::create_program();
         let light = T::create_light();
         let model = T::load_mesh();
-        let size = Self::size_u_to_f32(&win_size);
+        let size = size_u_to_f32(&win_size);
         let uniforms = T::Uniforms::new(&program);
 
         Self {
@@ -76,22 +76,13 @@ impl<T: SOController> SOProject<T> {
     }
 
     pub fn resize(&mut self, size: &PhysicalSize<u32>) -> &mut Self {
-        self.size = Self::size_u_to_f32(size);
+        self.size = size_u_to_f32(size);
         self.camera
             .projection
             .resize(self.size.width / self.size.height);
         self.camera.update();
         self.update_camera_uniforms();
         self
-    }
-
-    fn size_u_to_f32(size: &PhysicalSize<u32>) -> PhysicalSize<f32> {
-        debug_assert!(size.width <= std::i32::MAX as u32);
-        debug_assert!(size.height <= std::i32::MAX as u32);
-
-        let width = size.width as f32;
-        let height = size.height as f32;
-        PhysicalSize::new(width, height)
     }
 
     pub fn handle_window_events(

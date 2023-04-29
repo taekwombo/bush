@@ -1,4 +1,5 @@
 use gluty::{gl, Program};
+use gluty::winit::dpi::PhysicalSize;
 
 mod input;
 mod light;
@@ -27,3 +28,13 @@ pub fn get_model_path() -> String {
 
     path_arg.map_or_else(|| String::from("./resources/teapot.obj"), |v| v)
 }
+
+pub fn size_u_to_f32(size: &PhysicalSize<u32>) -> PhysicalSize<f32> {
+        debug_assert!(size.width <= std::i32::MAX as u32);
+        debug_assert!(size.height <= std::i32::MAX as u32);
+
+        let width = size.width as f32;
+        let height = size.height as f32;
+        PhysicalSize::new(width, height)
+    }
+

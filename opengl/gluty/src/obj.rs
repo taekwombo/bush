@@ -16,7 +16,7 @@ fn to_u32_expect(value: isize) -> u32 {
     u32::try_from(value).expect("Value must fit into u32.")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Vertex {
     position: isize,
     texture: isize,
@@ -25,23 +25,50 @@ struct Vertex {
 
 impl Vertex {
     #[inline]
-    fn as_key(&self, tex: bool) -> (u32, u32, u32) {
+    fn as_key(&self) -> (u32, u32, u32) {
         let p = to_u32_expect(self.position);
-        let n = to_u32_expect(self.normal);
-        let t = if tex { to_u32_expect(self.texture) } else { 0 };
+        let n = if self.normal < 0 {
+            0
+        } else {
+            to_u32_expect(self.normal)
+        };
+        let t = if self.texture < 0 {
+            0
+        } else {
+            to_u32_expect(self.texture)
+        };
 
         (p, n, t)
     }
 }
 
-#[derive(Default)]
 pub struct BuildOptions {
+    normal: bool,
     tex: bool,
 }
 
+impl Default for BuildOptions {
+    fn default() -> Self {
+        Self {
+            normal: true,
+            tex: false,
+        }
+    }
+}
+
 impl BuildOptions {
+    pub fn vertices_only() -> Self {
+        Self {
+            normal: false,
+            tex: false,
+        }
+    }
+
     pub fn with_tex() -> Self {
-        Self { tex: true }
+        Self {
+            normal: true,
+            tex: true,
+        }
     }
 }
 
@@ -70,12 +97,42 @@ impl Obj {
         }
     }
 
-    pub fn load_vvn(path: &str) -> (Vec<f32>, Vec<u32>) {
-        Obj::new().parse(path).build(Default::default())
+    pub fn cmp_opts(&self, opts: &BuildOptions) -> bool {
+        let normal = if opts.normal {
+            !self.normals.is_empty()
+        } else {
+            true
+        };
+        let tex = if opts.tex {
+            !self.texture_coords.is_empty()
+        } else {
+            true
+        };
+
+        normal && tex
     }
 
-    pub fn build(&self, opt: BuildOptions) -> (Vec<f32>, Vec<u32>) {
-        let vertex_size = if opt.tex { 9 } else { 6 };
+    pub fn load_vvn(path: &str) -> (Vec<f32>, Vec<u32>) {
+        Obj::new().parse(path).build(&Default::default())
+    }
+
+    pub fn build(&self, opt: &BuildOptions) -> (Vec<f32>, Vec<u32>) {
+        let has_normal = opt.normal;
+        let has_texture = opt.tex;
+        #[cfg(debug_assertions)]
+        {
+            if has_normal {
+                assert!(!self.normals.is_empty());
+            }
+            if has_texture {
+                assert!(!self.texture_coords.is_empty());
+            }
+        }
+        let vertex_size = match (has_normal, has_texture) {
+            (true, true) => 9,
+            (true, false) | (false, true) => 6,
+            (false, false) => 3,
+        };
 
         let mut vbo_data = Vec::new();
         let mut ebo_data = Vec::new();
@@ -85,7 +142,7 @@ impl Obj {
 
         for triangle in &self.triangles {
             for vertex in triangle {
-                let key = vertex.as_key(opt.tex);
+                let key = vertex.as_key();
 
                 if let Entry::Vacant(entry) = vertex_map.entry(key) {
                     debug_assert!(vertex_index as usize == (vbo_data.len() / vertex_size));
@@ -93,9 +150,11 @@ impl Obj {
                     // Push position data.
                     vbo_data.extend_from_slice(&self.positions[key.0 as usize]);
                     // Push normal data.
-                    vbo_data.extend_from_slice(&self.normals[key.1 as usize]);
+                    if has_normal {
+                        vbo_data.extend_from_slice(&self.normals[key.1 as usize]);
+                    }
                     // Push texture data.
-                    if opt.tex {
+                    if has_texture {
                         vbo_data.extend_from_slice(&self.texture_coords[key.2 as usize]);
                     }
                     ebo_data.push(vertex_index);
@@ -208,9 +267,8 @@ impl Obj {
             let texture = to_isize_expect(split.next()) - 1;
             let normal = to_isize_expect(split.next()) - 1;
 
-            // Require at least vertex position and vertex normal values.
+            // Require vertex positions.
             debug_assert!(position >= 0);
-            debug_assert!(normal >= 0);
 
             vertices[vertex_count] = Vertex {
                 position,

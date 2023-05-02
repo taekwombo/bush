@@ -6,3 +6,6 @@ description = "https://graphics.cs.utah.edu/courses/cs6610/spring2021/"
 
 [dependencies]
 gluty = { path = "../gluty" }
+
+[features]
+swap_textures = []

@@ -1,4 +1,4 @@
-use super::{InputState, Light, size_u_to_f32};
+use super::{size_u_to_f32, InputState, Light};
 use gluty::winit::dpi::{PhysicalPosition, PhysicalSize};
 use gluty::winit::{event::*, event_loop::ControlFlow, window::Window};
 use gluty::{gl, opengl, FlyCamera, Mesh, Program, Projection};

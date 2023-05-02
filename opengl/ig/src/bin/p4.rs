@@ -115,7 +115,7 @@ impl SOController for Ctrl {
         let path = get_model_path();
         obj.parse(&path);
 
-        let (vbo, ebo) = obj.build(BuildOptions::with_tex());
+        let (vbo, ebo) = obj.build(&BuildOptions::with_tex());
         let mut mesh = Mesh::new(&vbo, &ebo, |attrs| {
             attrs
                 .add::<f32>(0, 3, gl::FLOAT)

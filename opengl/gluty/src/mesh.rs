@@ -85,12 +85,20 @@ impl Mesh {
         self
     }
 
+    pub fn bind_vao(&self) {
+        opengl!(gl::BindVertexArray(self.vao));
+    }
+
+    pub fn unbind_vao(&self) {
+        opengl!(gl::BindVertexArray(0));
+    }
+
     pub fn draw(&self) -> &Self {
+        self.bind_vao();
         opengl! {
-            gl::BindVertexArray(self.vao);
             gl::DrawElements(gl::TRIANGLES, self.indices, gl::UNSIGNED_INT, std::ptr::null());
-            gl::BindVertexArray(0);
         }
+        self.unbind_vao();
         self
     }
 }

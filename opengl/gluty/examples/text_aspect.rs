@@ -152,7 +152,7 @@ fn main() {
 
     let glin = Glindow::new();
     let mut program = Program::create();
-    let texture = Texture::create_from_file("./examples/resources/opossum.jpg", gl::TEXTURE_2D, 0)
+    let texture = Texture::create_from_file(&"./examples/resources/opossum.jpg", gl::TEXTURE_2D, 0)
         .expect("Texture created.");
     program
         .attach_shader_source("./examples/shaders/text_aspect.vert", gl::VERTEX_SHADER)

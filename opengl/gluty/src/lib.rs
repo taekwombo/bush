@@ -244,3 +244,34 @@ pub unsafe fn with_get_error<R, F: FnOnce() -> R>(
 
     res
 }
+
+#[macro_export]
+macro_rules! uniforms {
+    ($name:ident; $($uniform:ident),+) => {
+        struct $name {
+            $(
+                $uniform: i32,
+            )+
+        }
+
+        impl $name {
+            fn new(program: &$crate::Program) -> Self {
+                let s = Self {
+                    $(
+                        $uniform: program.get_uniform(concat!(stringify!($uniform), "\0")),
+                    )+
+                };
+                s.assert();
+                s
+            }
+
+            fn assert(&self) {
+                $(
+                    if self.$uniform < 0 {
+                        panic!("Uniform {} was not found in the shader", stringify!($uniform));
+                    }
+                )+
+            }
+        }
+    }
+}

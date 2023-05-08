@@ -11,8 +11,14 @@ uniform mat4 u_model_t;
 
 layout(location = 0) in vec3 a_position;
 
+out vec4 v_color;
+
 void main() {
     gl_Position = u_proj_t * u_view_t * u_model_t * vec4(a_position, 1.0);
+    v_color = vec4(1.0);
+    if (a_position.z >= 0.0) {
+        v_color = vec4(vec3(0.4, 0.8, 0.3), 1.0);
+    }
 }
 ";
 
@@ -21,8 +27,10 @@ const FRAGMENT_SOURCE: &[u8] = b"
 
 layout(location = 0) out vec4 color;
 
+in vec4 v_color;
+
 void main() {
-    color = vec4(1.0);
+    color = v_color;
 }
 ";
 

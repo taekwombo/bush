@@ -6,7 +6,7 @@ type Image = ImageBuffer<Rgba<f32>, Vec<f32>>;
 #[derive(Debug)]
 pub struct Texture {
     pub gl_id: u32,
-    gl_type: u32,
+    pub gl_type: u32,
     pub slot: u32,
     pub width: u32,
     pub height: u32,

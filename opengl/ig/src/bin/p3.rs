@@ -52,8 +52,8 @@ struct Ctrl;
 impl SOController for Ctrl {
     type Uniforms = Uniforms;
 
-    fn create_program() -> Program {
-        create_program(Some("./shaders/p3/shader")).expect("Project 3 program compiles.")
+    fn create_program(&self) -> Option<Program> {
+        create_program(Some("./shaders/p3/shader")).ok()
     }
 
     fn load_mesh() -> Mesh {

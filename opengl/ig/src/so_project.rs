@@ -25,7 +25,7 @@ pub struct SOProject<T: SOController> {
 
 impl<T: SOController> SOProject<T> {
     pub fn new(controller: T, win_size: PhysicalSize<u32>) -> Self {
-        let program = T::create_program();
+        let program = T::create_program(&controller).unwrap();
         let light = T::create_light();
         let model = T::load_mesh();
         let size = size_u_to_f32(&win_size);
@@ -189,12 +189,19 @@ impl<T: SOController> SOProject<T> {
                 self.model.rotate_x(delta_y);
                 self.model.rotate_y(delta_x);
             } else {
-                self.model.translate(x, y, z);
+                self.model.rotate_z(delta_y);
             }
             self.update_model_uniforms();
         }
 
         true
+    }
+
+    fn reload_program(&mut self) {
+        if let Some(program) = T::create_program(&self.controller) {
+            self.program = program;
+            self.uniforms = T::Uniforms::new(&self.program);
+        }
     }
 
     fn should_render_key_input(&mut self, state: &ElementState, keycode: &VirtualKeyCode) -> bool {
@@ -206,8 +213,7 @@ impl<T: SOController> SOProject<T> {
             match keycode {
                 VirtualKeyCode::R => {
                     println!("Reloading shaders.");
-                    self.program = T::create_program();
-                    self.uniforms = T::Uniforms::new(&self.program);
+                    self.reload_program();
                     self.update_uniforms();
                 }
                 VirtualKeyCode::P => {
@@ -332,7 +338,7 @@ pub struct CursorInputContext<'a, U> {
 pub trait SOController {
     type Uniforms: SOUniforms;
 
-    fn create_program() -> Program;
+    fn create_program(&self) -> Option<Program>;
     fn load_mesh() -> Mesh;
     fn create_light() -> Option<Light> {
         None

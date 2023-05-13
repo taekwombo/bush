@@ -248,6 +248,7 @@ pub unsafe fn with_get_error<R, F: FnOnce() -> R>(
 #[macro_export]
 macro_rules! uniforms {
     ($name:ident; $($uniform:ident),+) => {
+        #[derive(::std::fmt::Debug)]
         pub struct $name {
             $(
                 pub $uniform: i32,

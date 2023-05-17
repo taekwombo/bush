@@ -2,7 +2,7 @@
 
 uniform float u_tess_level;
 
-layout(vertices = 3) out;
+layout(vertices = 4) out;
 
 in vec3 v_normal[];
 in vec2 v_tex_coord[];
@@ -14,7 +14,9 @@ void main() {
     gl_TessLevelOuter[0] = u_tess_level;
     gl_TessLevelOuter[1] = u_tess_level;
     gl_TessLevelOuter[2] = u_tess_level;
+    gl_TessLevelOuter[3] = u_tess_level;
     gl_TessLevelInner[0] = u_tess_level;
+    gl_TessLevelInner[1] = u_tess_level;
 
     uint id = gl_InvocationID;
 

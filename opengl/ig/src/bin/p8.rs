@@ -214,6 +214,18 @@ impl Tesselation {
         self.tess_program.use_program();
         self.update_tess_uniforms();
     }
+
+    fn draw_quad(&self) {
+        self.model.bind_vao();
+        opengl! {
+            gl::DrawArrays(
+                gl::PATCHES,
+                0,
+                4,
+            );
+        }
+        self.model.unbind_vao();
+    }
 }
 
 fn main() {
@@ -232,7 +244,7 @@ fn main() {
     opengl! {
         gl::ClearColor(0.1, 0.1, 0.15, 1.0);
         gl::Enable(gl::DEPTH_TEST);
-        gl::PatchParameteri(gl::PATCH_VERTICES, 3);
+        gl::PatchParameteri(gl::PATCH_VERTICES, 4);
     }
 
     #[allow(unused_variables)]
@@ -258,11 +270,11 @@ fn main() {
 
                 tess.light.draw();
                 tess.tess_program.use_program();
-                tess.model.draw_as(gl::PATCHES);
+                tess.draw_quad();
 
                 if tess.show_triangulation {
                     tess.tri_program.use_program();
-                    tess.model.draw_as(gl::PATCHES);
+                    tess.draw_quad();
                 }
 
                 surface.swap_buffers(&context).expect("I want to swap!");

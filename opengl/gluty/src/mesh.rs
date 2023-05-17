@@ -93,13 +93,17 @@ impl Mesh {
         opengl!(gl::BindVertexArray(0));
     }
 
-    pub fn draw(&self) -> &Self {
+    pub fn draw_as(&self, mode: gl::types::GLenum) -> &Self {
         self.bind_vao();
         opengl! {
-            gl::DrawElements(gl::TRIANGLES, self.indices, gl::UNSIGNED_INT, std::ptr::null());
+            gl::DrawElements(mode, self.indices, gl::UNSIGNED_INT, std::ptr::null());
         }
         self.unbind_vao();
         self
+    }
+
+    pub fn draw(&self) -> &Self {
+        self.draw_as(gl::TRIANGLES)
     }
 }
 

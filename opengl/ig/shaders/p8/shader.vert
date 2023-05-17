@@ -24,10 +24,9 @@ void main() {
 
     vec4 light_world = u_light_world_t * vec4(vec3(0.0), 1.0);
     vec4 light_view = u_view_t * light_world;
-
-    vec4 direction = light_view - view;
+    vec4 light_dir_view = light_view - view;
 
     v_normal = normal_view.xyz;
-    v_light_direction = direction.xyz;
+    v_light_direction = light_dir_view.xyz;
     v_tex_coord = a_tex_coord;
 }

@@ -1,9 +1,8 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=8
 
 use gluty::{
-    winit::dpi::PhysicalSize,
-    opengl, uniforms, Program,
-    gl, Mesh, FlyCamera, Projection, Glindow, Texture
+    gl, opengl, uniforms, winit::dpi::PhysicalSize, FlyCamera, Glindow, Mesh, Program, Projection,
+    Texture,
 };
 use ig::*;
 
@@ -37,7 +36,7 @@ struct Tesselation {
     tess_uniforms: TessUniforms,
     tess_level: f32,
     show_triangulation: bool,
-} 
+}
 
 impl Tesselation {
     fn new(size: &PhysicalSize<u32>) -> Self {
@@ -81,7 +80,7 @@ impl Tesselation {
             0, 3, 2,
         ];
 
-        Mesh::new(&vbo_data, &ebo_data, |attrs| {
+        Mesh::new(vbo_data, ebo_data, |attrs| {
             attrs.add::<f32>(0, 3, gl::FLOAT);
             attrs.add::<f32>(1, 3, gl::FLOAT);
             attrs.add::<f32>(2, 2, gl::FLOAT);
@@ -90,14 +89,8 @@ impl Tesselation {
     }
 
     fn load_textures() -> (Texture, Texture) {
-        let normal = Texture::load_file(
-            "./resources/teapot_normal.png",
-            true,
-        ).unwrap();
-        let displacement = Texture::load_file(
-            "./resources/teapot_disp.png",
-            true,
-        ).unwrap();
+        let normal = Texture::load_file("./resources/teapot_normal.png", true).unwrap();
+        let displacement = Texture::load_file("./resources/teapot_disp.png", true).unwrap();
 
         (
             {
@@ -115,7 +108,7 @@ impl Tesselation {
                 tex.data(displacement.as_raw(), None);
                 tex.unbind();
                 tex
-            }
+            },
         )
     }
 
@@ -124,7 +117,8 @@ impl Tesselation {
 
         program.attach_shader_source("./shaders/p8/tesselation.vert", gl::VERTEX_SHADER)?;
         program.attach_shader_source("./shaders/p8/tesselation.tesc", gl::TESS_CONTROL_SHADER)?;
-        program.attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
+        program
+            .attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
         program.attach_shader_source("./shaders/p8/triangulation.geom", gl::GEOMETRY_SHADER)?;
         program.attach_shader_source("./shaders/p8/triangulation.frag", gl::FRAGMENT_SHADER)?;
         program.link()?;
@@ -137,7 +131,8 @@ impl Tesselation {
 
         program.attach_shader_source("./shaders/p8/tesselation.vert", gl::VERTEX_SHADER)?;
         program.attach_shader_source("./shaders/p8/tesselation.tesc", gl::TESS_CONTROL_SHADER)?;
-        program.attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
+        program
+            .attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
         program.attach_shader_source("./shaders/p8/tesselation.frag", gl::FRAGMENT_SHADER)?;
         program.link()?;
 
@@ -234,7 +229,10 @@ fn main() {
     let mut tess = Tesselation::new(&size);
     let mut input_state = InputState::new(size);
 
-    tess.camera.goto(0.0, 20.0, 40.0).rotate(-20.0, 0.0).update();
+    tess.camera
+        .goto(0.0, 20.0, 40.0)
+        .rotate(-20.0, 0.0)
+        .update();
     tess.model.scale(20.0, 20.0, 20.0);
     tess.light.translate(10.0, 10.0, -20.0);
     tess.update();
@@ -257,8 +255,8 @@ fn main() {
     } = glin;
 
     event_loop.run(move |event, _, control_flow| {
-        use gluty::winit::event::*;
         use gluty::glutin::prelude::*;
+        use gluty::winit::event::*;
 
         control_flow.set_wait();
 
@@ -294,9 +292,7 @@ fn main() {
                         );
                     }
                     let size = size_u_to_f32(&size);
-                    tess.camera
-                        .projection
-                        .resize(size.width / size.height);
+                    tess.camera.projection.resize(size.width / size.height);
                     tess.camera.update();
                     tess.update();
                 }
@@ -334,23 +330,20 @@ fn main() {
                         tess.light.translate(x, y, z);
                     } else if input_state.alt {
                         tess.model.rotate_x(y).rotate_y(x).rotate_z(z);
+                    } else if z != 0.0 {
+                        tess.camera.accelerate_z(z).accelerate_x(x).update();
                     } else {
-                        if z != 0.0 {
-                            tess.camera
-                                .accelerate_z(z)
-                                .accelerate_x(x)
-                                .update();
-                        } else {
-                            tess.camera
-                                .rotate(y, x)
-                                .update();
-                        }
+                        tess.camera.rotate(y, x).update();
                     }
 
                     tess.update();
                     window.request_redraw();
                 }
-                WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
+                WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic: false,
+                    ..
+                } => {
                     let Some(keycode) = input.virtual_keycode else {
                         return;
                     };
@@ -371,27 +364,31 @@ fn main() {
                             if keycode == VirtualKeyCode::Key0 {
                                 tess.tess_level = DEFAULT_TESS_LEVEL;
                             } else {
-                                let change = if matches!(keycode, VirtualKeyCode::Equals) { 1.0 } else { -1.0 };
+                                let change = if matches!(keycode, VirtualKeyCode::Equals) {
+                                    1.0
+                                } else {
+                                    -1.0
+                                };
                                 tess.tess_level = 2.0_f32.max(tess.tess_level + change);
                             }
                             tess.update();
                             window.request_redraw();
                         }
                         VirtualKeyCode::R => {
-                            match (Tesselation::create_triangulation_program(), Tesselation::create_tess_program()) {
-                                (Ok(tri_program), Ok(tess_program)) => {
-                                    println!("Reloading shaders.");
+                            if let (Ok(tri_program), Ok(tess_program)) = (
+                                Tesselation::create_triangulation_program(),
+                                Tesselation::create_tess_program(),
+                            ) {
+                                println!("Reloading shaders.");
 
-                                    tess.tri_program = tri_program;
-                                    tess.tri_uniforms.update_program(&tess.tri_program);
+                                tess.tri_program = tri_program;
+                                tess.tri_uniforms.update_program(&tess.tri_program);
 
-                                    tess.tess_program = tess_program;
-                                    tess.tess_uniforms.update_program(&tess.tess_program);
+                                tess.tess_program = tess_program;
+                                tess.tess_uniforms.update_program(&tess.tess_program);
 
-                                    tess.update();
-                                    window.request_redraw();
-                                }
-                                _ => (),
+                                tess.update();
+                                window.request_redraw();
                             }
                         }
                         _ => (),

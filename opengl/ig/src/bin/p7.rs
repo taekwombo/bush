@@ -1,17 +1,17 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=7
 
-use ig::*;
 use gluty::{
     gl,
-    Mesh, Obj, BuildOptions, Glindow, Program, Texture,
-    FlyCamera, Projection, opengl, uniforms,
+    glam::{Mat4, Vec3},
+    opengl, uniforms,
     winit::dpi::PhysicalSize,
-    glam::{Vec3, Mat4},
+    BuildOptions, FlyCamera, Glindow, Mesh, Obj, Program, Projection, Texture,
 };
+use ig::*;
 
 mod dir_light {
     //! Light with view and projection transformation matrices.
-    //! Always looks at the center of the World. 
+    //! Always looks at the center of the World.
 
     use super::*;
 
@@ -26,7 +26,7 @@ mod dir_light {
         pub fn new(size: PhysicalSize<u32>) -> Self {
             use camera_consts::*;
             let size_f = size_u_to_f32(&size);
-            let proj = Projection::perspective(FOV, size_f.width / size_f.height, NEAR, FAR).matrix.clone();
+            let proj = Projection::perspective(FOV, size_f.width / size_f.height, NEAR, FAR).matrix;
             let position = Vec3::new(10.0, 10.0, 10.0);
             let view = Mat4::IDENTITY;
 
@@ -67,7 +67,7 @@ mod dir_light {
             self.position.z += z;
             self.update();
         }
-        
+
         pub fn goto(&mut self, x: f32, y: f32, z: f32) {
             self.position.x = x;
             self.position.y = y;
@@ -95,7 +95,7 @@ mod shadow {
             let mut original_framebuffer: i32 = 0;
             let texture = Self::create_texture(size);
 
-            opengl!{
+            opengl! {
                 gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut original_framebuffer);
                 gl::GenFramebuffers(1, &mut framebuffer);
 
@@ -206,7 +206,7 @@ mod shadow {
                 std::ptr::null(),
             ));
 
-            return texture;
+            texture
         }
 
         pub fn resize(&mut self, size: &PhysicalSize<u32>) {
@@ -317,10 +317,8 @@ impl Scene {
     }
 
     fn update_uniforms(&self) {
-        self.shadow.update_uniforms(
-            self.light.get_view(),
-            self.light.get_proj(),
-        );
+        self.shadow
+            .update_uniforms(self.light.get_view(), self.light.get_proj());
         self.program.use_program();
 
         let (view_matrix, proj_matrix) = if self.light_view {
@@ -367,11 +365,21 @@ impl Scene {
             self.shadow.program.use_program();
 
             // Draw Sphere.
-            opengl!(gl::UniformMatrix4fv(self.shadow.uniforms.u_model_t, 1, gl::FALSE, self.sphere.model_to_world.as_ref() as *const _));
+            opengl!(gl::UniformMatrix4fv(
+                self.shadow.uniforms.u_model_t,
+                1,
+                gl::FALSE,
+                self.sphere.model_to_world.as_ref() as *const _
+            ));
             self.sphere.draw();
 
             // Draw Plane.
-            opengl!(gl::UniformMatrix4fv(self.shadow.uniforms.u_model_t, 1, gl::FALSE, self.plane.model_to_world.as_ref() as *const _));
+            opengl!(gl::UniformMatrix4fv(
+                self.shadow.uniforms.u_model_t,
+                1,
+                gl::FALSE,
+                self.plane.model_to_world.as_ref() as *const _
+            ));
             self.plane.draw();
 
             // Restore default framebuffer.
@@ -407,9 +415,7 @@ impl Scene {
         self.size = size;
         let size_f = size_u_to_f32(&self.size);
         self.shadow.resize(&self.size);
-        self.camera.projection.resize(
-            size_f.width / size_f.height
-        );
+        self.camera.projection.resize(size_f.width / size_f.height);
         self.camera.update();
         self.update_uniforms();
     }
@@ -428,11 +434,9 @@ fn main() {
     let mut input_state = InputState::new(size);
 
     scene.light.goto(10.0, 50.0, 10.0);
-    scene.light
-        .update_uniforms(
-            scene.camera.get_view(),
-            scene.camera.get_proj(),
-        );
+    scene
+        .light
+        .update_uniforms(scene.camera.get_view(), scene.camera.get_proj());
     scene.camera.goto(0.0, 0.0, 50.0).update();
     scene.update_uniforms();
 
@@ -458,7 +462,11 @@ fn main() {
                 surface.swap_buffers(&context).expect("I want to swap!");
             }
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
+                WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic: false,
+                    ..
+                } => {
                     let Some(keycode) = input.virtual_keycode else {
                         return;
                     };
@@ -479,15 +487,12 @@ fn main() {
                             window.request_redraw();
                         }
                         VirtualKeyCode::R => {
-                            match create_scene_program() {
-                                Ok(program) => {
-                                    println!("Reloading shaders.");
-                                    scene.program = program;
-                                    scene.uniforms.update_program(&scene.program);
-                                    scene.update_uniforms();
-                                    window.request_redraw();
-                                }
-                                _ => (),
+                            if let Ok(program) = create_scene_program() {
+                                println!("Reloading shaders.");
+                                scene.program = program;
+                                scene.uniforms.update_program(&scene.program);
+                                scene.update_uniforms();
+                                window.request_redraw();
                             }
                         }
                         _ => (),
@@ -539,14 +544,15 @@ fn main() {
                     };
 
                     scene.light.translate(x, y, z);
-                    scene.light.update_uniforms(scene.camera.get_view(), scene.camera.get_proj());
+                    scene
+                        .light
+                        .update_uniforms(scene.camera.get_view(), scene.camera.get_proj());
                     scene.update_uniforms();
                     window.request_redraw();
                 }
                 _ => (),
-            }
+            },
             _ => (),
         }
     });
 }
-

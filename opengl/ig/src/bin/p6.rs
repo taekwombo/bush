@@ -123,8 +123,7 @@ struct Cube {
 
 impl Cube {
     fn new(texture: Texture) -> Self {
-        let program =
-            create_program(Some("./shaders/p6/cube")).expect("Cube program compiles");
+        let program = create_program(Some("./shaders/p6/cube")).expect("Cube program compiles");
         let model = load_cube_mesh();
 
         Self {
@@ -214,10 +213,7 @@ fn main() {
     #[cfg(debug_assertions)]
     {
         cube.model.bind_vao();
-        cube
-            .program
-            .validate()
-            .expect("cube program is valid");
+        cube.program.validate().expect("cube program is valid");
         sphere.model.bind_vao();
         sphere.program.validate().expect("Sphere program is valid");
         opengl!(gl::BindVertexArray(0));
@@ -255,7 +251,11 @@ fn main() {
                 WindowEvent::MouseInput { state, button, .. } => {
                     input_state.mouse_click(&state, &button);
                 }
-                WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
+                WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic: false,
+                    ..
+                } => {
                     if input.state == ElementState::Released {
                         return;
                     }
@@ -279,7 +279,7 @@ fn main() {
                                 window.request_redraw();
                             }
                         }
-                        _ => ()
+                        _ => (),
                     }
                 }
                 WindowEvent::CursorMoved { position, .. } => {

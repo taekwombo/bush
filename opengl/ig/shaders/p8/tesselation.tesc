@@ -15,7 +15,6 @@ void main() {
     gl_TessLevelOuter[1] = u_tess_level;
     gl_TessLevelOuter[2] = u_tess_level;
     gl_TessLevelInner[0] = u_tess_level;
-    gl_TessLevelInner[1] = 1.0;
 
     uint id = gl_InvocationID;
 

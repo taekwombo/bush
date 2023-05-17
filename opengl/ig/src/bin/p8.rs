@@ -9,7 +9,21 @@ use ig::*;
 
 const DEFAULT_TESS_LEVEL: f32 = 16.0;
 
-uniforms!(Uniforms; u_tess_level, /* u_texture_n, */ u_texture_d, u_model_t, u_view_t, u_proj_t/*, u_light_world_t*/);
+uniforms!(TriUniforms;
+          u_tess_level,
+          u_texture_d,
+          u_model_t,
+          u_view_t,
+          u_proj_t);
+
+uniforms!(TessUniforms;
+          u_tess_level,
+          u_texture_n,
+          u_texture_d,
+          u_model_t,
+          u_view_t,
+          u_proj_t,
+          u_light_world_t);
 
 struct Tesselation {
     camera: FlyCamera,
@@ -18,14 +32,19 @@ struct Tesselation {
     normal_tex: Texture,
     displacement_tex: Texture,
     tri_program: Program,
-    uniforms: Uniforms,
+    tri_uniforms: TriUniforms,
+    tess_program: Program,
+    tess_uniforms: TessUniforms,
     tess_level: f32,
+    show_triangulation: bool,
 } 
 
 impl Tesselation {
     fn new(size: &PhysicalSize<u32>) -> Self {
         let tri_program = Self::create_triangulation_program().unwrap();
-        let uniforms = Uniforms::new(&tri_program);
+        let tri_uniforms = TriUniforms::new(&tri_program);
+        let tess_program = Self::create_tess_program().unwrap();
+        let tess_uniforms = TessUniforms::new(&tess_program);
         let (normal_tex, displacement_tex) = Self::load_textures();
         let model = Self::load_mesh();
         let camera = FlyCamera::new(|| {
@@ -36,13 +55,16 @@ impl Tesselation {
 
         Self {
             tri_program,
-            uniforms,
+            tri_uniforms,
+            tess_program,
+            tess_uniforms,
             normal_tex,
             displacement_tex,
             model,
             camera,
             light: Light::new(),
             tess_level: DEFAULT_TESS_LEVEL,
+            show_triangulation: true,
         }
     }
 
@@ -122,41 +144,75 @@ impl Tesselation {
         Ok(program)
     }
 
-    fn update(&self) {
-        let view_mat = self.camera.get_view();
-        let proj_mat = self.camera.get_proj();
-
-        self.light.update_uniforms(view_mat, proj_mat);
-
-        self.tri_program.use_program();
+    fn update_tri_uniforms(&self) {
         opengl! {
-            gl::Uniform1i(self.uniforms.u_texture_d, self.displacement_tex.slot as i32);
-            gl::Uniform1f(self.uniforms.u_tess_level, self.tess_level);
+            gl::Uniform1f(self.tri_uniforms.u_tess_level, self.tess_level);
+            gl::Uniform1i(self.tri_uniforms.u_texture_d, self.displacement_tex.slot as i32);
             gl::UniformMatrix4fv(
-                self.uniforms.u_model_t,
+                self.tri_uniforms.u_model_t,
                 1,
                 gl::FALSE,
                 self.model.model_to_world.as_ref() as *const _,
             );
             gl::UniformMatrix4fv(
-                self.uniforms.u_view_t,
+                self.tri_uniforms.u_view_t,
                 1,
                 gl::FALSE,
-                view_mat.as_ref() as *const _,
+                self.camera.get_view().as_ref() as *const _,
             );
             gl::UniformMatrix4fv(
-                self.uniforms.u_proj_t,
+                self.tri_uniforms.u_proj_t,
                 1,
                 gl::FALSE,
-                proj_mat.as_ref() as *const _,
+                self.camera.get_proj().as_ref() as *const _,
             );
-            // gl::UniformMatrix4fv(
-            //     self.uniforms.u_light_world_t,
-            //     1,
-            //     gl::FALSE,
-            //     self.light.position.as_ref() as *const _,
-            // );
         }
+    }
+
+    fn update_tess_uniforms(&self) {
+        opengl! {
+            gl::Uniform1f(self.tess_uniforms.u_tess_level, self.tess_level);
+            gl::Uniform1i(self.tess_uniforms.u_texture_n, self.normal_tex.slot as i32);
+            gl::Uniform1i(self.tess_uniforms.u_texture_d, self.displacement_tex.slot as i32);
+            gl::UniformMatrix4fv(
+                self.tess_uniforms.u_model_t,
+                1,
+                gl::FALSE,
+                self.model.model_to_world.as_ref() as *const _,
+            );
+            gl::UniformMatrix4fv(
+                self.tess_uniforms.u_view_t,
+                1,
+                gl::FALSE,
+                self.camera.get_view().as_ref() as *const _,
+            );
+            gl::UniformMatrix4fv(
+                self.tess_uniforms.u_proj_t,
+                1,
+                gl::FALSE,
+                self.camera.get_proj().as_ref() as *const _,
+            );
+            gl::UniformMatrix4fv(
+                self.tess_uniforms.u_light_world_t,
+                1,
+                gl::FALSE,
+                self.light.position.as_ref() as *const _,
+            );
+        }
+    }
+
+    fn update(&self) {
+        let view_mat = self.camera.get_view();
+        let proj_mat = self.camera.get_proj();
+        self.light.update_uniforms(view_mat, proj_mat);
+
+        if self.show_triangulation {
+            self.tri_program.use_program();
+            self.update_tri_uniforms()
+        }
+
+        self.tess_program.use_program();
+        self.update_tess_uniforms();
     }
 }
 
@@ -174,8 +230,6 @@ fn main() {
     tess.normal_tex.bind();
     tess.displacement_tex.bind();
     opengl! {
-        // gl::Uniform1i(tess.uniforms.u_texture_n, tess.normal_tex.slot as i32);
-        gl::Uniform1i(tess.uniforms.u_texture_d, tess.displacement_tex.slot as i32);
         gl::ClearColor(0.1, 0.1, 0.15, 1.0);
         gl::Enable(gl::DEPTH_TEST);
         gl::PatchParameteri(gl::PATCH_VERTICES, 3);
@@ -202,9 +256,15 @@ fn main() {
                     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
 
-                // tess.light.draw();
-                tess.tri_program.use_program();
-                tess.model.draw();
+                tess.light.draw();
+                tess.tess_program.use_program();
+                tess.model.draw_as(gl::PATCHES);
+
+                if tess.show_triangulation {
+                    tess.tri_program.use_program();
+                    tess.model.draw_as(gl::PATCHES);
+                }
+
                 surface.swap_buffers(&context).expect("I want to swap!");
             }
             Event::WindowEvent { event, .. } => match event {
@@ -290,22 +350,32 @@ fn main() {
                     }
 
                     match keycode {
+                        VirtualKeyCode::Space => {
+                            tess.show_triangulation = !tess.show_triangulation;
+                            tess.update();
+                            window.request_redraw();
+                        }
                         VirtualKeyCode::Equals | VirtualKeyCode::Minus | VirtualKeyCode::Key0 => {
                             if keycode == VirtualKeyCode::Key0 {
-                                tess.tess_level = 2.0;
+                                tess.tess_level = DEFAULT_TESS_LEVEL;
                             } else {
-                                let mut change = if matches!(keycode, VirtualKeyCode::Equals) { 1.0 } else { -1.0 };
+                                let change = if matches!(keycode, VirtualKeyCode::Equals) { 1.0 } else { -1.0 };
                                 tess.tess_level = 2.0_f32.max(tess.tess_level + change);
                             }
                             tess.update();
                             window.request_redraw();
                         }
                         VirtualKeyCode::R => {
-                            match Tesselation::create_triangulation_program() {
-                                Ok(program) => {
+                            match (Tesselation::create_triangulation_program(), Tesselation::create_tess_program()) {
+                                (Ok(tri_program), Ok(tess_program)) => {
                                     println!("Reloading shaders.");
-                                    tess.tri_program = program;
-                                    tess.uniforms = Uniforms::new(&tess.tri_program);
+
+                                    tess.tri_program = tri_program;
+                                    tess.tri_uniforms.update_program(&tess.tri_program);
+
+                                    tess.tess_program = tess_program;
+                                    tess.tess_uniforms.update_program(&tess.tess_program);
+
                                     tess.update();
                                     window.request_redraw();
                                 }

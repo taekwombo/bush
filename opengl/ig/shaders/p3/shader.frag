@@ -4,6 +4,7 @@ uniform vec4 u_lighting;
 
 in vec3 v_normal;
 in vec3 v_light_direction;
+in vec3 v_vert_position;
 
 layout(location = 0) out vec4 color;
 
@@ -48,7 +49,7 @@ float phong_specular(float alpha) {
 
     // View direction - since we are in the camera coordinate space
     // it is positive Z direction.
-    vec3 view_dir = vec3(0.0, 0.0, 1.0);
+    vec3 view_dir = normalize(-v_vert_position);
     // Surface normal normalized.
     vec3 normal = normalize(v_normal);
     // Light direction normalized.
@@ -73,7 +74,7 @@ float blinn_specular(float alpha) {
 
     // View direction - since we are in the camera coordinate space
     // it is positive Z direction.
-    vec3 view_dir = vec3(0.0, 0.0, 1.0);
+    vec3 view_dir = normalize(-v_vert_position);
     // Surface normal normalized.
     vec3 normal = normalize(v_normal);
     // Light direction normalized.

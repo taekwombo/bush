@@ -10,6 +10,7 @@ layout(location = 1) in vec3 a_normal;
 
 out vec3 v_normal;          // Surface normal in view coordinate space.
 out vec3 v_light_direction; // Direction towards light position in view coordinate space.
+out vec3 v_vert_position;
 
 vec4 surface_normal() {
     return transpose(inverse(u_view_t * u_model_t)) * vec4(a_normal, 0.0);
@@ -26,4 +27,5 @@ void main() {
     gl_Position = u_proj_t * vertex_view;
     v_normal = surface_normal().xyz;
     v_light_direction = (light_position() - vertex_view).xyz;
+    v_vert_position = vertex_view.xyz;
 }

@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define NN_IMPLEMENTATION
-#include "../nn.h"
 
 float train[][2] = {
     {0, 0},

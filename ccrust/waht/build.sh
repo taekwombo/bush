@@ -2,4 +2,4 @@
 
 set -xe
 
-clang -Wall -Wextra $@ -o playground playground.c -lm
+clang -Wall -Wextra $@ -o adder adder.c -lm

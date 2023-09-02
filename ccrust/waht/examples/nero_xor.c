@@ -1,8 +1,9 @@
 #define NERO_IMPLEMENTATION
-#include "../nero.h"
+#include <time.h>
+#include "nero.h"
 
 int main(void) {
-    sranddev();
+    srand(time(NULL));
 
     float data[] = {
         0, 0, 0,

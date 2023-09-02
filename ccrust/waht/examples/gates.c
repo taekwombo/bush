@@ -21,7 +21,7 @@ float sigmoidf(float x) {
 }
 
 void seed() {
-    sranddev();
+    srand(time(NULL));
     rand_float();
 }
 

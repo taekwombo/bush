@@ -7,9 +7,12 @@
 #include <assert.h>
 #include <math.h>
 
+#ifndef bool
 typedef enum {
-    false, true
+    false = 0,
+    true = 1
 } bool;
+#endif
 
 float rand_float();
 float sigmoidf(float x);
@@ -48,9 +51,11 @@ void mat_sig(Mat m);
 void mat_rand(Mat m, float low, float high);
 
 void mat_print(Mat m, const char *name, size_t pad);
+void mat_debug(Mat m, const char *name);
 
 #define M_AT(m, i, j) (m).els[(i) * (m).stride + (j)]
 #define M_PRINT(m) mat_print(m, #m, 0)
+#define M_DEBUG(m) mat_debug(m, #m)
 
 // ------ Nero -------
 
@@ -242,7 +247,6 @@ void mat_rand(Mat m, float low, float high) {
 }
 
 void mat_print(Mat m, const char* name, size_t pad) {
-
     printf("%*s%s[%zux%zu] = [\n", (int)pad, "", name, m.rows, m.cols);
     for (size_t i = 0; i < m.rows; i++) {
         printf("  %*s", (int)pad, "");
@@ -252,6 +256,11 @@ void mat_print(Mat m, const char* name, size_t pad) {
         printf("\n");
     }
     printf("%*s]\n", (int)pad, "");
+}
+
+void mat_debug(Mat m, const char* name) {
+    printf("%s {\n\trows:%zu,\n\tcols:%lu,\n\tstride:%lu,\n\tels:%p\n}\n",
+        name, m.rows, m.cols, m.stride, m.els);
 }
 
 // ------ Nero -------

@@ -2,7 +2,7 @@
 
 set -xe
 
-clang -Wall -Wextra -o double   ./double.c && \
-clang -Wall -Wextra -o gates    ./gates.c && \
-clang -Wall -Wextra -o xor      ./xor.c && \
-clang -Wall -Wextra -o nero_xor ./nero_xor.c 
+gcc -Wall -Wextra -I../ -o double   ./double.c   -lm && \
+gcc -Wall -Wextra -I../ -o gates    ./gates.c    -lm && \
+gcc -Wall -Wextra -I../ -o xor      ./xor.c      -lm && \
+gcc -Wall -Wextra -I../ -o nero_xor ./nero_xor.c -lm     

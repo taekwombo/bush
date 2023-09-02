@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <time.h>
 
 // XOR: A | B & ~(A & B)
 
@@ -63,7 +64,7 @@ float rand_float(void) {
 }
 
 void seed(void) {
-    sranddev();
+    srand(time(NULL));
     rand_float();
 }
 

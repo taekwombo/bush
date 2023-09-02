@@ -1,23 +1,24 @@
 #define NERO_IMPLEMENTATION
 #include "nero.h"
+#include <time.h>
 
 #ifndef BITS
-#define BITS 2
+#define BITS 4
 #endif
 
 int main(void) {
-#ifndef NORND
-    sranddev();
-#else
+#ifdef NORND
     srand(56);
+#else
+    srand(time(NULL));
 #endif
 #ifdef EPOCHS
     size_t epochs = EPOCHS;
 #else
     size_t epochs = 100;
 #endif
-    float rate = 1e-1;
 
+    float rate = 1e-1;
     size_t n = 1 << BITS;
     size_t rows = n * n;
     Mat train_input = mat_alloc(rows, 2 * BITS);
@@ -50,7 +51,10 @@ int main(void) {
         nero_backprop(add, grad, train_input, train_output);
 #endif
         nero_learn(add, grad, rate);
-        printf("Cost: %f\n", nero_cost(add, train_input, train_output));
+
+        if (e % 50 == 0) {
+            printf("[%lu/%lu] Cost: %f\n", e, epochs, nero_cost(add, train_input, train_output));
+        }
     }
 
     for (size_t x = 0; x < n; x++) {
@@ -66,7 +70,7 @@ int main(void) {
                 size_t bit = M_AT(NERO_OUTPUT(add), 0, i) >= 0.5f;
                 z |= bit << i;
             }
-            printf("%d + %d = %d\n", x, y, z);
+            printf("%lu + %lu = %lu\n", x, y, z);
         }
     }
 }

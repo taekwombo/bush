@@ -251,7 +251,7 @@ void mat_print(Mat m, const char* name, size_t pad) {
     for (size_t i = 0; i < m.rows; i++) {
         printf("  %*s", (int)pad, "");
         for (size_t j = 0; j < m.cols; j++) {
-            printf("%f  ", M_AT(m, i, j));
+            printf("%.4f  ", M_AT(m, i, j));
         }
         printf("\n");
     }

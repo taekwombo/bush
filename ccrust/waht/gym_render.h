@@ -35,10 +35,6 @@ void plot_alloc(Plot *plot, size_t size) {
 }
 
 float plot_nth(Plot* plot, size_t at) {
-    if (plot->size == 0) {
-        return 0.0;
-    }
-
     assert(plot->size > at);
 
     if (plot->size == plot->capacity) {
@@ -73,7 +69,7 @@ void plot_push(Plot* plot, float value) {
 float plot_max(Plot* plot) {
     float max = 0.0;
 
-    for (size_t i = 1; i < plot->size; i++) {
+    for (size_t i = 0; i < plot->size; i++) {
         float v = plot_nth(plot, i);
         max = fmax(max, v);
     }
@@ -179,11 +175,6 @@ void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y) {
 
             float sig = sigmoidf(M_AT(n.biases[l - 1], 1, j));
             DrawCircle(cx, cy, RAD, interpolate_color(low_color, high_color, input_color, sig));
-
-            // For input layer draw only circles
-            if (l == 0) {
-                continue;
-            }
 
             for (size_t i = 0; i < n.activations[l - 1].cols; i++) {
                 // Draw connection

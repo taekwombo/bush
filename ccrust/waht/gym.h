@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define GYM_STR_OPT_LEN 512
+
 typedef struct {
     size_t width;
     size_t height;
@@ -37,6 +39,7 @@ typedef void (*ParseFn)(const char* in, void *out, const char* name);
 void find_option(const int argc, const char** argv, const char* name, void *out, ParseFn parse);
 void parse_integer(const char* in, void* out, const char* name);
 void parse_float(const char* in, void* out, const char* name);
+void get_string_opt_value(const char* in, void* out, const char* name);
 
 void gym(GymRender render, GymTrain t, GymInput in);
 
@@ -75,7 +78,9 @@ void gym(GymRender render, GymTrain t, GymInput in) {
 
     size_t epoch = 0;
     bool running = false;
+    bool ignore_epochs_bound = false;
     int key;
+    float saved_rate = t.learning_rate;
 
     while (!WindowShouldClose()) {
         ClearBackground((Color){ 0x44, 0x44, 0x44, 0xFF });
@@ -92,12 +97,30 @@ void gym(GymRender render, GymTrain t, GymInput in) {
                     plot_reset(&plot);
                     break;
 
+                case KEY_EQUAL:
+                    t.learning_rate += saved_rate;
+                    break;
+
+                case KEY_MINUS:
+                    t.learning_rate = fmax(saved_rate, t.learning_rate - saved_rate);
+                    break;
+
+                case KEY_ZERO:
+                    t.learning_rate = saved_rate;
+                    break;
+
+                case KEY_C:
+                    if (epoch == t.epochs) {
+                        ignore_epochs_bound = true;
+                    }
+                    break;
+
                 default:
                     break;
             }
         }
 
-        if (running && epoch < t.epochs) {
+        if (running && (ignore_epochs_bound || epoch < t.epochs)) {
             for (size_t i = 0; i < t.learn_per_frame; i++) {
                 nero_backprop(in.net, in.grad, in.t_in, in.t_out);
                 nero_learn(in.net, in.grad, t.learning_rate);
@@ -155,7 +178,7 @@ void parse_integer(const char* in, void* out, const char* name) {
 
 void get_string_opt_value(const char* in, void* out, const char* name) {
     printf("Assigning value for option '%s': '%s'\n", name, in);
-    assert(strlen(in) < 512);
+    assert(strlen(in) < GYM_STR_OPT_LEN);
     strcpy((char*)out, in);
 }
 
@@ -204,7 +227,7 @@ GymRender read_render_config(const int argc, const char** argv) {
            neuron_radius = 15,
            plot_entries = 400,
            fps = 60;
-    char* title = malloc(sizeof(char) * 512);
+    char* title = malloc(sizeof(char) * GYM_STR_OPT_LEN);
     strcpy(title, "Demo");
 
     find_option(argc, argv, OPT_RENDER_WIDTH, &width, parse_integer);

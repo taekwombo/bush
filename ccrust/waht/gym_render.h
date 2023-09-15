@@ -95,6 +95,10 @@ void plot_render(Plot* plot, int scr_w, int scr_h, int offset_x, int offset_y) {
     DrawLine(axis_x, axis_y - 2, axis_x, axis_y + height + 2, WHITE);
     DrawLine(axis_x - 2, axis_y + height, axis_x + width + 2, axis_y + height, WHITE);
 
+    if (!plot->size) {
+        return;
+    }
+
     static float max = 0.0;
     max = fmax(plot_max(plot), max);
 

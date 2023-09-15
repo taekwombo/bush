@@ -144,12 +144,12 @@ void gym(GymRender render, GymTrain t, GymInput in) {
 const char* OPT_RENDER_WIDTH    = "--width";
 const char* OPT_RENDER_HEIGHT   = "--height";
 const char* OPT_NEURON_RADIUS   = "--radius";
-const char* OPT_PLOT_ENTIRES    = "--plot_entries";
+const char* OPT_PLOT_ENTIRES    = "--plot-entries";
 const char* OPT_FPS             = "--fps";
 const char* OPT_TITLE           = "--title";
 const char* OPT_LEARNING_RATE   = "--rate";
 const char* OPT_EPOCHS          = "--epochs";
-const char* OPT_LEARN_PER_FRAME = "--learn_per_frame";
+const char* OPT_LEARN_PER_FRAME = "--learn-per-frame";
 const char* OPT_SEED            = "--seed";
 
 void parse_float(const char* in, void* out, const char* name) {

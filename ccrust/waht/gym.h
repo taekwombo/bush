@@ -1,13 +1,13 @@
 #ifndef GYM_H
 #define GYM_H
 
-#undef NERO_IMPLEMENTATION
-#include "nero.h"
 #include "raylib.h"
-#define RENDER_IMPLEMENTATION
+#include "nero.h"
 #include "gym_render.h"
+#include "gym_image.h"
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 typedef struct {
     size_t width;
@@ -22,6 +22,7 @@ typedef struct {
     float learning_rate;
     size_t epochs;
     size_t learn_per_frame;
+    size_t seed;
 } GymTrain;
 
 typedef struct {
@@ -48,10 +49,24 @@ void print_render_config(GymRender* r);
 
 #ifdef GYM_IMPLEMENTATION
 
+#define NERO_IMPLEMENTATION
+#include "nero.h"
+#undef NERO_IMPLEMENTATION
+
+#define RENDER_IMPLEMENTATION
+#include "gym_render.h"
+#undef RENDER_IMPLEMENTATION
+
+#define GYM_IMAGE_IMPLEMENTATION
+#include "gym_image.h"
+#undef GYM_IMAGE_IMPLEMENTATION
+
 void gym(GymRender render, GymTrain t, GymInput in) {
+    srand(t.seed);
     nero_rand(in.net, 0, 1);
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
+    printf("Title: %s\n", render.title);
     InitWindow(render.width, render.height, render.title);
     SetTargetFPS(render.fps);
 
@@ -95,7 +110,7 @@ void gym(GymRender render, GymTrain t, GymInput in) {
 
         plot_render_text(epoch, t.epochs, t.learning_rate);
         plot_render(&plot, render.width / 2, render.height, 0, 0);
-        nero_render(in.net, render.width / 2, render.height, render.width / 2, 0);
+        nero_render(in.net, render.width / 2, render.height, render.width / 2, 0, render.neuron_radius);
 
         EndDrawing();
     }
@@ -112,6 +127,7 @@ const char* OPT_TITLE           = "--title";
 const char* OPT_LEARNING_RATE   = "--rate";
 const char* OPT_EPOCHS          = "--epochs";
 const char* OPT_LEARN_PER_FRAME = "--learn_per_frame";
+const char* OPT_SEED            = "--seed";
 
 void parse_float(const char* in, void* out, const char* name) {
     float val = strtof(in, NULL);
@@ -166,14 +182,17 @@ void find_option(const int argc, const char** argv, const char* name, void *out,
 GymTrain read_train_config(const int argc, const char** argv) {
     float learning_rate = 1e-1;
     size_t epochs = 10000,
-           learn_per_frame = 10;
+           learn_per_frame = 10,
+           seed = time(NULL);
 
     find_option(argc, argv, OPT_EPOCHS, &epochs, parse_integer);
     find_option(argc, argv, OPT_LEARN_PER_FRAME, &learn_per_frame, parse_integer);
     find_option(argc, argv, OPT_LEARNING_RATE, &learning_rate, parse_float);
+    find_option(argc, argv, OPT_SEED, &seed, parse_integer);
 
     return (GymTrain){
         .epochs = epochs,
+        .seed = seed,
         .learn_per_frame = learn_per_frame,
         .learning_rate = learning_rate
     };
@@ -182,10 +201,11 @@ GymTrain read_train_config(const int argc, const char** argv) {
 GymRender read_render_config(const int argc, const char** argv) {
     size_t width = 1080,
            height = 720,
-           neuron_radius = 20,
+           neuron_radius = 15,
            plot_entries = 400,
            fps = 60;
-    char title[512] = "Demo";
+    char* title = malloc(sizeof(char) * 512);
+    strcpy(title, "Demo");
 
     find_option(argc, argv, OPT_RENDER_WIDTH, &width, parse_integer);
     find_option(argc, argv, OPT_RENDER_HEIGHT, &height, parse_integer);
@@ -229,10 +249,12 @@ void print_train_config(GymTrain* t) {
         "  .learning_rate: %f\n"
         "  .learn_per_frame: %lu\n"
         "  .epochs: %lu\n"
+        "  .seed: %lu\n"
         "}\n",
         t->learning_rate,
         t->learn_per_frame,
-        t->epochs
+        t->epochs,
+        t->seed
     );
 }
 

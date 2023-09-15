@@ -2,36 +2,20 @@
 
 set -xe
 
-PWD=`pwd`
+STB=`pkg-config --cflags --libs stb`
+RAYLIB="-L`pwd`/raylib/lib -I`pwd`/raylib/include -Wl,-R`pwd`/raylib/lib -lraylib"
+LIBS="-lm -I`pwd` $STB $RAYLIB"
 
 # Adder
-# ADDER_FLAGS="-DBITS=4 -DEPOCHS=1000"
-# gcc -Wall -Wextra "$ADDER_FLAGS" -o ./demos/adder ./demos/adder.c -lm -I`pwd`
-
-RAYLIB="-lraylib -I$PWD/raylib/include -I$PWD/raylib/lib"
-NERO="-I$PWD"
+gcc -Wall -Wextra -o ./demos/adder ./demos/adder.c $LIBS
 
 # Vis
 gcc -Wall -Wextra \
     -o ./demos/vis ./demos/vis.c \
-    -lm \
-    -I`pwd` \
-    -I`pwd`/raylib/include \
-    -L`pwd`/raylib/lib \
-    -Wl,-R`pwd`/raylib/lib \
-    -lraylib \
-    -DPLOT_ENTRIES=1000 \
-    -DRAD=10 -DBITS=4 $@
+    $LIBS
 
-PNG=`pkg-config --cflags --libs libpng`
 
 # Upscale
-gcc -Wall -Wextra $@ \
+gcc -Wall -Wextra \
     -o ./demos/upscaling ./demos/upscaling.c \
-    -lm \
-    -I`pwd`/raylib/include \
-    -L`pwd`/raylib/lib \
-    -Wl,-R`pwd`/raylib/lib \
-    -lraylib \
-    -lpng \
-    -I`pwd`
+    $LIBS

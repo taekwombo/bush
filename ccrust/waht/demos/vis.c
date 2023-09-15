@@ -1,8 +1,5 @@
 #include <stdio.h>
 #include <time.h>
-#include "raylib.h"
-#define NERO_IMPLEMENTATION
-#include "nero.h"
 #define GYM_IMPLEMENTATION
 #include "gym.h"
 
@@ -59,18 +56,7 @@ void verify_train_set(size_t bits, Nero add) {
     }
 }
 
-void seed_rand() {
-#ifdef SEED
-    srand(SEED);
-#else
-    srand(time(NULL));
-#endif
-}
-
 int main(const int argc, const char** argv) {
-    // Seed
-    seed_rand();
-
     size_t bits = 4;
     find_option(argc, argv, "--bits", &bits, parse_integer);
 

@@ -1,10 +1,6 @@
 #ifndef RENDER_H
 #define RENDER_H
 
-#include "raylib.h"
-#undef NERO_IMPLEMENTATION
-#include "nero.h"
-
 typedef struct {
     size_t capacity;
     size_t idx;
@@ -18,7 +14,7 @@ void plot_push(Plot *plot, float value);
 void plot_render_text(size_t epoch, size_t epochs, float rate);
 void plot_render(Plot* plot, int scr_w, int scr_h, int offset_x, int offset_y);
 
-void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y);
+void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y, size_t radius);
 
 #endif
 #ifdef RENDER_IMPLEMENTATION
@@ -123,12 +119,22 @@ void plot_render(Plot* plot, int scr_w, int scr_h, int offset_x, int offset_y) {
     DrawText(buffer, lx - 20, ly + 5, 10, WHITE);
 }
 
-/**
- * Calculate space between padding when `available` space must fit
- * `num` chunks, each `size` big.
- */
-int space_between_pad(int available, int num, int size) {
-    return (available - (num * size)) / (num - 1);
+int calc_pad_x(int width, int radius, int count) {
+    int pad_space = width - radius * 2 * (count + 1);
+    return pad_space / count;
+}
+
+int calc_pad_y(int height, int radius, int count) {
+    int pad_space = (height - radius * 2) - radius * 2 * count;
+    return pad_space / (count + 1);
+}
+
+int calc_x(int offset_x, int radius, int pad_x, size_t index) {
+    return offset_x + radius + index * pad_x + index * radius * 2;
+}
+
+int calc_y(int offset_y, int radius, int pad_y, size_t index) {
+    return offset_y + radius * 2 + (index + 1) * pad_y + index * radius * 2;
 }
 
 Color interpolate_color(Color low, Color high, Color mid, float sig) {
@@ -143,49 +149,53 @@ Color interpolate_color(Color low, Color high, Color mid, float sig) {
     return (Color){ red, green, blue, 0xFF };
 }
 
-void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y) {
+void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y, size_t radius) {
     Color low_color = { 0xE6, 0xA3, 0x9E, 0xFF };
     Color high_color = { 0x20, 0xF5, 0x4E, 0xFF };
-    Color input_color = { 0x70, 0x70, 0x70, 0xFF };
+    Color input_color = { 0xA0, 0xA0, 0xA0, 0xFF };
 
-    int pad = 25;
-    int width = scr_w - pad * 2;
-    int height = scr_h - pad * 2;
-    int pad_x = space_between_pad(width, n.depth + 1, RAD * 2);
-    int node_dist_x = RAD * 2 + pad_x;
+    {
+        // Draw available area lines.
+        int min_x = offset_x;
+        int max_x = offset_x + scr_w - 1;
+        int min_y = offset_y + 1;
+        int max_y = offset_y + scr_h - 1;
+
+        DrawLine(min_x, min_y, max_x, min_y, ORANGE);
+        DrawLine(min_x, min_y, min_x, max_y, ORANGE);
+        DrawLine(min_x, max_y, max_x, max_y, ORANGE);
+        DrawLine(max_x, min_y, max_x, max_y, ORANGE);
+    }
+
+    int pad_x = calc_pad_x(scr_w, radius, n.depth);
 
     // Iterate over all layers
     for (size_t l = 0; l <= n.depth; l++) {
-        int cx = pad + RAD + l * node_dist_x + offset_x;
-        int pad_y = space_between_pad(
-            height,
-            n.activations[l].cols,
-            RAD * 2
-        );
-        int node_dist_y = RAD * 2 + pad_y;
+        int cx = calc_x(offset_x, radius, pad_x, l);
+        int pad_y = calc_pad_y(scr_h, radius, n.activations[l].cols);
 
         // Iterate layer activations
         for (size_t j = 0; j < n.activations[l].cols; j++) {
-            int cy = pad + RAD + j * node_dist_y + offset_y;
+            int cy = calc_y(offset_y, radius, pad_y, j);
 
             if (l == 0) {
-                DrawCircle(cx, cy, RAD, input_color);
+                DrawCircle(cx, cy, radius, input_color);
                 continue;
             }
 
             float sig = sigmoidf(M_AT(n.biases[l - 1], 1, j));
-            DrawCircle(cx, cy, RAD, interpolate_color(low_color, high_color, input_color, sig));
+            DrawCircle(cx, cy, radius, interpolate_color(low_color, high_color, input_color, sig));
 
             for (size_t i = 0; i < n.activations[l - 1].cols; i++) {
                 // Draw connection
-                int pad_y = space_between_pad(height, n.activations[l - 1].cols, RAD * 2);
-                int sx = cx - node_dist_x + RAD;
-                int sy = pad + RAD + i * (RAD * 2 + pad_y) + offset_y;
+                int pad_y = calc_pad_y(scr_h, radius, n.activations[l - 1].cols);
+                int sx = cx - pad_x - radius * 2 + radius;
+                int sy = calc_y(offset_y, radius, pad_y, i);
 
                 float sig = sigmoidf(M_AT(n.weights[l - 1], i, j));
                 DrawLineEx(
                     (Vector2){ .x = sx, .y = sy },
-                    (Vector2){ .x = cx - RAD, .y = cy },
+                    (Vector2){ .x = cx - radius, .y = cy },
                     1.5,
                     interpolate_color(low_color, high_color, input_color, sig)
                 );

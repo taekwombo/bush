@@ -2,8 +2,8 @@
 #include "gym.h"
 
 int main(const int argc, const char** argv) {
-    GymRender render_config = read_render_config(argc, argv);
-    GymTrain train_config = read_train_config(argc, argv);
+    GymConfig config;
+    read_config(argc, argv, &config);
 
     size_t bits = 4;
     find_option(argc, argv, "--bits", &bits, parse_integer);
@@ -30,12 +30,8 @@ int main(const int argc, const char** argv) {
     Nero add = nero_alloc(ARR_LEN(layout), layout);
     Nero grad = nero_alloc(ARR_LEN(layout), layout);
 
-    gym(render_config, train_config, (GymInput){
-        .net = add,
-        .grad = grad,
-        .t_in = train_input,
-        .t_out = train_output
-    });
+    config.input = net_input(&add, &grad, train_input, train_output);
+    gym(config);
 
     // Verify output.
     for (size_t x = 0; x < n; x++) {
@@ -51,7 +47,7 @@ int main(const int argc, const char** argv) {
                 size_t bit = M_AT(NERO_OUTPUT(add), 0, i) >= 0.5f;
                 z |= bit << i;
             }
-            printf("%lu + %lu = %lu\n", x, y, z);
+            printf("%zu + %zu = %zu\n", x, y, z);
         }
     }
 }

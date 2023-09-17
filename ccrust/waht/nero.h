@@ -259,7 +259,7 @@ void mat_print(Mat m, const char* name, size_t pad) {
 }
 
 void mat_debug(Mat m, const char* name) {
-    printf("%s {\n\trows:%zu,\n\tcols:%lu,\n\tstride:%lu,\n\tels:%p\n}\n",
+    printf("%s {\n\trows:%zu,\n\tcols:%zu,\n\tstride:%zu,\n\tels:%p\n}\n",
         name, m.rows, m.cols, m.stride, m.els);
 }
 

@@ -28,34 +28,6 @@ void init_train_set(size_t bits, Mat m[2]) {
     M_AT(m[1], rows - 1, 0) = 1.0;
 }
 
-void verify_train_set(size_t bits, Nero add) {
-    size_t n = 1 << bits;
-
-    for (size_t x = 0; x < n; x++) {
-        printf("%2lu +\n", x);
-        for (size_t d = 0; d < bits; d++) {
-            size_t y = d;
-            while (y < n) {
-                for (size_t b = 0; b < bits; b++) {
-                    M_AT(NERO_INPUT(add), 0, b) = (x >> b) & 1;
-                    M_AT(NERO_INPUT(add), 0, b + bits) = (y >> b) & 1;
-                }
-
-                nero_forward(add);
-                size_t z = 0;
-                for (size_t i = 0; i < bits; i++) {
-                    size_t bit = M_AT(NERO_OUTPUT(add), 0, i) >= 0.5f;
-                    z |= bit << i;
-                }
-                printf("   + %2lu = %2lu\t", y, z);
-                y += bits;
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
-}
-
 int main(const int argc, const char** argv) {
     size_t bits = 4;
     find_option(argc, argv, "--bits", &bits, parse_integer);
@@ -68,25 +40,12 @@ int main(const int argc, const char** argv) {
     Mat train_output = m[1];
 
     size_t layout[] = { 2 * bits, 4 * bits, bits + 1 };
-    Nero add = nero_alloc(ARR_LEN(layout), layout);
-    Nero grad = nero_alloc(ARR_LEN(layout), layout);
 
-    GymRender render_config = read_render_config(argc, argv);
-    GymTrain train_config = read_train_config(argc, argv);
+    GymConfig config;
+    read_config(argc, argv, &config);
+    config.input = layout_input(layout, ARR_LEN(layout), train_input, train_output);
 
-    print_render_config(&render_config);
-    print_train_config(&train_config);
-
-    gym(render_config, train_config, (GymInput){
-        .net = add,
-        .grad = grad,
-        .t_in = train_input,
-        .t_out = train_output
-    });
-
-#ifdef DEBUG
-    verify_train_set(bits, add);
-#endif
+    gym(config);
 
     return 0;
 }

@@ -78,7 +78,7 @@ void plot_render_text(size_t epoch, size_t epochs, float rate) {
 
     snprintf(
         buffer, sizeof(buffer),
-        "Epoch: %4lu/%4lu Rate:%4f",
+        "Epoch: %4lu/%4lu Rate:%.3f",
         epoch, epochs, rate
     );
 

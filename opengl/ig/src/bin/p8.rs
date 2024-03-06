@@ -1,8 +1,8 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=8
 
 use gluty::{
-    gl, opengl, uniforms, winit::dpi::PhysicalSize, FlyCamera, Glindow, Mesh, Program, Projection,
-    Texture,
+    assets, gl, opengl, uniforms, winit::dpi::PhysicalSize, FlyCamera, Glindow, Mesh, Program,
+    Projection, Texture,
 };
 use ig::*;
 
@@ -69,16 +69,11 @@ impl Tesselation {
 
     fn load_mesh() -> Mesh {
         let vbo_data: &[f32] = &[
-            // Position        Normals         Texture Coord 
-            -1.0,  0.0,  1.0,  0.0, 1.0, 0.0,  0.0, 1.0,
-             1.0,  0.0,  1.0,  0.0, 1.0, 0.0,  1.0, 1.0,
-             1.0,  0.0, -1.0,  0.0, 1.0, 0.0,  1.0, 0.0,
-            -1.0,  0.0, -1.0,  0.0, 1.0, 0.0,  0.0, 0.0,
+            // Position        Normals         Texture Coord
+            -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+            0.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0, 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0,
         ];
-        let ebo_data: &[u32] = &[
-            0, 2, 1,
-            0, 3, 2,
-        ];
+        let ebo_data: &[u32] = &[0, 2, 1, 0, 3, 2];
 
         Mesh::new(vbo_data, ebo_data, |attrs| {
             attrs.add::<f32>(0, 3, gl::FLOAT);
@@ -89,54 +84,60 @@ impl Tesselation {
     }
 
     fn load_textures() -> (Texture, Texture) {
-        let normal = Texture::load_file("./resources/teapot_normal.png", true).unwrap();
-        let displacement = Texture::load_file("./resources/teapot_disp.png", true).unwrap();
+        let (normal, displacement) = assets!("./teapot_normal.png", "./teapot_disp.png",);
 
         (
-            {
-                let (width, height) = normal.dimensions();
-                let tex = Texture::new(gl::TEXTURE_2D, 0, width, height);
-                tex.bind();
-                tex.data(normal.as_raw(), None);
-                tex.unbind();
-                tex
-            },
-            {
-                let (width, height) = displacement.dimensions();
-                let tex = Texture::new(gl::TEXTURE_2D, 1, width, height);
-                tex.bind();
-                tex.data(displacement.as_raw(), None);
-                tex.unbind();
-                tex
-            },
+            Texture::from_image(gl::TEXTURE_2D, 0, &normal.try_to_img().unwrap(), gl::RGBA),
+            Texture::from_image(
+                gl::TEXTURE_2D,
+                0,
+                &displacement.try_to_img().unwrap(),
+                gl::RGBA,
+            ),
         )
     }
 
     fn create_triangulation_program() -> Result<Program, ()> {
-        let mut program = Program::create();
+        let (vert, frag, tesc, tese, geom) = assets!(
+            "./shaders/p8/tesselation.vert",
+            "./shaders/p8/triangulation.frag",
+            "./shaders/p8/tesselation.tesc",
+            "./shaders/p8/tesselation.tese",
+            "./shaders/p8/triangulation.geom",
+        );
 
-        program.attach_shader_source("./shaders/p8/tesselation.vert", gl::VERTEX_SHADER)?;
-        program.attach_shader_source("./shaders/p8/tesselation.tesc", gl::TESS_CONTROL_SHADER)?;
-        program
-            .attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
-        program.attach_shader_source("./shaders/p8/triangulation.geom", gl::GEOMETRY_SHADER)?;
-        program.attach_shader_source("./shaders/p8/triangulation.frag", gl::FRAGMENT_SHADER)?;
-        program.link()?;
+        let program = Program::default()
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(tesc.get(), gl::TESS_CONTROL_SHADER)
+            .shader(tese.get(), gl::TESS_EVALUATION_SHADER)
+            .shader(geom.get(), gl::GEOMETRY_SHADER)
+            .link();
 
-        Ok(program)
+        match Program::check_errors(&program) {
+            Ok(()) => Ok(program),
+            Err(_) => Err(()),
+        }
     }
 
     fn create_tess_program() -> Result<Program, ()> {
-        let mut program = Program::create();
+        let (vert, frag, tesc, tese) = assets!(
+            "./shaders/p8/tesselation.vert",
+            "./shaders/p8/tesselation.frag",
+            "./shaders/p8/tesselation.tesc",
+            "./shaders/p8/tesselation.tese",
+        );
+        let program = Program::default()
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(tesc.get(), gl::TESS_CONTROL_SHADER)
+            .shader(tese.get(), gl::TESS_EVALUATION_SHADER)
+            .link();
 
-        program.attach_shader_source("./shaders/p8/tesselation.vert", gl::VERTEX_SHADER)?;
-        program.attach_shader_source("./shaders/p8/tesselation.tesc", gl::TESS_CONTROL_SHADER)?;
-        program
-            .attach_shader_source("./shaders/p8/tesselation.tese", gl::TESS_EVALUATION_SHADER)?;
-        program.attach_shader_source("./shaders/p8/tesselation.frag", gl::FRAGMENT_SHADER)?;
-        program.link()?;
-
-        Ok(program)
+        match Program::check_errors(&program) {
+            Ok(()) => Ok(program),
+            Err(_) => Err(()),
+        }
     }
 
     fn update_tri_uniforms(&self) {

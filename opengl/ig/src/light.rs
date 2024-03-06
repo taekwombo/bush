@@ -75,12 +75,10 @@ impl Light {
             attrs.add::<f32>(0, 3, gl::FLOAT);
         });
 
-        let mut program = Program::create();
-        program
-            .attach_shader_source_str(VERTEX_SOURCE, gl::VERTEX_SHADER)
-            .and_then(|p| p.attach_shader_source_str(FRAGMENT_SOURCE, gl::FRAGMENT_SHADER))
-            .and_then(|p| p.link())
-            .unwrap();
+        let program = Program::default()
+            .shader(VERTEX_SOURCE, gl::VERTEX_SHADER)
+            .shader(FRAGMENT_SOURCE, gl::FRAGMENT_SHADER)
+            .link();
 
         Self {
             color: Vec4::ONE,

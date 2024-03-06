@@ -1,37 +1,9 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=6
 
+use gluty::asset::Asset;
 use gluty::*;
 use ig::*;
 use winit::event::*;
-
-#[cfg(feature = "swap_textures")]
-const CUBEMAP_MOUNTAIN: [&str; 6] = [
-    "./resources/negx.jpg",
-    "./resources/negy.jpg",
-    "./resources/negz.jpg",
-    "./resources/posx.jpg",
-    "./resources/posy.jpg",
-    "./resources/posz.jpg",
-];
-
-const CUBEMAP_SEA: [&str; 6] = [
-    "./resources/left.jpg",
-    "./resources/bottom.jpg",
-    "./resources/back.jpg",
-    "./resources/right.jpg",
-    "./resources/top.jpg",
-    "./resources/front.jpg",
-];
-
-#[cfg(feature = "swap_textures")]
-const CUBEMAP_CITY: [&str; 6] = [
-    "./resources/cubemap_negx.png",
-    "./resources/cubemap_negy.png",
-    "./resources/cubemap_negz.png",
-    "./resources/cubemap_posx.png",
-    "./resources/cubemap_posy.png",
-    "./resources/cubemap_posz.png",
-];
 
 #[cfg(feature = "swap_textures")]
 struct Textures {
@@ -48,25 +20,36 @@ impl Textures {
     }
 }
 
-fn textures(sources: [&str; 6], slot: u32) -> Result<Texture, ()> {
-    let [x_neg, y_neg, z_neg, x_pos, y_pos, z_pos] = Texture::load_files(sources, false)?;
+fn textures<T: AsRef<[u8]>>(sources: &[Asset<T>], slot: u32) -> Result<Texture, ()> {
+    let images = sources
+        .iter()
+        .map(|it| it.try_to_img().unwrap())
+        .collect::<Vec<_>>();
+    let cubemap_texture_types = &[
+        gl::TEXTURE_CUBE_MAP_POSITIVE_X,
+        gl::TEXTURE_CUBE_MAP_NEGATIVE_X,
+        gl::TEXTURE_CUBE_MAP_POSITIVE_Y,
+        gl::TEXTURE_CUBE_MAP_NEGATIVE_Y,
+        gl::TEXTURE_CUBE_MAP_POSITIVE_Z,
+        gl::TEXTURE_CUBE_MAP_NEGATIVE_Z,
+    ];
 
-    let texture = Texture::new(
-        gl::TEXTURE_CUBE_MAP,
-        slot,
-        x_neg.dimensions().0,
-        x_neg.dimensions().1,
-    );
+    let ((width, height), ..) = Texture::get_image_info(images.first().unwrap());
+    let texture = Texture::new(gl::TEXTURE_CUBE_MAP, slot, width, height);
 
     texture.bind();
     opengl!(texture.parameter(gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32));
 
-    texture.data(x_pos.as_raw(), Some(gl::TEXTURE_CUBE_MAP_POSITIVE_X));
-    texture.data(x_neg.as_raw(), Some(gl::TEXTURE_CUBE_MAP_NEGATIVE_X));
-    texture.data(y_pos.as_raw(), Some(gl::TEXTURE_CUBE_MAP_POSITIVE_Y));
-    texture.data(y_neg.as_raw(), Some(gl::TEXTURE_CUBE_MAP_NEGATIVE_Y));
-    texture.data(z_pos.as_raw(), Some(gl::TEXTURE_CUBE_MAP_POSITIVE_Z));
-    texture.data(z_neg.as_raw(), Some(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z));
+    for (idx, img) in images.iter().enumerate() {
+        let (_, dataf, datat) = Texture::get_image_info(img);
+        texture.data_with_type(
+            cubemap_texture_types[idx],
+            gl::RGBA,
+            dataf,
+            datat,
+            img.as_bytes(),
+        );
+    }
 
     opengl! {
         gl::GenerateMipmap(gl::TEXTURE_CUBE_MAP);
@@ -81,7 +64,7 @@ fn load_cube_mesh() -> Mesh {
     let mut obj = Obj::new();
     // This object can contain only vertex positions - they're going to be used as texture
     // coordinates.
-    obj.parse("./resources/cube.obj");
+    obj.parse_obj(&assets!("./cube.obj"));
 
     let opts = BuildOptions::vertices_only();
     if !obj.cmp_opts(&opts) {
@@ -98,7 +81,7 @@ fn load_cube_mesh() -> Mesh {
 
 fn load_sphere_mesh() -> Mesh {
     let mut obj = Obj::new();
-    obj.parse("./resources/sphere.obj");
+    obj.parse_obj(&assets!("./sphere.obj"));
     let opts = BuildOptions::default();
     if !obj.cmp_opts(&opts) {
         println!("Model with v, vn and vt attributes required.");
@@ -123,7 +106,12 @@ struct Cube {
 
 impl Cube {
     fn new(texture: Texture) -> Self {
-        let program = create_program(Some("./shaders/p6/cube")).expect("Cube program compiles");
+        let (vert, frag) = assets!("./shaders/p6/cube.vert", "./shaders/p6/cube.frag",);
+        let program = Program::default()
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .link();
+
         let model = load_cube_mesh();
 
         Self {
@@ -154,7 +142,16 @@ struct Sphere {
 
 impl Sphere {
     fn load_program() -> Result<Program, ()> {
-        create_program(Some("./shaders/p6/sphere"))
+        let (vert, frag) = assets!("./shaders/p6/sphere.vert", "./shaders/p6/sphere.frag",);
+        let program = Program::default()
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .link();
+
+        match Program::check_errors(&program) {
+            Ok(()) => Ok(program),
+            Err(_) => Err(()),
+        }
     }
 
     fn new() -> Self {
@@ -180,10 +177,39 @@ impl Sphere {
 }
 
 fn main() {
+    #[cfg(feature = "swap_textures")]
+    let cubemap_mountain = assets!([
+        "./cubemap/negx.jpg",
+        "./cubemap/negy.jpg",
+        "./cubemap/negz.jpg",
+        "./cubemap/posx.jpg",
+        "./cubemap/posy.jpg",
+        "./cubemap/posz.jpg",
+    ]);
+
+    #[cfg(feature = "swap_textures")]
+    let cubemap_sea = assets!([
+        "./cubemap/left.jpg",
+        "./cubemap/bottom.jpg",
+        "./cubemap/back.jpg",
+        "./cubemap/right.jpg",
+        "./cubemap/top.jpg",
+        "./cubemap/front.jpg",
+    ]);
+
+    let cubemap_city = assets!([
+        "./cubemap/cubemap_negx.png",
+        "./cubemap/cubemap_negy.png",
+        "./cubemap/cubemap_negz.png",
+        "./cubemap/cubemap_posx.png",
+        "./cubemap/cubemap_posy.png",
+        "./cubemap/cubemap_posz.png",
+    ]);
+
     let glin = Glindow::new();
     let size = glin.window.inner_size();
     println!("Loading textures");
-    let cube_texture = textures(CUBEMAP_SEA, 0).expect("Textures loaded succesfully");
+    let cube_texture = textures(&cubemap_city, 0).expect("Textures loaded succesfully");
     let mut input_state = InputState::new(size);
 
     let mut cube = Cube::new(cube_texture);
@@ -213,9 +239,9 @@ fn main() {
     #[cfg(debug_assertions)]
     {
         cube.model.bind_vao();
-        cube.program.validate().expect("cube program is valid");
+        Program::check_errors(&cube.program).expect("cube program is invalid");
         sphere.model.bind_vao();
-        sphere.program.validate().expect("Sphere program is valid");
+        Program::check_errors(&sphere.program).expect("Sphere program is valid");
         opengl!(gl::BindVertexArray(0));
     }
 

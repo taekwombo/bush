@@ -1,7 +1,7 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=3
 
 use gluty::winit::event::*;
-use gluty::{gl, opengl, FlyCamera, Glindow, Mesh, Obj, Program};
+use gluty::{assets, gl, opengl, FlyCamera, Glindow, Mesh, Obj, Program};
 use ig::*;
 
 struct Uniforms {
@@ -53,11 +53,21 @@ impl SOController for Ctrl {
     type Uniforms = Uniforms;
 
     fn create_program(&self) -> Option<Program> {
-        create_program(Some("./shaders/p3/shader")).ok()
+        let (vert, frag) = assets!("./shaders/p3/shader.vert", "./shaders/p3/shader.frag",);
+        let program = Program::default()
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .link();
+
+        match Program::check_errors(&program) {
+            Ok(()) => Some(program),
+            Err(_) => None,
+        }
     }
 
     fn load_mesh() -> Mesh {
-        let (v, i) = Obj::load_vvn(&get_model_path());
+        let obj = assets!("./teapot.obj");
+        let (v, i) = Obj::new().parse_obj(&obj).build(&Default::default());
         Mesh::new(&v, &i, |a| {
             a.add::<f32>(0, 3, gl::FLOAT).add::<f32>(1, 3, gl::FLOAT);
         })

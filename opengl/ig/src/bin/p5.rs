@@ -144,12 +144,19 @@ mod render_to_texture {
         }
 
         fn create_program() -> Program {
-            create_program(Some("./shaders/p5/tex_render")).expect("Project 5 tex_render compiles.")
+            let (vert, frag) = assets!(
+                "./shaders/p5/tex_render.vert",
+                "./shaders/p5/tex_render.frag",
+            );
+            Program::default()
+                .shader(frag.get(), gl::FRAGMENT_SHADER)
+                .shader(vert.get(), gl::VERTEX_SHADER)
+                .link()
         }
 
         fn create_texture(size: &PhysicalSize<u32>) -> Texture {
-            let tex_width = size.width / 2;
-            let tex_height = size.height / 2;
+            let tex_width = size.width;
+            let tex_height = size.height;
             let texture = Texture::new(gl::TEXTURE_2D, 9, tex_width, tex_height);
 
             texture.bind();
@@ -180,9 +187,10 @@ mod render_to_texture {
         }
 
         fn create_model() -> Mesh {
+            let (obj_asset, mtl) = assets!("./teapot.obj", "./teapot.mtl");
+            let material_assets = assets!(["./brick.png", "./brick-specular.png",]);
             let mut obj = Obj::new();
-            let path = get_model_path();
-            obj.parse(&path);
+            obj.parse_obj(&obj_asset).parse_mtl(&mtl, &material_assets);
 
             let (vbo, ebo) = obj.build(&BuildOptions::with_tex());
             let mut mesh = Mesh::new(&vbo, &ebo, |attrs| {
@@ -285,7 +293,16 @@ impl SOController for Ctrl {
     type Uniforms = Uniforms;
 
     fn create_program(&self) -> Option<Program> {
-        create_program(Some("./shaders/p5/shader")).ok()
+        let (vert, frag) = assets!("./shaders/p5/shader.vert", "./shaders/p5/shader.frag",);
+        let program = Program::default()
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .link();
+
+        match Program::check_errors(&program) {
+            Ok(()) => Some(program),
+            Err(_) => None,
+        }
     }
 
     fn load_mesh() -> Mesh {

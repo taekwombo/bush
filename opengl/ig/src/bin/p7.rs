@@ -1,7 +1,7 @@
 //! https://graphics.cs.utah.edu/courses/cs6610/spring2021/?prj=7
 
 use gluty::{
-    gl,
+    assets, gl,
     glam::{Mat4, Vec3},
     opengl, uniforms,
     winit::dpi::PhysicalSize,
@@ -232,7 +232,7 @@ use shadow::Shadow;
 
 fn load_sphere_mesh() -> Mesh {
     let mut obj = Obj::new();
-    obj.parse("./resources/sphere.obj");
+    obj.parse_obj(&assets!("./sphere.obj"));
     let opts = BuildOptions::default();
     if !obj.cmp_opts(&opts) {
         println!("At least vertices should be available in the model.");
@@ -249,15 +249,12 @@ fn load_sphere_mesh() -> Mesh {
 fn create_plane_mesh() -> Mesh {
     let vbo: [f32; 24] = [
         // Position         Normal
-        -0.5,  0.0,  0.5,    0.0, 1.0, 0.0,     // 0
-         0.5,  0.0,  0.5,    0.0, 1.0, 0.0,     // 1
-         0.5,  0.0, -0.5,    0.0, 1.0, 0.0,     // 2
-        -0.5,  0.0, -0.5,    0.0, 1.0, 0.0,     // 3
+        -0.5, 0.0, 0.5, 0.0, 1.0, 0.0, // 0
+        0.5, 0.0, 0.5, 0.0, 1.0, 0.0, // 1
+        0.5, 0.0, -0.5, 0.0, 1.0, 0.0, // 2
+        -0.5, 0.0, -0.5, 0.0, 1.0, 0.0, // 3
     ];
-    let ebo: [u32; 6] = [
-        0, 2, 1,
-        0, 3, 2,
-    ];
+    let ebo: [u32; 6] = [0, 2, 1, 0, 3, 2];
 
     Mesh::new(&vbo, &ebo, |attrs| {
         attrs.add::<f32>(0, 3, gl::FLOAT);
@@ -266,11 +263,31 @@ fn create_plane_mesh() -> Mesh {
 }
 
 fn create_scene_program() -> Result<Program, ()> {
-    create_program(Some("./shaders/p7/scene"))
+    let (vert, frag) = assets!("./shaders/p7/scene.vert", "./shaders/p7/scene.frag");
+
+    let program = Program::default()
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .link();
+
+    match Program::check_errors(&program) {
+        Ok(()) => Ok(program),
+        Err(_) => Err(()),
+    }
 }
 
 fn create_shadow_program() -> Result<Program, ()> {
-    create_program(Some("./shaders/p7/shadow"))
+    let (vert, frag) = assets!("./shaders/p7/shadow.vert", "./shaders/p7/shadow.frag");
+
+    let program = Program::default()
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .link();
+
+    match Program::check_errors(&program) {
+        Ok(()) => Ok(program),
+        Err(_) => Err(()),
+    }
 }
 
 uniforms!(SceneUniforms; u_model_t, u_view_t, u_proj_t, u_light_view_t, u_light_proj_t, u_texture, u_render_shadow);

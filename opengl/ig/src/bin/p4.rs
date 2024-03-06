@@ -107,13 +107,23 @@ impl SOController for Ctrl {
     type Uniforms = Uniforms;
 
     fn create_program(&self) -> Option<Program> {
-        create_program(Some("./shaders/p4/shader")).ok()
+        let (vert, frag) = assets!("./shaders/p4/shader.vert", "./shaders/p4/shader.frag",);
+        let program = Program::default()
+            .shader(frag.get(), gl::FRAGMENT_SHADER)
+            .shader(vert.get(), gl::VERTEX_SHADER)
+            .link();
+
+        match Program::check_errors(&program) {
+            Ok(()) => Some(program),
+            Err(_) => None,
+        }
     }
 
     fn load_mesh() -> Mesh {
+        let (obj_asset, mtl) = assets!("./teapot.obj", "./teapot.mtl");
+        let material_assets = assets!(["./brick.png", "./brick-specular.png",]);
         let mut obj = Obj::new();
-        let path = get_model_path();
-        obj.parse(&path);
+        obj.parse_obj(&obj_asset).parse_mtl(&mtl, &material_assets);
 
         let (vbo, ebo) = obj.build(&BuildOptions::with_tex());
         let mut mesh = Mesh::new(&vbo, &ebo, |attrs| {

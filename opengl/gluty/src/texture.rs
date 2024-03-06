@@ -1,7 +1,5 @@
 use super::opengl;
-use image::{io::Reader, ImageBuffer, Rgba};
-
-type Image = ImageBuffer<Rgba<f32>, Vec<f32>>;
+use gl::types::GLenum;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -12,76 +10,33 @@ pub struct Texture {
     pub height: u32,
 }
 
-pub trait Lte6 {}
-pub struct Check<const N: usize> {}
-impl Lte6 for Check<1> {}
-impl Lte6 for Check<2> {}
-impl Lte6 for Check<3> {}
-impl Lte6 for Check<4> {}
-impl Lte6 for Check<5> {}
-impl Lte6 for Check<6> {}
-
 impl Texture {
-    #[allow(clippy::result_unit_err)]
-    pub fn load_files<const N: usize>(paths: [&str; N], flip: bool) -> Result<[Image; N], ()>
-    where
-        Check<N>: Lte6,
-    {
-        use std::mem::MaybeUninit;
-        use std::thread::spawn;
+    pub fn get_image_info(image: &image::DynamicImage) -> ((u32, u32), GLenum, GLenum) {
+        use image::DynamicImage;
 
-        let mut handles: [MaybeUninit<_>; N] = unsafe {
-            MaybeUninit::uninit().assume_init()
-        };
-        for i in 0..N {
-            let path = paths[i].to_owned();
-            handles[i] = MaybeUninit::new(spawn(move || {
-                println!("Loading {path}");
-                Texture::load_file(path, flip)
-            }));
+        match image {
+            DynamicImage::ImageRgb8(img) => (img.dimensions(), gl::RGB, gl::UNSIGNED_BYTE),
+            DynamicImage::ImageRgba8(img) => (img.dimensions(), gl::RGBA, gl::UNSIGNED_BYTE),
+            DynamicImage::ImageRgb16(img) => (img.dimensions(), gl::RGB, gl::UNSIGNED_SHORT),
+            DynamicImage::ImageRgba16(img) => (img.dimensions(), gl::RGBA, gl::UNSIGNED_SHORT),
+            DynamicImage::ImageRgb32F(img) => (img.dimensions(), gl::RGB, gl::FLOAT),
+            DynamicImage::ImageRgba32F(img) => (img.dimensions(), gl::RGBA, gl::FLOAT),
+            _ => unimplemented!(),
         }
-
-        let mut images: [Image; N] = unsafe { std::mem::zeroed() };
-
-        for (i, handle) in handles.into_iter().enumerate() {
-            images[i] = unsafe { handle.assume_init() }.join().unwrap()?;
-        }
-
-        Ok(images)
     }
 
-    #[allow(clippy::result_unit_err)]
-    pub fn load_file<S>(path: S, flipv: bool) -> Result<Image, ()>
-    where
-        S: AsRef<std::path::Path>,
-    {
-        let img = Reader::open(path.as_ref())
-            .map_err(|_| ())?
-            .decode()
-            .map_err(|_| ())?;
-
-        Ok((if flipv { img.flipv() } else { img }).into_rgba32f())
-    }
-
-    #[allow(clippy::result_unit_err)]
-    pub fn create_from_file<S: AsRef<std::path::Path>>(
-        path: &S,
-        gl_type: u32,
+    pub fn from_image(
+        gl_type: GLenum,
         slot: u32,
-    ) -> Result<Self, ()> {
-        let Ok(image) = Texture::load_file(path, true) else {
-            eprintln!("Yikes, make sure that {} contains a texture (relative to PWD).", path.as_ref().to_string_lossy());
-            return Err(());
-        };
-        let (width, height) = image.dimensions();
-
+        image: &image::DynamicImage,
+        texture_format: GLenum,
+    ) -> Self {
+        let ((width, height), dataf, datat) = Texture::get_image_info(image);
         let tex = Texture::new(gl_type, slot, width, height);
-
-        tex.bind();
-        tex.data(image.as_raw(), None);
-        tex.unbind();
-
-        Ok(tex)
+        tex.bind()
+            .data(texture_format, dataf, datat, image.as_bytes())
+            .unbind();
+        tex
     }
 
     pub fn new(gl_type: u32, slot: u32, width: u32, height: u32) -> Self {
@@ -111,20 +66,44 @@ impl Texture {
         gl::TexParameteri(self.gl_type, param, value);
     }
 
-    pub fn data(&self, data: &[f32], ty: Option<u32>) {
+    pub fn data<T>(
+        &self,
+        tex_format: GLenum,
+        data_format: GLenum,
+        data_type: GLenum,
+        data: &[T],
+    ) -> &Self {
+        self.data_with_type(
+            self.gl_type,
+            tex_format,
+            data_format,
+            data_type,
+            data,
+        )
+    }
+
+    pub fn data_with_type<T>(
+        &self,
+        tex_type: GLenum,
+        tex_format: GLenum,
+        data_format: GLenum,
+        data_type: GLenum,
+        data: &[T],
+    ) -> &Self {
         opengl! {
             gl::TexImage2D(
-                ty.unwrap_or(self.gl_type),
+                tex_type,
                 0,
-                gl::RGBA32F as i32,
+                tex_format as i32,
                 self.width as i32,
                 self.height as i32,
                 0,
-                gl::RGBA,
-                gl::FLOAT,
+                data_format,
+                data_type,
                 data.as_ptr() as *const _,
-            );
+            )
         }
+        self
     }
 
     pub fn bind(&self) -> &Self {

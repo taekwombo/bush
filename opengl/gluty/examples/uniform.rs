@@ -6,7 +6,7 @@
 //! https://registry.khronos.org/OpenGL/specs/gl/glspec41.core.pdf
 
 use glutin::prelude::*;
-use gluty::{opengl, Glindow, Program};
+use gluty::{assets, opengl, Glindow, Program};
 use std::mem::size_of;
 use winit::event::{Event, WindowEvent};
 
@@ -27,15 +27,15 @@ fn main() {
         )
         .expect("Set interval OK.");
 
+    let (vert, frag) = assets!("./uniform.vert", "./uniform.frag");
+    let program = Program::default()
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .link();
+
+    assert!(Program::check_errors(&program).is_ok());
+
     let mut frame: u32 = 0;
-    let mut program = Program::create();
-    program
-        .attach_shader_source("./examples/shaders/uniform.vert", gl::VERTEX_SHADER)
-        .and_then(|p| {
-            p.attach_shader_source("./examples/shaders/uniform.frag", gl::FRAGMENT_SHADER)
-        })
-        .and_then(|p| p.link())
-        .expect("Program created.");
 
     #[rustfmt::skip]
     let positions: &[f32] = &[
@@ -95,7 +95,9 @@ fn main() {
 
     program.use_program();
     #[cfg(debug_assertions)]
-    program.validate().expect("Program to be valid");
+    {
+        Program::check_errors(&program).expect("Program to be valid");
+    }
 
     opengl! {
         u_col = gl::GetUniformLocation(program.gl_id, "uColor\0".as_ptr() as *const _);
@@ -109,11 +111,11 @@ fn main() {
     }
 
     event_loop.run(move |event, _, control_flow| {
-        control_flow.set_wait();
+        frame = frame.wrapping_add(1);
+        window.request_redraw();
 
         match event {
             Event::RedrawRequested(_) => {
-                frame = frame.wrapping_add(1);
                 opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::Uniform1ui(u_frame, frame);
@@ -125,12 +127,6 @@ fn main() {
                     );
                 }
                 surface.swap_buffers(&context).expect("swap_buffers OK.");
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { .. },
-                ..
-            } => {
-                window.request_redraw();
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

@@ -23,12 +23,10 @@ impl Buffer {
     }
 
     pub fn data<T>(&self, data: &[T]) -> &Self {
-        use std::mem::size_of;
-
         opengl! {
             gl::BufferData(
                 self.gl_type,
-                (data.len() * size_of::<T>()) as isize,
+                std::mem::size_of_val(data) as isize,
                 data.as_ptr() as *const _,
                 self.gl_usage,
             );

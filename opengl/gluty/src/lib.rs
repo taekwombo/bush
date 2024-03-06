@@ -1,6 +1,8 @@
 //! Module with any useful things needed to create a couple of OpenGL examples
 //! without damaging C and V buttons.
 
+#![doc(test(no_crate_inject))]
+
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{
     ContextAttributesBuilder, GlProfile, NotCurrentGlContextSurfaceAccessor, PossiblyCurrentContext,
@@ -19,6 +21,7 @@ pub use glutin;
 pub use image;
 pub use winit;
 
+pub mod asset;
 mod attributes;
 mod buffer;
 mod camera;
@@ -208,7 +211,9 @@ macro_rules! opengl {
         unsafe {
             $crate::with_get_error(
                 || { $st },
+                #[cfg(debug_assertions)]
                 stringify!($st),
+                #[cfg(debug_assertions)]
                 file!(),
             )
         }
@@ -219,8 +224,8 @@ macro_rules! opengl {
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn with_get_error<R, F: FnOnce() -> R>(
     work: F,
-    source: &'static str,
-    file: &'static str,
+    #[cfg(debug_assertions)] source: &'static str,
+    #[cfg(debug_assertions)] file: &'static str,
 ) -> R {
     #[cfg(debug_assertions)]
     while gl::GetError() != gl::NO_ERROR {}
@@ -233,11 +238,11 @@ pub unsafe fn with_get_error<R, F: FnOnce() -> R>(
         let mut error: gl::types::GLenum = gl::GetError();
         while error != gl::NO_ERROR {
             errored = true;
-            eprintln!("\x1b[91mCheck error: {}\x1b[0m", error);
+            eprintln!("Check error: {}", error);
             error = gl::GetError();
         }
         if errored {
-            eprintln!("\x1b[91mAt: {}\x1b[0m\n{}", file, source);
+            eprintln!("At: {}\n{}", file, source);
             panic!("GL Assertion failed.");
         }
     }

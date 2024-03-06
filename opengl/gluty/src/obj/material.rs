@@ -1,6 +1,6 @@
-use super::super::Texture;
 use super::Obj;
-use std::path::PathBuf;
+use crate::asset::Asset;
+use crate::Texture;
 
 #[derive(Debug)]
 pub struct Material {
@@ -32,15 +32,17 @@ impl Default for Material {
 }
 
 /// Load first material from .mtl file.
-pub fn load_mtl(path: PathBuf) -> Material {
-    use std::fs::read;
-
+pub fn load_mtl<T>(mtl: &Asset<T>, resources: &[Asset<T>]) -> Material
+where
+    T: AsRef<[u8]>,
+{
     let mut material = Material::default();
 
-    let file = read(&path).expect("MTL file must exist.");
-    let file = String::from_utf8_lossy(&file);
+    let file = String::from_utf8_lossy(mtl.value.as_ref());
 
-    let mut tex_path = path;
+    let find_asset = |suffix: &str| -> Option<&Asset<T>> {
+        resources.iter().find(|it| it.path.ends_with(suffix))
+    };
 
     for line in file.lines().filter(|v| !v.is_empty()) {
         let line = line.trim_start();
@@ -54,19 +56,25 @@ pub fn load_mtl(path: PathBuf) -> Material {
         } else if let Some(suffix) = line.strip_prefix("Ns ") {
             material.specular_component = suffix.parse().expect("Ns must be a float.");
         } else if let Some(suffix) = line.strip_prefix("map_Ka ") {
-            tex_path.set_file_name(suffix);
-            if let Ok(tex) = Texture::create_from_file(&tex_path, gl::TEXTURE_2D, 0) {
-                material.ambient_texture = Some(tex);
+            if let Some(asset) = find_asset(suffix) {
+                if let Ok(img) = asset.try_to_img() {
+                    material.ambient_texture =
+                        Some(Texture::from_image(gl::TEXTURE_2D, 0, &img, gl::RGBA));
+                }
             }
         } else if let Some(suffix) = line.strip_prefix("map_Kd ") {
-            tex_path.set_file_name(suffix);
-            if let Ok(tex) = Texture::create_from_file(&tex_path, gl::TEXTURE_2D, 1) {
-                material.diffuse_texture = Some(tex);
+            if let Some(asset) = find_asset(suffix) {
+                if let Ok(img) = asset.try_to_img() {
+                    material.diffuse_texture =
+                        Some(Texture::from_image(gl::TEXTURE_2D, 1, &img, gl::RGBA));
+                }
             }
         } else if let Some(suffix) = line.strip_prefix("map_Ks ") {
-            tex_path.set_file_name(suffix);
-            if let Ok(tex) = Texture::create_from_file(&tex_path, gl::TEXTURE_2D, 2) {
-                material.specular_texture = Some(tex);
+            if let Some(asset) = find_asset(suffix) {
+                if let Ok(img) = asset.try_to_img() {
+                    material.specular_texture =
+                        Some(Texture::from_image(gl::TEXTURE_2D, 2, &img, gl::RGBA));
+                }
             }
         } else if let Some(suffix) = line.strip_prefix("newmtl ") {
             material.name = suffix.to_owned();

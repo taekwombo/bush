@@ -2,18 +2,16 @@
 //!
 //! https://docs.gl/
 
-use gluty::{opengl, Glindow, Program};
+use gluty::{assets, opengl, Glindow, Program};
 use std::mem::size_of;
 
 fn main() {
     let glin = Glindow::new();
-    let mut program = Program::create();
-
-    program
-        .attach_shader_source("./examples/shaders/figure.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./examples/shaders/figure.frag", gl::FRAGMENT_SHADER))
-        .and_then(|p| p.link())
-        .unwrap();
+    let (vert, frag) = assets!("./figure.vert", "./figure.frag");
+    let mut program = Program::default()
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .link();
 
     // Vertex((Attribute Position: f32 f32 f32), (Attribute Normal: f32 f32 f32))
     //
@@ -117,8 +115,8 @@ fn main() {
     }
 
     program.use_program();
-    #[cfg(debug_assertions)]
-    program.validate().expect("Program to be valid");
+    program.validate();
+    Program::check_errors(&program).expect("Program should have no errors");
 
     opengl! {
         // gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());

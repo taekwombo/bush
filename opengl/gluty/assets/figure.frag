@@ -6,10 +6,9 @@ in float vmul;
 
 void main() {
     float diff = 2.0 - vmul;
-    color = vec4(
-        0.0,
-        0.0,
-        (diff * 0.5),
-        1.0
-    );
+    float r = diff * 0.5;
+    float g = diff * 0.5;
+    float b = diff * 0.5;
+
+    color = vec4(r, g, b, 1.0);
 }

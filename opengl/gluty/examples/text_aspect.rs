@@ -3,7 +3,7 @@
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
 use glam::f32::{Mat4, Vec3};
-use gluty::{opengl, Attributes, Buffer, Glindow, Program, Texture};
+use gluty::{assets, opengl, Attributes, Buffer, Glindow, Program, Texture};
 
 fn to_f(val: u32) -> f32 {
     //! Good enough u32 -> f32 conversion for this example.
@@ -151,18 +151,15 @@ fn main() {
     //! - Allow zoom and scroll of the image.
 
     let glin = Glindow::new();
-    let mut program = Program::create();
-    let texture = Texture::create_from_file(&"./examples/resources/opossum.jpg", gl::TEXTURE_2D, 0)
-        .expect("Texture created.");
-    program
-        .attach_shader_source("./examples/shaders/text_aspect.vert", gl::VERTEX_SHADER)
-        .and_then(|p| {
-            p.attach_shader_source("./examples/shaders/text_aspect.frag", gl::FRAGMENT_SHADER)
-        })
-        .and_then(|p| p.link())
-        .expect("Program created.")
-        .use_program();
+    let (vert, frag, img) = assets!("./text_aspect.vert", "./text_aspect.frag", "./opossum.jpg");
+    let program = Program::default()
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .link();
+    let image = img.try_to_img().expect("image missing").flipv();
+    let texture = Texture::from_image(gl::TEXTURE_2D, 0, &image, gl::RGBA);
 
+    program.use_program();
     let mut state = {
         let size = glin.window.inner_size();
         State::new(
@@ -190,9 +187,9 @@ fn main() {
     vbo.bind().data::<f32>(&[
         // Position  Texture
         1.0,  1.0,   1.0,  1.0, // Top Right
+       -1.0,  1.0,   0.0,  1.0, // Top Left
         1.0, -1.0,   1.0,  0.0, // Bottom Right
        -1.0, -1.0,   0.0,  0.0, // Bottom Left
-       -1.0,  1.0,   0.0,  1.0, // Top Left
     ]);
 
     attrs
@@ -205,8 +202,8 @@ fn main() {
     // Index buffer for DrawElements.
     #[rustfmt::skip]
     ebo.bind().data::<u32>(&[
-        0, 2, 1,
-        0, 3, 2,
+        0, 1, 2,
+        1, 2, 3,
     ]);
 
     // Set texture as active.

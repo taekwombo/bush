@@ -1,25 +1,21 @@
 //! Displaying texture on rectangle.
 //! The image displayed must be present at gluty/examples/resources/opossum.jpg.
 
-use gluty::{opengl, Glindow, Program};
-use image::io::Reader;
+use gluty::{assets, opengl, Glindow, Program};
 use std::mem::size_of;
 
 fn main() {
     let glin = Glindow::new();
-    let mut program = Program::create();
-    program
-        .attach_shader_source("./examples/shaders/texture.vert", gl::VERTEX_SHADER)
-        .and_then(|p| {
-            p.attach_shader_source("./examples/shaders/texture.frag", gl::FRAGMENT_SHADER)
-        })
-        .and_then(|p| p.link())
-        .expect("Program created.");
+    let (vert, frag, img) = assets!("./texture.vert", "./texture.frag", "./opossum.jpg");
 
-    let image = Reader::open("./examples/resources/opossum.jpg")
-        .unwrap()
-        .decode()
-        .unwrap()
+    let program = Program::default()
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .link();
+
+    let image = img
+        .try_to_img()
+        .expect("image missing")
         .flipv()
         .into_rgba32f();
     let (i_width, i_height) = image.dimensions();

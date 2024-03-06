@@ -1,3 +1,4 @@
+use crate::asset::Asset;
 use std::collections::{hash_map::Entry, HashMap};
 
 mod material;
@@ -42,6 +43,10 @@ impl Vertex {
     }
 }
 
+/// Describes required attributes.
+/// Vertex position (required)
+/// Vertex normal (optional, enabled by default)
+/// Texture coordinate (optional)
 pub struct BuildOptions {
     normal: bool,
     tex: bool,
@@ -112,10 +117,6 @@ impl Obj {
         normal && tex
     }
 
-    pub fn load_vvn(path: &str) -> (Vec<f32>, Vec<u32>) {
-        Obj::new().parse(path).build(&Default::default())
-    }
-
     pub fn build(&self, opt: &BuildOptions) -> (Vec<f32>, Vec<u32>) {
         let has_normal = opt.normal;
         let has_texture = opt.tex;
@@ -169,12 +170,19 @@ impl Obj {
         (vbo_data, ebo_data)
     }
 
-    pub fn parse(&mut self, path: &str) -> &mut Self {
-        use std::fs::read;
-        use std::path::PathBuf;
+    pub fn parse_mtl<T>(&mut self, mtl: &Asset<T>, resources: &[Asset<T>]) -> &mut Self
+    where
+        T: AsRef<[u8]>,
+    {
+        self.material = load_mtl(mtl, resources);
+        self
+    }
 
-        let file = read(path).expect("Model file must exist.");
-        let file = String::from_utf8_lossy(&file);
+    pub fn parse_obj<T>(&mut self, asset: &Asset<T>) -> &mut Self
+    where
+        T: AsRef<[u8]>,
+    {
+        let file = std::str::from_utf8(asset.value.as_ref()).expect("Asset must be utf-8 encoded");
 
         for line in file.lines() {
             if let Some(suffix) = line.strip_prefix("v ") {
@@ -185,14 +193,6 @@ impl Obj {
                 self.parse_vertex_texture_coord(suffix);
             } else if let Some(suffix) = line.strip_prefix("f ") {
                 self.parse_face(suffix);
-            } else if let Some(suffix) = line.strip_prefix("mtllib ") {
-                let mut path = PathBuf::from(path);
-                path.pop();
-                path.push(suffix);
-
-                if path.is_file() {
-                    self.material = load_mtl(path);
-                }
             }
         }
 

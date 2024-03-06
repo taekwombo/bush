@@ -1,20 +1,20 @@
 //! Displaying .obj model with lighting and camera.
 
-use gluty::{opengl, Camera, Glindow, Mesh, Obj, Program};
+use gluty::{assets, opengl, Camera, Glindow, Mesh, Obj, Program};
 
 fn main() {
     // https://users.cs.utah.edu/~natevm/newell_teaset/
-    let (vertices, indices) = Obj::load_vvn("./examples/resources/teapot_newell.obj");
+    let (vert, frag, obj) = assets!("./teapot.vert", "./teapot.frag", "./teapot_newell.obj");
+
+    let (vertices, indices) = Obj::new().parse_obj(&obj).build(&Default::default());
     let glin = Glindow::new();
 
-    let mut program = Program::create();
-    program
-        .attach_shader_source("./examples/shaders/teapot.vert", gl::VERTEX_SHADER)
-        .and_then(|p| p.attach_shader_source("./examples/shaders/teapot.frag", gl::FRAGMENT_SHADER))
-        .and_then(|p| p.link())
-        .expect("Program created.")
-        .use_program();
+    let program = Program::default()
+        .shader(vert.get(), gl::VERTEX_SHADER)
+        .shader(frag.get(), gl::FRAGMENT_SHADER)
+        .link();
 
+    program.use_program();
     let mut teapot = Mesh::new(&vertices, &indices, |attrs| {
         attrs
             // Position attribute.
@@ -22,13 +22,13 @@ fn main() {
             // Vertex normal attribute.
             .add::<f32>(1, 3, gl::FLOAT);
     });
-    teapot.translate(0.0, -0.5, 0.0).scale(0.3, 0.3, 0.3);
+    teapot.rotate_x(-90.0).scale(0.3, 0.3, 0.3);
 
     let mut camera = {
         let size = glin.window.inner_size();
         Camera::new(60.0, size.width, size.height)
     };
-    camera.translate(0.0, 0.0, 5.0);
+    camera.translate(0.0, 0.0, 20.0);
 
     let u_proj = program.get_uniform("u_proj\0");
     let u_model = program.get_uniform("u_model\0");
@@ -144,7 +144,7 @@ fn main() {
                 _ => (),
             },
             Event::RedrawRequested(_) => {
-                teapot.rotate_y(0.5);
+                teapot.rotate_z(0.5);
                 opengl! {
                     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                     gl::UniformMatrix4fv(u_model, 1, gl::FALSE, teapot.model_to_world.as_ref() as *const _);

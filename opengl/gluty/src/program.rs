@@ -1,16 +1,5 @@
 use super::opengl;
 use gl::types::GLenum;
-use std::path::Path;
-
-fn load_shader_from_path<P>(path: &P, shader_type: GLenum) -> Result<u32, &'static str>
-where
-    P: AsRef<Path>,
-{
-    use std::fs::read;
-
-    let shader_source = read(path.as_ref()).expect("Shader source to exist.");
-    compile_shader(&shader_source, shader_type)
-}
 
 fn compile_shader(shader_source: &[u8], shader_type: GLenum) -> Result<u32, &'static str> {
     let src_len: i32 = i32::try_from(shader_source.len()).expect("Shader length must fit in i32.");
@@ -29,6 +18,7 @@ fn compile_shader(shader_source: &[u8], shader_type: GLenum) -> Result<u32, &'st
     #[cfg(debug_assertions)]
     if status == gl::FALSE as i32 {
         eprintln!("Failed to compile shader.");
+        dbg!(String::from_utf8_lossy(shader_source));
 
         let mut info_len: i32 = 0;
         opengl!(gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut info_len));
@@ -61,18 +51,11 @@ fn compile_shader(shader_source: &[u8], shader_type: GLenum) -> Result<u32, &'st
 pub struct Program {
     pub gl_id: u32,
     shaders: [u32; 8],
-    shader_cnt: u8,
+    shader_count: u8,
+    error: Option<String>,
 }
 
 impl Program {
-    pub fn create() -> Self {
-        Self {
-            gl_id: opengl!(gl::CreateProgram()),
-            shaders: [0; 8],
-            shader_cnt: 0,
-        }
-    }
-
     /// Note: name must end with \0 character.
     pub fn get_uniform(&self, name: &str) -> i32 {
         debug_assert!(name.get((name.len() - 1)..).unwrap() == "\0");
@@ -82,56 +65,78 @@ impl Program {
         ))
     }
 
-    #[allow(clippy::result_unit_err)]
-    pub fn attach_shader(&mut self, shader: u32) -> Result<&mut Self, ()> {
-        opengl!(gl::AttachShader(self.gl_id, shader));
-        self.shaders[self.shader_cnt as usize] = shader;
-        self.shader_cnt += 1;
-
-        Ok(self)
+    #[inline]
+    pub fn use_program(&self) -> &Self {
+        opengl!(gl::UseProgram(self.gl_id));
+        self
     }
 
-    #[allow(clippy::result_unit_err)]
-    pub fn attach_shader_source_str(
-        &mut self,
-        source: &[u8],
-        shader_type: GLenum,
-    ) -> Result<&mut Self, ()> {
+    pub fn shader(mut self, source: &[u8], shader_type: GLenum) -> Self {
+        if self.error.is_some() {
+            return self;
+        }
+
         let shader = match compile_shader(source, shader_type) {
+            Ok(sh) => sh,
             Err(err) => {
-                eprintln!("[shader_source_str]: {}", err);
-                return Err(());
+                self.error = Some(err.to_owned());
+                return self;
             }
-            Ok(shader) => shader,
         };
 
-        self.attach_shader(shader)
+        self.attach_shader(shader);
+        self
     }
 
-    #[allow(clippy::result_unit_err)]
-    pub fn attach_shader_source<P: AsRef<Path>>(
-        &mut self,
-        path: P,
-        shader_type: GLenum,
-    ) -> Result<&mut Self, ()> {
-        let shader = match load_shader_from_path(&path, shader_type) {
-            Err(err) => {
-                eprintln!("[{}]: {}", path.as_ref().to_string_lossy(), err);
-                return Err(());
-            }
-            Ok(shader) => shader,
-        };
+    pub fn link(mut self) -> Self {
+        if self.error.is_some() {
+            return self;
+        }
 
-        self.attach_shader(shader)
-    }
-
-    #[allow(clippy::result_unit_err)]
-    pub fn link(&self) -> Result<&Self, ()> {
         opengl!(gl::LinkProgram(self.gl_id));
-        self.check_program_iv(gl::LINK_STATUS)
+        self.check_program_iv(gl::LINK_STATUS);
+        self
     }
 
-    fn log_program_info(&self) {
+    pub fn validate(&mut self) -> &mut Self {
+        if self.error.is_some() {
+            return self;
+        }
+
+        opengl!(gl::ValidateProgram(self.gl_id));
+        self.check_program_iv(gl::VALIDATE_STATUS)
+    }
+
+    fn attach_shader(&mut self, shader: u32) -> &mut Self {
+        opengl!(gl::AttachShader(self.gl_id, shader));
+        self.shaders[self.shader_count as usize] = shader;
+        self.shader_count += 1;
+        self
+    }
+
+    pub fn check_errors(program: &Program) -> Result<(), &str> {
+        match &program.error {
+            Some(err) => {
+                eprintln!("Program {} raised errors: {}", program.gl_id, err);
+                Err(err)
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn check_program_iv(&mut self, ivtype: gl::types::GLenum) -> &mut Self {
+        let mut status = 0;
+        opengl!(gl::GetProgramiv(self.gl_id, ivtype, &mut status));
+
+        if status == gl::FALSE as i32 {
+            eprintln!("Program validation failed.");
+            self.error = Some(self.get_program_info());
+        }
+
+        self
+    }
+
+    fn get_program_info(&self) -> String {
         static mut LOGS: [u8; 512] = [0; 512];
 
         let mut info_len: i32 = 0;
@@ -141,7 +146,7 @@ impl Program {
             &mut info_len
         ));
 
-        println!("Info len: {}", info_len);
+        println!("Info length for program {}: {}", self.gl_id, info_len);
         debug_assert!(info_len > 0);
 
         let info_ptr = unsafe { LOGS.as_mut_ptr() };
@@ -153,41 +158,25 @@ impl Program {
             &mut written,
             info_ptr as *mut _
         ));
-        eprintln!("{}", unsafe { String::from_utf8_lossy(&LOGS) });
+
+        format!("{}", unsafe { String::from_utf8_lossy(&LOGS) })
     }
+}
 
-    fn check_program_iv(&self, ivtype: gl::types::GLenum) -> Result<&Self, ()> {
-        let mut status = 0;
-        opengl!(gl::GetProgramiv(self.gl_id, ivtype, &mut status));
-
-        if status == gl::FALSE as i32 {
-            #[cfg(debug_assertions)]
-            {
-                eprintln!("Program validation failed.");
-                self.log_program_info();
-            }
-            return Err(());
+impl Default for Program {
+    fn default() -> Self {
+        Self {
+            gl_id: opengl!(gl::CreateProgram()),
+            shaders: [0; 8],
+            shader_count: 0,
+            error: None,
         }
-
-        Ok(self)
-    }
-
-    #[allow(clippy::result_unit_err)]
-    pub fn validate(&self) -> Result<&Self, ()> {
-        opengl!(gl::ValidateProgram(self.gl_id));
-        self.check_program_iv(gl::VALIDATE_STATUS)
-    }
-
-    #[inline]
-    pub fn use_program(&self) -> &Self {
-        opengl!(gl::UseProgram(self.gl_id));
-        self
     }
 }
 
 impl Drop for Program {
     fn drop(&mut self) {
-        for i in 0..self.shader_cnt {
+        for i in 0..self.shader_count {
             opengl!(gl::DeleteShader(self.shaders[i as usize]));
         }
         opengl!(gl::DeleteProgram(self.gl_id));

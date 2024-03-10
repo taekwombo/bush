@@ -16,6 +16,7 @@ typedef enum {
 
 float rand_float();
 float sigmoidf(float x);
+float tanhf(float x);
 
 // ------ MATRIX -------
 
@@ -98,6 +99,12 @@ float rand_float() {
 
 float sigmoidf(float x) {
     return 1.0f / (1.0f + expf(-x));
+}
+
+float tanhf(float x) {
+    float ep = expf(x);
+    float em = expf(-x);
+    return (ep - em) / (ep + em);
 }
 
 // ------ MATRIX -------

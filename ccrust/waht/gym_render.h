@@ -154,8 +154,8 @@ Color interpolate_color(Color low, Color high, Color mid, float sig) {
 }
 
 void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y, size_t radius) {
-    Color low_color = { 0xE6, 0xA3, 0x9E, 0xFF };
-    Color high_color = { 0x20, 0xF5, 0x4E, 0xFF };
+    Color low_color = { 0xFF, 0x70, 0x00, 0xFF };
+    Color high_color = { 0x70, 0xFF, 0x00, 0xFF };
     Color input_color = { 0xA0, 0xA0, 0xA0, 0xFF };
 
     {
@@ -187,7 +187,7 @@ void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y, size_
                 continue;
             }
 
-            float sig = sigmoidf(M_AT(n.biases[l - 1], 1, j));
+            float sig = tanhf(M_AT(n.biases[l - 1], 1, j));
             DrawCircle(cx, cy, radius, interpolate_color(low_color, high_color, input_color, sig));
 
             for (size_t i = 0; i < n.activations[l - 1].cols; i++) {
@@ -196,7 +196,7 @@ void nero_render(Nero n, int scr_w, int scr_h, int offset_x, int offset_y, size_
                 int sx = cx - pad_x - radius * 2 + radius;
                 int sy = calc_y(offset_y, radius, pad_y, i);
 
-                float sig = sigmoidf(M_AT(n.weights[l - 1], i, j));
+                float sig = tanhf(M_AT(n.weights[l - 1], i, j));
                 DrawLineEx(
                     (Vector2){ .x = sx, .y = sy },
                     (Vector2){ .x = cx - radius, .y = cy },

@@ -3,6 +3,8 @@
 
 #define GYM_STR_OPT_LEN 512
 
+typedef void (*PreviewFn)(const Nero net, int width, int height, int offset_x, int offset_y);
+
 typedef struct {
     size_t width;
     size_t height;
@@ -34,6 +36,7 @@ typedef struct {
     GymInput        input;
     size_t neuron_radius;
     size_t plot_entries;
+    PreviewFn preview;
 } GymConfig;
 
 void parse_integer(const char* in, void* out, const char* name);
@@ -208,6 +211,7 @@ GymInput layout_input(size_t* layout, size_t layout_size, Mat train_input, Mat t
 }
 
 void read_config(const int argc, const char** argv, GymConfig* config) {
+    config->preview = NULL;
     read_train_config(argc, argv, &config->train);
     read_window_config(argc, argv, &config->window);
     read_widget_config(argc, argv, config);

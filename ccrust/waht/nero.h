@@ -16,6 +16,7 @@ typedef enum {
 
 float rand_float();
 float sigmoidf(float x);
+float dsigmoidf(float x);
 float tanhf(float x);
 
 // ------ MATRIX -------
@@ -26,6 +27,8 @@ typedef struct {
     size_t stride;
     float  *els;
 } Mat;
+
+typedef float (*ActFn)(float x);
 
 /** Return new Mat with enough memory allocated for rows * cols elements. */
 Mat mat_alloc(size_t rows, size_t cols);
@@ -48,22 +51,28 @@ void mat_add(Mat dst, Mat src);
 void mat_sub(Mat dst, Mat src);
 void mat_mul(Mat dst, Mat a, Mat b);
 void mat_mul_scalar(Mat dst, float value);
-void mat_sig(Mat m);
+void mat_act(Mat m, ActFn fn);
 void mat_rand(Mat m, float low, float high);
+void mat_swap(Mat a, Mat b);
 
 void mat_print(Mat m, const char *name, size_t pad);
-void mat_debug(Mat m, const char *name);
+void mat_debug(Mat m, const char *name, size_t pad);
 
 #define M_AT(m, i, j) (m).els[(i) * (m).stride + (j)]
 #define M_PRINT(m) mat_print(m, #m, 0)
-#define M_DEBUG(m) mat_debug(m, #m)
+#define M_DEBUG(m) mat_debug(m, #m, 0)
 
 // ------ Nero -------
 
 #define ARR_LEN(xs) sizeof((xs))/sizeof((xs)[0])
 
+typedef enum {
+    SIG,
+} ActivationKind;
+
 typedef struct {
     size_t depth;
+    ActivationKind act_fn;
     Mat *weights;
     /** biases */
     Mat *biases;
@@ -71,20 +80,40 @@ typedef struct {
     Mat *activations;
 } Nero;
 
+typedef struct {
+    size_t batch_count;
+    Mat orig_in;
+    Mat orig_out;
+    Mat shuffled_in;
+    Mat shuffled_out;
+    float cost;
+} BatchConfig;
+
 #define NERO_PRINT(n) nero_print(n, #n)
 #define NERO_INPUT(n) n.activations[0]
 #define NERO_OUTPUT(n) n.activations[n.depth]
 
+#ifndef NERO_RELU_MUL
+#define NERO_RELU_MUL 0.01f
+#endif
+
 Nero nero_alloc(size_t size, size_t layers[]);
+void nero_free(Nero n);
+
+BatchConfig nero_batch_config(size_t batch_count, Mat t_in, Mat t_out);
+void nero_batch_config_free(BatchConfig bc);
 
 void nero_rand(Nero n, float low, float high);
 void nero_forward(Nero n);
 float nero_cost(Nero n, Mat t_in, Mat t_out);
 void nero_finite_diff(Nero n, Nero grad, float eps, Mat t_in, Mat t_out);
 void nero_backprop(Nero n, Nero grad, Mat t_in, Mat t_out);
+void nero_run_batches(Nero n, Nero grad, BatchConfig *bc, float learn_rate);
+void nero_shuffle_train_data(Mat t_in, Mat t_out);
 void nero_zero(Nero n);
 void nero_learn(Nero n, Nero grad, float rate);
 
+char* debug_act(ActFn fn);
 void nero_print(Nero n, const char *name);
 
 #endif
@@ -99,6 +128,10 @@ float rand_float() {
 
 float sigmoidf(float x) {
     return 1.0f / (1.0f + expf(-x));
+}
+
+float dsigmoidf(float x) {
+    return x * (1.0f - x);
 }
 
 float tanhf(float x) {
@@ -237,10 +270,10 @@ void mat_mul_scalar(Mat dst, float value) {
     }
 }
 
-void mat_sig(Mat m) {
+void mat_act(Mat m, ActFn fn) {
     for (size_t i = 0; i < m.rows; i++) {
         for (size_t j = 0; j < m.cols; j++) {
-            M_AT(m, i, j) = sigmoidf(M_AT(m, i, j));
+            M_AT(m, i, j) = fn(M_AT(m, i, j));
         }
     }
 }
@@ -249,6 +282,18 @@ void mat_rand(Mat m, float low, float high) {
     for (size_t i = 0; i < m.rows; i++) {
         for (size_t j = 0; j < m.cols; j++) {
             M_AT(m, i, j) = low + (rand_float() * high - low);
+        }
+    }
+}
+
+void mat_swap(Mat a, Mat b) {
+    assert(a.rows == b.rows);
+    assert(a.cols == b.cols);
+    for (size_t i = 0; i < a.rows; i++) {
+        for (size_t j = 0; j < b.cols; j++) {
+            float tmp = M_AT(a, i, j);
+            M_AT(a, i, j) = M_AT(b, i, j);
+            M_AT(b, i, j) = tmp;
         }
     }
 }
@@ -265,9 +310,9 @@ void mat_print(Mat m, const char* name, size_t pad) {
     printf("%*s]\n", (int)pad, "");
 }
 
-void mat_debug(Mat m, const char* name) {
-    printf("%s {\n\trows:%zu,\n\tcols:%zu,\n\tstride:%zu,\n\tels:%p\n}\n",
-        name, m.rows, m.cols, m.stride, m.els);
+void mat_debug(Mat m, const char* name, size_t pad) {
+    printf("%*s %s {\t rows:%4lu,  cols:%4lu, stride: %lu, els: %p }\n",
+            (int)pad, "", name, m.rows, m.cols, m.stride, m.els);
 }
 
 // ------ Nero -------
@@ -276,6 +321,7 @@ Nero nero_alloc(size_t size, size_t layers[]) {
     assert(size != 0);
 
     Nero n;
+    n.act_fn = SIG;
     n.depth = size - 1;
 
     n.activations = malloc(sizeof(*n.activations) * size);
@@ -298,6 +344,53 @@ Nero nero_alloc(size_t size, size_t layers[]) {
 
     return n;
 }
+void nero_free(Nero n) {
+    mat_free(&n.activations[0]);
+    for (size_t i = 0; i < n.depth - 1; i++) {
+        mat_free(&n.activations[i + 1]);
+        mat_free(&n.biases[i]);
+        mat_free(&n.weights[i]);
+    }
+}
+
+BatchConfig nero_batch_config(size_t batch_count, Mat t_in, Mat t_out) {
+    BatchConfig b;
+
+    b.cost = 0;
+    b.batch_count = batch_count;
+    b.orig_in = t_in;
+    b.orig_out = t_out;
+    b.shuffled_in = mat_alloc(t_in.rows, t_in.cols);
+    b.shuffled_out = mat_alloc(t_out.rows, t_out.cols);
+
+    mat_cpy(b.shuffled_in, t_in);
+    mat_cpy(b.shuffled_out, t_out);
+
+    return b;
+}
+
+void nero_batch_config_free(BatchConfig bc) {
+    mat_free(&bc.shuffled_in);
+    mat_free(&bc.shuffled_out);
+}
+
+ActFn nero_get_afn(Nero n) {
+    switch (n.act_fn) {
+        case SIG:
+            return sigmoidf;
+        default:
+            assert(0 && "Unreachable");
+    }
+}
+
+ActFn nero_get_dafn(Nero n) {
+    switch (n.act_fn) {
+        case SIG:
+            return dsigmoidf;
+        default:
+            assert(0 && "Unreachable");
+    }
+}
 
 void nero_rand(Nero n, float low, float high) {
     for (size_t i = 0; i < n.depth; i++) {
@@ -307,10 +400,11 @@ void nero_rand(Nero n, float low, float high) {
 }
 
 void nero_forward(Nero n) {
+    ActFn fn = nero_get_afn(n);
     for (size_t i = 0; i < n.depth; i++) {
         mat_mul(n.activations[i + 1], n.activations[i], n.weights[i]);
         mat_add(n.activations[i + 1], n.biases[i]);
-        mat_sig(n.activations[i + 1]);
+        mat_act(n.activations[i + 1], fn);
     }
 }
 
@@ -370,6 +464,7 @@ void nero_backprop(Nero n, Nero grad, Mat t_in, Mat t_out) {
     nero_zero(grad);
 
     size_t t = t_in.rows;
+    ActFn dact = nero_get_dafn(n);
 
     for (size_t s/*ample*/ = 0; s < t; s++) {
         mat_cpy(NERO_INPUT(n), mat_row(t_in, s));
@@ -387,16 +482,71 @@ void nero_backprop(Nero n, Nero grad, Mat t_in, Mat t_out) {
             for (size_t i = 0; i < n.activations[l].cols; i++) {
                 float a = M_AT(n.activations[l], 0, i);
                 float d_a = M_AT(grad.activations[l], 0, i);
-                float d = 2 * d_a * a * (1 - a);
+                float d = 2 * d_a * dact(a);
 
-                M_AT(grad.biases[l - 1], 0, i) += d / t;
+                M_AT(grad.biases[l - 1], 0, i) += d;
 
                 for (size_t j = 0; j < n.activations[l - 1].cols; j++) {
-                    M_AT(grad.weights[l - 1], j, i) += (d * M_AT(n.activations[l - 1], 0, j)) / t;
+                    M_AT(grad.weights[l - 1], j, i)     += d * M_AT(n.activations[l - 1], 0, j);
                     M_AT(grad.activations[l - 1], 0, j) += d * M_AT(n.weights[l - 1], j, i);
                 }
             }
         }
+    }
+
+    float grad_mul = 1.0 / (float)t;
+    assert(!isnan(grad_mul) && "nero_backprop");
+    for (size_t l/*ayer*/ = n.depth; l > 0; l--) {
+        mat_mul_scalar(grad.weights[l - 1], grad_mul);
+        mat_mul_scalar(grad.biases[l - 1], grad_mul);
+    }
+}
+
+void nero_run_batches(Nero n, Nero grad, BatchConfig *bc, float learn_rate) {
+    size_t rows = bc->shuffled_in.rows;
+    size_t count = bc->batch_count;
+    size_t start = 0;
+    size_t batch_size = (rows + count - 1) / count;
+    assert(batch_size * count >= rows);
+
+    float cost = 0;
+    Mat in = bc->shuffled_in;
+    Mat out = bc->shuffled_out;
+    nero_shuffle_train_data(in, out);
+
+    while (start * batch_size <= rows) {
+        size_t batch_rows = start >= rows ? rows - start : batch_size;
+        assert(batch_rows + start <= rows);
+
+        Mat bin = mat_view(in, start, 0, batch_rows, in.cols);
+        Mat bout = mat_view(out, start, 0, batch_rows, out.cols);
+
+        nero_backprop(n, grad, bin, bout);
+        nero_learn(n, grad, learn_rate);
+
+        cost += nero_cost(n, bin, bout);
+        start += batch_size;
+    }
+
+    bc->cost = cost / (float)count;
+    assert(!isnan(bc->cost));
+}
+
+void nero_shuffle_train_data(Mat t_in, Mat t_out) {
+    assert(t_in.rows == t_out.rows);
+
+    for (size_t i = 0; i < t_in.rows; i++) {
+        size_t idx = i + (rand() % (t_in.rows - i));
+        assert(idx < t_in.rows);
+
+        if (idx == i) {
+            continue;
+        }
+
+        // Swap input
+        mat_swap(mat_row(t_in, i), mat_row(t_in, idx));
+        // Swap output
+        mat_swap(mat_row(t_out, i), mat_row(t_out, idx));
     }
 }
 
@@ -421,19 +571,28 @@ void nero_learn(Nero n, Nero grad, float rate) {
     }
 }
 
+char* debug_act(ActFn fn) {
+    if (fn == sigmoidf) {
+        return "sigmoid";
+    } else {
+        return "unknown";
+    }
+}
+
 void nero_print(Nero n, const char *name) {
     printf("%s = {\n", name);
+    printf("    .depth = %lu\n", n.depth);
+    printf("    .act = %s\n", debug_act(nero_get_afn(n)));
 
-    char mat_name[64];
-
+    printf("    .layout = { ");
     for (size_t i = 0; i < n.depth; i++) {
-        snprintf(mat_name, 12, "weights%zu", i);
-        mat_print(n.weights[i], mat_name, 4);
-        snprintf(mat_name, 12, "biases%zu", i);
-        mat_print(n.biases[i], mat_name, 4);
+        printf("%lu, ", n.weights[i].rows);
+        if (i == n.depth - 1) {
+            printf("%lu ", n.weights[i].cols);
+        }
     }
 
-    printf("}\n");
+    printf("}\n}\n");
 }
 
 #endif

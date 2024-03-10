@@ -51,10 +51,10 @@ void init_nero(GymInput input, Nero* n, Nero* g) {
 void gym(GymConfig config) {
     Nero net, grad;
     init_nero(config.input, &net, &grad);
+    BatchConfig bc = nero_batch_config(config.train.batch_count, config.input.t_in, config.input.t_out);
 
     GymTrainConfig t = config.train;
     GymWindowConfig w = config.window;
-    GymInput in = config.input;
 
     srand(config.train.seed);
     nero_rand(net, 0, 1);
@@ -71,6 +71,13 @@ void gym(GymConfig config) {
     bool ignore_epochs_bound = false;
     int key;
     float saved_rate = t.learning_rate;
+
+    bool has_preview = config.preview != NULL;
+    int plot_size[2] = { w.width / 2, w.height };
+    int panel_size[2] = {
+        w.width / 2,
+        has_preview ? w.height / 2 : w.height,
+    };
 
     while (!WindowShouldClose()) {
         while ((key = GetKeyPressed())) {
@@ -110,19 +117,22 @@ void gym(GymConfig config) {
 
         if (running && (ignore_epochs_bound || epoch < t.epochs)) {
             for (size_t i = 0; i < t.learn_per_frame; i++) {
-                nero_backprop(net, grad, in.t_in, in.t_out);
-                nero_learn(net, grad, t.learning_rate);
+                nero_run_batches(net, grad, &bc, t.learning_rate);
+                plot_push(&plot, bc.cost);
             }
             epoch += t.learn_per_frame;
-            plot_push(&plot, nero_cost(net, in.t_in, in.t_out));
         }
 
         ClearBackground((Color){ 0x44, 0x44, 0x44, 0xFF });
         BeginDrawing();
 
         plot_render_text(epoch, t.epochs, t.learning_rate);
-        plot_render(&plot, w.width / 2, w.height, 0, 0);
-        nero_render(net, w.width / 2, w.height, w.width / 2, 0, config.neuron_radius);
+        plot_render(&plot, plot_size[0], plot_size[1], 0, 0);
+        nero_render(net, panel_size[0], panel_size[1], w.width / 2, 0, config.neuron_radius);
+
+        if (has_preview) {
+            config.preview(net, panel_size[0], panel_size[1], panel_size[0], panel_size[1]);
+        }
 
         EndDrawing();
     }

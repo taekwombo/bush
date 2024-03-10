@@ -17,6 +17,7 @@ typedef struct {
     float learning_rate_mul;
     float learning_rate;
     size_t learn_per_frame;
+    size_t batch_count;
     size_t epochs;
     size_t seed;
 } GymTrainConfig;
@@ -117,13 +118,15 @@ const char* OPT_MIN_LR          = "--lr-min";
 const char* OPT_LEARN_RATE_MUL  = "--lr-mul";
 const char* OPT_LEARNING_RATE   = "--lr";
 const char* OPT_LEARN_PER_FRAME = "--learn-per-frame";
+const char* OPT_BATCH_COUNT     = "--batch-count";
 const char* OPT_EPOCHS          = "--epochs";
 const char* OPT_SEED            = "--seed";
 
 void read_train_config(const int argc, const char** argv, GymTrainConfig* config) {
     size_t epochs = 10000,
            seed = time(NULL),
-           learn_per_frame = 20;
+           learn_per_frame = 20,
+           batch_count = 1;
     float min_learning_rate = 1e-2,
           learning_rate_mul = 2.0,
           learning_rate = 1e-1;
@@ -131,8 +134,10 @@ void read_train_config(const int argc, const char** argv, GymTrainConfig* config
     find_option(argc, argv, OPT_EPOCHS, &epochs, parse_integer);
     find_option(argc, argv, OPT_SEED, &seed, parse_integer);
     find_option(argc, argv, OPT_LEARN_PER_FRAME, &learn_per_frame, parse_integer);
+    find_option(argc, argv, OPT_BATCH_COUNT, &batch_count, parse_integer);
     assert(epochs > 1);
     assert(learn_per_frame > 1 && learn_per_frame < 1000);
+    assert(batch_count >= 1);
 
     find_option(argc, argv, OPT_LEARNING_RATE, &learning_rate, parse_float);
     find_option(argc, argv, OPT_MIN_LR, &min_learning_rate, parse_float);
@@ -145,6 +150,7 @@ void read_train_config(const int argc, const char** argv, GymTrainConfig* config
     config->seed = seed;
     config->epochs = epochs;
     config->learn_per_frame = learn_per_frame;
+    config->batch_count = batch_count;
 
     config->learning_rate = learning_rate;
     config->learning_rate_mul = learning_rate_mul;
@@ -233,6 +239,7 @@ void print_config(GymConfig* config) {
         "       learning_rate: %.04f\n"
         "       learning_rate_mul: %.04f\n"
         "       learn_per_frame: %zu\n"
+        "       batch_count: %zu\n"
         "       epochs: %zu\n"
         "       seed: %zu\n"
         "   }\n"
@@ -247,6 +254,7 @@ void print_config(GymConfig* config) {
         config->train.learning_rate,
         config->train.learning_rate_mul,
         config->train.learn_per_frame,
+        config->train.batch_count,
         config->train.epochs,
         config->train.seed
     );

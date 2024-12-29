@@ -1,0 +1,28 @@
+services:
+  http_server:
+    image: localhost/var-http-server
+    environment:
+      RUST_LOG: "off,rocket::launch=info,server=info"
+      ROCKET_PORT: 8000
+      ROCKET_ADDRESS: 0.0.0.0
+      DB_PATH: /usr/local/share/pokeapi.db
+    ports:
+      - "8000:8000"
+    expose:
+      - 8000
+    networks:
+      backend:
+  varnish:
+    image: docker.io/varnish:7.6.1
+    ports:
+      - "8001:8000"
+    environment:
+      VARNISH_BACKEND_HOST: http_server
+      VARNISH_BACKEND_PORT: 8000
+      VARNISH_HTTP_PORT: 8000
+    networks:
+      backend:
+    volumes:
+      - ./default.vcl:/etc/varnish/default.vcl
+networks:
+  backend:

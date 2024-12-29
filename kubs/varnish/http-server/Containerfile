@@ -1,0 +1,31 @@
+FROM docker.io/rust:1.83 AS deps
+
+WORKDIR /build/
+COPY ./Cargo.toml ./Cargo.lock ./
+RUN cargo fetch
+RUN cargo install xsv && cp $CARGO_HOME/bin/xsv ./ && cargo uninstall xsv
+
+### Build
+FROM deps AS build
+
+COPY ./src ./src
+RUN cargo build --release --bins && mv ./target/release/server ./server && rm -rf target
+
+### DB
+FROM docker.io/datacatering/duckdb:v1.1.3 AS db
+
+WORKDIR /build/
+COPY --from=deps /build/xsv /usr/local/bin/xsv
+RUN apt update && apt install -y git && git clone https://github.com/PokeAPI/pokeapi.git --depth=1 && apt remove -y git \
+&& (ls -p pokeapi/data/v2/csv   \
+| grep -v '/$'                  \
+| sed 's/.csv//g'               \
+| xargs -I{} -n 1 sh -c "xsv fixlengths './pokeapi/data/v2/csv/{}.csv' | /duckdb pokeapi.db \"CREATE TABLE {} AS FROM read_csv('/dev/stdin');\"") \
+&& rm -r pokeapi
+
+### Server
+FROM docker.io/ubuntu AS server
+
+COPY --from=db      /build/pokeapi.db   /usr/local/share/pokeapi.db
+COPY --from=build   /build/server       /usr/local/bin/server
+CMD ["/usr/local/bin/server"]

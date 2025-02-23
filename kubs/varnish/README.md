@@ -13,6 +13,7 @@ popd
 podman build -t var-http-server ./http-server
 
 # Add netavark network backend if needed
+# So that we can use service name as its domain name.
 echo '[network]
 network_backend = "netavark"' >> $XDG_CONFIG_HOME/containers/containers.conf
 

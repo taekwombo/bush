@@ -1,17 +1,20 @@
+include:
+  - ../otel/docker-compose.yml
+
 services:
   http_server:
     image: localhost/var-http-server
     environment:
-      RUST_LOG: "off,rocket::launch=info,server=info"
+      RUST_LOG: "rocket=off,rocket::launch=info,server=debug,http-server=debug,info"
       ROCKET_PORT: 8000
       ROCKET_ADDRESS: 0.0.0.0
-      DB_PATH: /usr/local/share/pokeapi.db
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=http-server
     ports:
       - "8000:8000"
     expose:
       - 8000
-    networks:
-      backend:
   varnish:
     image: docker.io/varnish:7.6.1
     ports:
@@ -20,9 +23,5 @@ services:
       VARNISH_BACKEND_HOST: http_server
       VARNISH_BACKEND_PORT: 8000
       VARNISH_HTTP_PORT: 8000
-    networks:
-      backend:
     volumes:
       - ./default.vcl:/etc/varnish/default.vcl
-networks:
-  backend:

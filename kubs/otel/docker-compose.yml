@@ -8,12 +8,29 @@ services:
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/2039671f7b2781abb4de7f652431992b7f3de6f0/examples/demo/docker-compose.yaml#L29
     ports:
       - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
     expose:
       - 4317
       - 4318
     depends_on:
       - tempo
+      - loki
       - prometheus
+
+  loki:
+    image: docker.io/grafana/loki:3.4.2
+    command:
+      - "-config.file=/etc/loki-config.yaml"
+    volumes:
+      - ./pain/loki.yaml:/etc/loki-config.yaml
+    ports:
+      - 3101:3100
+      - 7946
+      - 9095
+    expose:
+      - 3100
+      - 7946
+      - 9095
 
   prometheus:
     image: docker.io/prom/prometheus:v3.2.0

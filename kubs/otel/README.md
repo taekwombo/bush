@@ -1,4 +1,4 @@
-## Generating otel data
+## Generating otel data using `telemetrygen`
 
 ```fish
 # Generate traces
@@ -26,8 +26,11 @@ podman compose up
 # Clone Alloy
 git clone https://github.com/grafana/alloy.git --depth=1
 
-# Start services
-podman compose -f ./alloy.yaml up
+# Start services - needs docker due to:
+# > can't set healthcheck.start_interval as feature require Docker Engine v25 or later
+# > Error: executing /usr/libexec/docker/cli-plugins/docker-compose -f alloy.yaml up: exit status 1
+# PR: https://github.com/containers/podman-compose/pull/780
+docker compose -f ./alloy.yaml up
 ```
 
 ## SigNoz

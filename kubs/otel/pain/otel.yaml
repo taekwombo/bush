@@ -7,12 +7,20 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
+#  debug:
+#    verbosity: detailed
+#    sampling_initial: 5
+#    sampling_thereafter: 200
   otlp:
     endpoint: tempo:4317
     tls:
       insecure: true
+  otlphttp:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
   otlphttp/prometheus:
-    endpoint: "http://prometheus:9090/api/v1/otlp"
+    endpoint: http://prometheus:9090/api/v1/otlp
     tls:
       insecure: true
 
@@ -25,6 +33,12 @@ processors:
 service:
   extensions: [health_check]
   pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: 
+        # - debug
+        - otlphttp
     metrics:
       receivers: [otlp]
       processors: [batch]

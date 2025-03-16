@@ -5,20 +5,20 @@ services:
   http_server:
     image: localhost/var-http-server
     environment:
-      RUST_LOG: "rocket=off,rocket::launch=info,server=debug,http-server=debug,info"
+      RUST_LOG: rocket=off,rocket::launch=info,server=debug,http-server=debug,info
       ROCKET_PORT: 8000
       ROCKET_ADDRESS: 0.0.0.0
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_RESOURCE_ATTRIBUTES: service.name=http-server
     ports:
-      - "8000:8000"
+      - 8000:8000
     expose:
       - 8000
   varnish:
     image: docker.io/varnish:7.6.1
     ports:
-      - "8001:8000"
+      - 8001:8000
     environment:
       VARNISH_BACKEND_HOST: http_server
       VARNISH_BACKEND_PORT: 8000

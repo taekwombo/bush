@@ -1,5 +1,25 @@
 #!/usr/bin/env -S deno run --check --ext=ts --allow-net --allow-env
 
+import { propagation, context, trace, Span, SpanStatusCode } from 'npm:@opentelemetry/api';
+import { BasicTracerProvider, ConsoleSpanExporter, SimpleSpanProcessor } from 'npm:@opentelemetry/sdk-trace-base';
+import { Resource } from 'npm:@opentelemetry/resources';
+import { OTLPTraceExporter } from 'npm:@opentelemetry/exporter-trace-otlp-http';
+
+const provider = new BasicTracerProvider({
+    resource: new Resource({
+        'service.name': 'http-client',
+    }),
+    spanProcessors: [
+        new SimpleSpanProcessor(new OTLPTraceExporter({
+            url: 'http://localhost:4318/v1/traces',
+        })),
+        // new SimpleSpanProcessor(new ConsoleSpanExporter()),
+    ],
+});
+provider.register();
+
+const tracer = trace.getTracer('http-client', '0.0.1');
+
 function exit(message: string, ...args: any[]): never {
     console.error('%cEXIT', 'color:red', message, ...args);
     Deno.exit(1);
@@ -41,6 +61,35 @@ type Data = Record<Key, {
     times: number[];
 }>;
 
+async function request(s: Span, url: string): Promise<[null | number, number]> {
+    const parent_ctx = trace.setSpan(context.active(), s);
+    const span = tracer.startSpan('http.client.request', undefined, parent_ctx);
+    const ctx = trace.setSpan(context.active(), span);
+    const headers: Record<string, string> = {};
+    propagation.inject(ctx, headers);
+    const start = Date.now();
+
+    try {
+        const response = await fetch(url, { headers });
+        if (response.status !== 200) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            if (response.status !== 404) {
+                return [null, response.status] as const;
+            }
+            return [Date.now() - start, response.status] as const;
+        } else {
+            span.setStatus({ code: SpanStatusCode.OK });
+            const body = await response.json();
+            return [Date.now() - start, response.status] as const;
+        }
+    } catch (_) {
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        return [null, 0];
+    } finally {
+        span.end();
+    }
+}
+
 const RESOURCES: Data = {
     ability: {
         id: range(1, 307).concat(range(10001, 10060)),
@@ -64,7 +113,7 @@ const RESOURCES: Data = {
     },
 };
 
-async function requestRandom(count: number, key?: string) {
+async function requestRandom(s: Span, count: number, key?: string) {
     const keys = key && key in RESOURCES ? [key] as Key[] : Object.keys(RESOURCES) as Key[];
     function getRandomResource(): [Key, number] {
         const key = keys[randIdx(keys.length)];
@@ -72,26 +121,16 @@ async function requestRandom(count: number, key?: string) {
         return [key, id];
     }
 
-    async function request(): Promise<void> {
-        const [key, id] = getRandomResource();
-        const url = `http://${HOST}/pokedex/en/${key}/${id}`;
-        const time = Date.now();
-        const response = await fetch(url);
-        RESOURCES[key].times.push(Date.now() - time);
-        if (response.status !== 200) {
-            if (response.status !== 404) {
-                console.error(key, id);
-            }
-        } else {
-            const body = await response.json();
-        }
-    }
-
     let requested = 0;
     const promises = new Array(20).fill(0).map(async () => {
         while (requested++ < count) {
             try {
-                await request();
+                const [key, id] = getRandomResource();
+                const url = `http://${HOST}/pokedex/en/${key}/${id}`;
+                const [time, status] = await request(s, url);
+                if (time != null) {
+                    RESOURCES[key].times.push(time);
+                }
             } catch (e) {
                 console.error(e);
                 requested -= 1;
@@ -105,7 +144,7 @@ async function requestRandom(count: number, key?: string) {
     }
 }
 
-async function requestAll(key?: string) {
+async function requestAll(s: Span, key?: string) {
     const indexes: Record<Key, number> = {
         ability: 0, type: 0, move: 0, item: 0, pokemon: 0,
     };
@@ -128,35 +167,20 @@ async function requestAll(key?: string) {
         return null;
     }
 
-    const DONE = Symbol('DONE');
-    async function request(): Promise<typeof DONE | undefined> {
-        const resource = getResource();
-
-        if (resource === null) {
-            return DONE;
-        }
-
-        const [key, id] = resource;
-        const url = `http://${HOST}/pokedex/en/${key}/${id}`;
-        const time = Date.now();
-        const response = await fetch(url);
-        RESOURCES[key].times.push(Date.now() - time);
-        if (response.status !== 200) {
-            if (response.status !== 404) {
-                console.error(key, id);
-            }
-        } else {
-            const body = await response.json();
-        }
-
-        return;
-    }
-
     const promises = new Array(15).fill(0).map(async () => {
         while (true) {
             try {
-                if (DONE === await request()) {
+                const resource = getResource();
+                if (resource === null) {
                     return;
+                }
+
+                const [key, id] = resource;
+                const url = `http://${HOST}/pokedex/en/${key}/${id}`;
+                const [time, status] = await request(s, url);
+
+                if (time != null) {
+                    RESOURCES[key].times.push(time);
                 }
             } catch (e) {
                 console.error(e);
@@ -184,9 +208,17 @@ function int(v: any): number {
 
 switch (Deno.args[0]) {
     case 'rand':
-        await requestRandom(int(parseInt(Deno.args[1])), Deno.args[2]);
+        await tracer.startActiveSpan('run.rand', async (s) => {
+            await requestRandom(s, int(parseInt(Deno.args[1])), Deno.args[2]);
+            s.end();
+        });
         break;
     case 'all':
-        await requestAll(Deno.args[1]);
+        await tracer.startActiveSpan('run.all', async (s) => {
+            await requestAll(s, Deno.args[1]);
+            s.end();
+        });
         break;
 }
+
+await provider.shutdown();

@@ -7,8 +7,8 @@ services:
       - ./pain/otel.yaml:/etc/otel-config.yaml
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/2039671f7b2781abb4de7f652431992b7f3de6f0/examples/demo/docker-compose.yaml#L29
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      - 4317:4317   # OTLP gRPC receiver
+      - 4318:4318   # OTLP HTTP receiver
     expose:
       - 4317
       - 4318
@@ -42,33 +42,33 @@ services:
     volumes:
       - ./pain/prometheus.yaml:/etc/prometheus/config.yaml
     ports:
-      - "9090:9090"
+      - 9090:9090
     expose:
       - 9090
 
   tempo:
     image: docker.io/grafana/tempo:2.7.1
     command:
-      - "-config.file=/etc/tempo.yml"
+      - -config.file=/etc/tempo.yml
     volumes:
       - ./pain/tempo.yml:/etc/tempo.yml
     expose:
       - 4317
       - 3200
     ports:
-      - "3200:3200"
+      - 3200:3200
 
   grafana:
     image: docker.io/grafana/grafana:11.0.0
     volumes:
       - ./pain/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_AUTH_DISABLE_LOGIN_FORM=true
-      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: true
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
     ports:
-      - "3000:3000"
+      - 3000:3000
     depends_on:
       - otel_collector
 

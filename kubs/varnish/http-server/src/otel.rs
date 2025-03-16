@@ -44,7 +44,6 @@ pub fn init() -> opentelemetry_sdk::logs::SdkLoggerProvider {
     use opentelemetry::propagation::*;
     use opentelemetry::trace::TracerProvider;
     use opentelemetry_sdk::propagation::*;
-    use tracing_subscriber::fmt::format::FmtSpan;
     use tracing_subscriber::prelude::*;
 
     let otel_cfg = get_otel_config();
@@ -110,7 +109,7 @@ pub fn init() -> opentelemetry_sdk::logs::SdkLoggerProvider {
         .with(tracing_subscriber::EnvFilter::builder().from_env_lossy())
         .with(otel_traces)
         .with(otel_logs)
-        .with(tracing_subscriber::fmt::layer().with_span_events(FmtSpan::NEW | FmtSpan::ACTIVE))
+        .with(tracing_subscriber::fmt::layer())
         .init();
 
     // Metrics
@@ -133,4 +132,31 @@ pub fn init() -> opentelemetry_sdk::logs::SdkLoggerProvider {
     opentelemetry::global::set_meter_provider(meter_provider);
 
     logger_provider
+}
+
+pub struct RocketHeadersCtx<'a> {
+    headers: &'a rocket::http::HeaderMap<'a>,
+    keys: Vec<String>,
+}
+
+impl<'a> RocketHeadersCtx<'a> {
+    pub fn new(headers: &'a rocket::http::HeaderMap<'a>) -> Self {
+        Self {
+            headers,
+            keys: headers
+                .iter()
+                .map(|h| h.name.to_string())
+                .collect::<Vec<_>>(),
+        }
+    }
+}
+
+impl opentelemetry::propagation::Extractor for RocketHeadersCtx<'_> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.headers.get_one(key)
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.keys.iter().map(|s| s.as_ref()).collect::<Vec<_>>()
+    }
 }

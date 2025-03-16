@@ -260,6 +260,9 @@ impl rocket::fairing::Fairing for Metered {
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
         use tracing::field::Empty;
+        use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+        let req_ctx = otel::RocketHeadersCtx::new(request.headers());
 
         let span = tracing::info_span!(
             "http.server.request",
@@ -269,6 +272,14 @@ impl rocket::fairing::Fairing for Metered {
             http.route = Empty,
             http.response.status_code = Empty,
         );
+
+        let remote = opentelemetry::global::get_text_map_propagator(|propagator| {
+            // Extract context from request header to span context.
+            propagator.extract(&req_ctx)
+        });
+
+        span.set_parent(remote);
+
         // Insert RequestCtx into request local_cache.
         let _ctx = request.local_cache(|| RequestCtx::new(span));
     }

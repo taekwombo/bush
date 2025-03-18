@@ -1,0 +1,22 @@
+[package]
+name = "pq-wal-receiver"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "pq_wal_receiver"
+path = "./src/lib.rs"
+
+[[bin]]
+name = "recv"
+path = "./bin/recv.rs"
+
+[[bin]]
+name = "paths"
+path = "./bin/test.rs"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.71.0"
+cc = "1.2.16"

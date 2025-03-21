@@ -7,8 +7,8 @@ services:
       - ./pain/otel.yaml:/etc/otel-config.yaml
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/2039671f7b2781abb4de7f652431992b7f3de6f0/examples/demo/docker-compose.yaml#L29
     ports:
-      - 4317:4317   # OTLP gRPC receiver
-      - 4318:4318   # OTLP HTTP receiver
+      - ${OTEL_PORT_GRPC:-4317}:4317   # OTLP gRPC receiver
+      - ${OTEL_PORT_HTTP:-4318}:4318   # OTLP HTTP receiver
     expose:
       - 4317
       - 4318
@@ -20,13 +20,13 @@ services:
   loki:
     image: docker.io/grafana/loki:3.4.2
     command:
-      - "-config.file=/etc/loki-config.yaml"
+      - -config.file=/etc/loki-config.yaml
     volumes:
       - ./pain/loki.yaml:/etc/loki-config.yaml
     ports:
-      - 3101:3100
-      - 7946
-      - 9095
+      - ${LOKI_LISTEN_HTTP_PORT:-3100}:3100
+      - ${LOKI_ADVERTISE_PORT:-7946}:7946
+      - ${LOKI_LISTEN_GRPC_PORT:-9095}:9095
     expose:
       - 3100
       - 7946
@@ -42,7 +42,7 @@ services:
     volumes:
       - ./pain/prometheus.yaml:/etc/prometheus/config.yaml
     ports:
-      - 9090:9090
+      - ${PROMETHEUS_HTTP_PORT:-9090}:9090
     expose:
       - 9090
 
@@ -56,7 +56,7 @@ services:
       - 4317
       - 3200
     ports:
-      - 3200:3200
+      - ${TEMPO_HTTP_PORT:-3200}:3200
 
   grafana:
     image: docker.io/grafana/grafana:11.0.0
@@ -68,7 +68,7 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: true
       GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
     ports:
-      - 3000:3000
+      - ${GRAFANA_HTTP_PORT:-3000}:3000
     depends_on:
       - otel_collector
 

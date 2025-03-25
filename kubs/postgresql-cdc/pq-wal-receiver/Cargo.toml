@@ -7,6 +7,11 @@ edition = "2024"
 name = "pq_wal_receiver"
 path = "./src/lib.rs"
 
+[[bin]]
+name = "recv"
+path = "./src/bin/recv.rs"
+
 [dependencies]
 
 [build-dependencies]
+bindgen = "0.71.0"

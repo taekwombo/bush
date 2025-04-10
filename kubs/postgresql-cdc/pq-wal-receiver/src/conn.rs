@@ -1,22 +1,8 @@
 use super::bindings;
 
-#[derive(Debug)]
-pub enum WalLevel {
-    Minimal,
-    Replica,
-    Logical,
-}
+pub mod tuples;
 
-impl WalLevel {
-    fn from_str_bytes(b: &[u8]) -> Self {
-        match b {
-            b"minimal" => Self::Minimal,
-            b"replica" => Self::Replica,
-            b"logical" => Self::Logical,
-            _ => unimplemented!(),
-        }
-    }
-}
+use tuples::Tuples;
 
 unsafe fn print_err(prefix: &str, err: *const i8) {
     eprintln!("{prefix}:");
@@ -25,158 +11,116 @@ unsafe fn print_err(prefix: &str, err: *const i8) {
     }
 }
 
-#[derive(Debug)]
 pub struct Connection {
-    // TODO: remove unused
-    #[allow(unused)]
-    info: *const std::ffi::c_char,
+    info: std::ffi::CString,
     conn: *mut bindings::PGconn,
 }
 
 impl Connection {
-    pub unsafe fn new(/* TODO: make str/string */ connection_string: *const std::ffi::c_char) -> Self {
+    pub unsafe fn new(connection_string: String) -> Self {
         use bindings::{PQconnectdb, PQstatus, ConnStatusType};
 
+        let conn_info = std::ffi::CString::new(connection_string).unwrap();
+
         unsafe {
-            let conn = PQconnectdb(connection_string); 
+            let conn = PQconnectdb(conn_info.as_c_str().as_ptr()); 
             let status = PQstatus(conn);
 
             if status != ConnStatusType::CONNECTION_OK {
-                print_err("Failed to establish connection to {}", /* TODO: print connection_string */ bindings::PQerrorMessage(conn));
+                let emsg = format!("Failed to establish connection to {:?}", conn_info);
+                print_err(&emsg, bindings::PQerrorMessage(conn));
                 std::process::exit(69);
             }
 
             Self {
-                info: connection_string,
+                info: conn_info,
                 conn,
             }
         }
     }
+
+    pub unsafe fn exec_unchecked<'a, 't>(&'a self, query: &std::ffi::CStr) -> Tuples<'t> {
+        unsafe {
+            let result = bindings::PQexec(self.conn, query.as_ptr());
+            let status = bindings::PQresultStatus(result);
+
+            Tuples::new(status, result)
+        }
+    }
+
+    pub unsafe fn get_err_owned(&self) -> String {
+        format!("Error: {:?}", unsafe { std::ffi::CStr::from_ptr(bindings::PQerrorMessage(self.conn)) })
+    }
     
-    unsafe fn exec<'a>(&'a mut self, query: &std::ffi::CStr) -> ExecRes<'a> {
-        use bindings::{PQexec, PQerrorMessage, PQresultStatus, ExecStatusType};
+    pub unsafe fn exec<'a, 't>(&'a self, query: &std::ffi::CStr) -> Result<Tuples<'t>, String> {
+        use bindings::ExecStatusType;
 
-        unsafe {
-            let result = PQexec(self.conn, query.as_ptr());
+        let result = unsafe {
+            self.exec_unchecked(query)
+        };
 
-            if PQresultStatus(result) != ExecStatusType::PGRES_TUPLES_OK {
-                eprintln!("Status = {:?}", PQresultStatus(result).0);
-                return ExecRes::Err(PQerrorMessage(self.conn));
-            }
-
-            ExecRes::Ok(QueryResult::new(result))
-        }
-    }
-
-    pub unsafe fn get_wal_level(&mut self) -> Result<WalLevel, ()> {
-        unsafe {
-            let result = match self.exec(c"SHOW wal_level;") {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => return Err(print_err("Failed to obtain wal_level config value", msg)),
-            };
-
-            debug_assert!(result.columns == 1);
-            debug_assert!(result.tuples == 1);
-
-            Ok(WalLevel::from_str_bytes(result.get_value(0, 0).to_bytes()))
-        }
-    }
-
-    pub unsafe fn identify_system(&mut self) {
-        unsafe {
-            let result = match self.exec(c"IDENTIFY_SYSTEM") {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => return print_err("Failed IDENTIFY_SYSTEM command", msg),
-            };
-
-            debug_assert!(result.columns == 4);
-            debug_assert!(result.tuples == 1);
-
-            for i in 0..4 {
-                println!("{:?} = {:?}", result.get_col(i), result.get_value(0, i));
+        if result.status.0 == ExecStatusType::PGRES_TUPLES_OK.0 || result.status.0 == ExecStatusType::PGRES_COMMAND_OK.0 {
+            Ok(result)
+        } else {
+            unsafe {
+                println!("Status: {:?} == {:?}", result.status, bindings::ExecStatusType::PGRES_TUPLES_OK);
+                Err(self.get_err_owned())
             }
         }
     }
 
-    pub unsafe fn create_temp_slot(&mut self, name: &str) -> bool {
+    pub unsafe fn put_copy_msg(&self, data: &[u8]) -> Result<std::ffi::c_int, String> {
         unsafe {
-            let query = format!("CREATE_REPLICATION_SLOT {name} TEMPORARY LOGICAL pgoutput;\0");
-            let queryc = std::ffi::CStr::from_bytes_with_nul(query.as_bytes()).unwrap();
-            let result = match self.exec(queryc) {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => return {
-                    print_err("Failed CREATE_REPLICATION_SLOT command", msg);
-                    false
-                },
-            };
+            let result = bindings::PQputCopyData(
+                self.conn,
+                data.as_ptr() as *const std::ffi::c_char,
+                data.len().try_into().unwrap(),
+            );
 
-            for i in 0..result.columns {
-                println!("{:?} = {:?}", result.get_col(i), result.get_value(0, i));
+            if result <= 0 {
+                bindings::PQflush(self.conn);
+                return Err(self.get_err_owned());
             }
 
-            true
+            Ok(result)
         }
     }
 
-    unsafe fn get_restart_lsn(&mut self, name: &str) -> Result<String, ()> {
-        unsafe {
-            let query = format!("SELECT restart_lsn FROM pg_replication_slots WHERE slot_name = '{name}';\0");
-            let queryc = std::ffi::CStr::from_bytes_with_nul(query.as_bytes()).unwrap();
-            let result = match self.exec(queryc) {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => return Err(print_err("Failed to obtain wal_level config value", msg)),
-            };
-
-            assert!(result.columns == 1);
-            assert!(result.tuples == 1);
-
-            result.get_value(0, 0).to_str().map(String::from).map_err(|_| ())
-        }
-    }
-
-    unsafe fn create_publication(&mut self, name: &str) -> String {
-        let pubname = format!("pub_{name}");
+    pub unsafe fn get_copy_msg(&self) -> Result<(std::ffi::c_int, *mut std::ffi::c_char), String> {
+        let mut buf: *mut std::ffi::c_char = std::ptr::null_mut();
 
         unsafe {
-            let query = format!("CREATE PUBLICATION {pubname} FOR ALL TABLES;\0");
-            let queryc = std::ffi::CStr::from_bytes_with_nul(query.as_bytes()).unwrap();
-            let result = match self.exec(queryc) {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => {
-                    print_err("Failed CREATE PUBLICATION command", msg);
-                    return pubname;
-                },
-            };
+            let rawlen = bindings::PQgetCopyData(
+                self.conn,
+                &mut buf,
+                1,
+            );
 
-            for i in 0..result.columns {
-                println!("{:?} = {:?}", result.get_col(i), result.get_value(0, i));
+            if rawlen < -1 {
+                return Err(self.get_err_owned());
             }
-        }
 
-        pubname
+            if rawlen == -1 {
+                unimplemented!();
+            }
+
+            return Ok((rawlen, buf));
+        }
     }
 
-    pub unsafe fn start(&mut self, name: &str) {
-        // postgres/src/backend/replication/walreceiver.c:337
-        unsafe {
-            assert!(self.create_temp_slot(name));
-            let lsn = self.get_restart_lsn(name).unwrap();
-            let pubname = self.create_publication(name);
-
-            println!("lsn = {lsn}");
-
-            // ../../postgres/src/backend/replication/walreceiver.c:437
-            // OK - No more data to consume.
-            // COPY_BOTH - Some data waiting for replication.
-            let query = format!("START_REPLICATION SLOT {name} LOGICAL {lsn} (proto_version '4', streaming 'false', publication_names '{pubname}') ;\0");
-            let queryc = std::ffi::CStr::from_bytes_with_nul(query.as_bytes()).unwrap();
-            let result = match self.exec(queryc) {
-                ExecRes::Ok(r) => r,
-                ExecRes::Err(msg) => return print_err("Failed START_REPLICATION command", msg),
-            };
-
-            println!("{:?}", result.get_column_names());
+    pub fn check_notifies(&self) {
+        if 0 == unsafe { bindings::PQconsumeInput(self.conn) } {
+            eprintln!("check_notifies: Some kind of error");
+            return;
         }
+
+        let notifies = unsafe { bindings::PQnotifies(self.conn) };
+
+        if notifies == std::ptr::null_mut() {
+            return;
+        }
+
+        println!("{:?}", notifies);
     }
 }
 
@@ -190,62 +134,17 @@ impl Drop for Connection {
     }
 }
 
-pub enum ExecRes<'a> {
-    Ok(QueryResult<'a>),
-    Err(*const i8),
-}
-
-pub struct QueryResult<'a> {
-    _lifetime: std::marker::PhantomData<&'a ()>,
-    result: *mut bindings::PGresult,
-    columns: std::ffi::c_int,
-    tuples: std::ffi::c_int,
-}
-
-impl QueryResult<'_> {
-    unsafe fn new(result: *mut bindings::PGresult) -> Self {
+impl std::fmt::Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
-            Self {
-                _lifetime: std::marker::PhantomData,
-                tuples: bindings::PQntuples(result),
-                columns: bindings::PQnfields(result),
-                result,
-            }
-        }
-    }
-
-    pub fn get_column_names(&self) -> Vec<String> {
-        debug_assert!(self.columns > 0);
-
-        let cols: usize = self.columns.try_into().expect("nfields not >= 0");
-        let mut result = Vec::with_capacity(cols);
-        for i in 0..cols {
-            unsafe {
-                let cname = bindings::PQfname(self.result, i as i32);
-                // TODO: Are PG column names utf8 encoded?
-                result.push(String::from_utf8(std::ffi::CStr::from_ptr(cname).to_bytes().to_owned()).unwrap());
-            }
-        }
-        result
-    }
-
-    fn get_col(&self, col_idx: i32) -> &std::ffi::CStr {
-        unsafe {
-            std::ffi::CStr::from_ptr(bindings::PQfname(self.result, col_idx))
-        }
-    }
-
-    fn get_value(&self, row_idx: i32, col_idx: i32) -> &std::ffi::CStr {
-        unsafe {
-            std::ffi::CStr::from_ptr(bindings::PQgetvalue(self.result, row_idx, col_idx))
+            f.debug_struct("Connection")
+                .field("host", &std::ffi::CStr::from_ptr(bindings::PQhost(self.conn)))
+                .field("port", &std::ffi::CStr::from_ptr(bindings::PQport(self.conn)))
+                .field("user", &std::ffi::CStr::from_ptr(bindings::PQuser(self.conn)))
+                .field("db", &std::ffi::CStr::from_ptr(bindings::PQdb(self.conn)))
+                .field("status", &bindings::PQstatus(self.conn).0)
+                .finish()
         }
     }
 }
 
-impl Drop for QueryResult<'_> {
-    fn drop(&mut self) {
-        unsafe {
-            bindings::PQclear(self.result);
-        }
-    }
-}

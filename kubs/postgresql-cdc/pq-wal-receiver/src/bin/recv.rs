@@ -1,14 +1,15 @@
 use pq_wal_receiver;
-use std::ffi::CStr;
 
 fn main() {
+    let conn_info = String::from("postgresql://user:pass@localhost/db?replication=database");
     unsafe {
-        // println!("{}", pq_wal_receiver::version());
-        let url = CStr::from_bytes_with_nul(b"postgresql://user:pass@localhost/db?replication=database\0").unwrap();
-        let mut conn = pq_wal_receiver::conn::Connection::new(url.as_ptr());
-        println!("{:?}", conn);
-        println!("{:?}", conn.get_wal_level());
-        conn.identify_system();
-        conn.start("playin3");
+        let conn = pq_wal_receiver::conn::Connection::new(conn_info);
+        let mut repl = pq_wal_receiver::Replication::new(conn, "the_replihno".to_owned());
+        let id = repl.identify_system().unwrap();
+        let id2 = repl.identify_system().unwrap();
+        let id3 = repl.identify_system().unwrap();
+        println!("{:?}", repl);
+        println!("{:?}", repl.identify_system().unwrap());
+        repl.start();
     }
 }

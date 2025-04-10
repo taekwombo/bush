@@ -23,3 +23,7 @@ podman run -i --rm docker.io/postgres:17.4 cat /usr/share/postgresql/postgresql.
 SHOW config_file;
 SHOW hba_file;
 ```
+
+https://github.com/jackc/pgx
+https://github.com/jackc/pglogrepl.git
+https://github.com/ConduitIO/conduit-connector-postgres.git

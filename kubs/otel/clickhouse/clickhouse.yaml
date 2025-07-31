@@ -1,0 +1,30 @@
+# CREATE TABLE IF NOT EXISTS logs (
+#     hash        FixedString(20),
+#     attributes  Map(String, String) NOT NULL,
+#     date        DateTime NOT NULL,
+#     message     String NOT NULL,
+#     status      String NOT NULL,
+#     service     String NOT NULL,
+# ) ENGINE = ReplacingMergeTree
+#   ORDER BY (date, hash);
+apiVersion: 1
+datasources:
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    jsonData:
+      port: 9000
+      host: clickhouse
+      username: grafana_user
+      tlsSkipVerify: false
+      logs:
+        otelEnabled: false
+        defaultDatabase: logs
+        defaultTable: logs
+        timeColumn: date
+        levelColumn: status
+        messageColumn: message
+        contextColumns:
+          - attributes
+    secureJsonData:
+      password: grafana_password
+

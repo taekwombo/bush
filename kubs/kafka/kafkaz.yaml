@@ -37,4 +37,4 @@ services:
     expose:
       - 9092
     ports:
-      - ${KAFKA_PORT:-29092}:29092
+      - ${KAFKA_PORT:-29092}:${KAFKA_PORT:-29092}

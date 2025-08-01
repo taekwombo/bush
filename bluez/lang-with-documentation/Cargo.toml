@@ -5,9 +5,14 @@ edition = "2024"
 
 [[bin]]
 name = "blebat"
-path = "./src/main.rs"
+path = "./src/bluez.rs"
+
+[[bin]]
+name = "blebus"
+path = "./src/dbus.rs"
 
 [dependencies]
 bluez-async = "0.8"
 uuid = "1"
 tokio = { version = "1", features = ["rt", "macros"] }
+dbus = { version = "0.9", features = ["vendored"] }

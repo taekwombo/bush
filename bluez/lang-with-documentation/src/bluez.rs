@@ -6,7 +6,10 @@ const USAGE: &str = "
         blebat <device>
 ";
 
-async fn read_dactyl_battery_levels(session: BluetoothSession, device_name: String, bat_service: uuid::Uuid, bat_characteristic: uuid::Uuid) {
+async fn read_dactyl_battery_levels(session: BluetoothSession, device_name: String) {
+    const BAT_SERVICE: uuid::Uuid = make_uuid(0x180F);
+    const BAT_LEVEL: uuid::Uuid   = make_uuid(0x2a19);
+
     let device  = session.get_devices().await.unwrap().into_iter().find(|ref d| match d.name.as_ref() {
         Some(n) => n == &device_name,
         None => false,
@@ -25,7 +28,7 @@ async fn read_dactyl_battery_levels(session: BluetoothSession, device_name: Stri
     let device = device.unwrap();
 
     for service in session.get_services(&device.id).await.unwrap() {
-        if service.uuid != bat_service {
+        if service.uuid != BAT_SERVICE {
             continue;
         }
 
@@ -34,7 +37,7 @@ async fn read_dactyl_battery_levels(session: BluetoothSession, device_name: Stri
                 continue;
             }
 
-            if characteristic.uuid != bat_characteristic {
+            if characteristic.uuid != BAT_LEVEL {
                 continue;
             }
 
@@ -50,11 +53,20 @@ async fn read_dactyl_battery_levels(session: BluetoothSession, device_name: Stri
     }
 }
 
+const fn make_uuid(assigned: u32) -> uuid::Uuid {
+    // https://www.bluetooth.com/specifications/assigned-numbers/
+    // Battery Service: 0000180f-0000-1000-8000-00805f9b34fb
+    // Battery Level:   00002a19-0000-1000-8000-00805f9b34fb
+    uuid::Uuid::from_fields(
+        assigned,
+        0x0000,
+        0x1000,
+        &[0x80, 0x0, 0x0, 0x80, 0x5f, 0x9b, 0x34, 0xfb],
+    )
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let bat_service = uuid::Uuid::parse_str("0000180f-0000-1000-8000-00805f9b34fb").unwrap();
-    let bat_characteristic = uuid::Uuid::parse_str("00002a19-0000-1000-8000-00805f9b34fb").unwrap();
-
     let device_name = match args().nth(1) {
         Some(d) => d,
         None => {
@@ -67,7 +79,9 @@ async fn main() {
     let (handle, session) = BluetoothSession::new().await.unwrap();
 
     tokio::select! {
-        _ = handle => (),
-        _ = read_dactyl_battery_levels(session, device_name, bat_service, bat_characteristic) => (),
+        _ = handle => {
+            eprintln!("Bluetooth session handle closed");
+        },
+        _ = read_dactyl_battery_levels(session, device_name) => (),
     };
 }

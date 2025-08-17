@@ -1,0 +1,4 @@
+tagscip
+scip.proto
+/src/scip.pb-c.c
+/src/scip.pb-c.h

@@ -1,0 +1,37 @@
+#!/usr/bin/fish
+
+if test ! -f ./scip.proto
+    wget https://raw.githubusercontent.com/sourcegraph/scip/refs/heads/main/scip.proto
+end
+
+if test ! -f ./src/scip.pb-c.h
+    protoc --c_out=src ./scip.proto
+end
+
+which protoc > /dev/null
+if test $status -ne 0
+    echo protoc not found:
+    echo '$   ' apt install protobuf-c-compiler
+    exit 1;
+end
+
+pkg-config libprotobuf-c
+if test $status -ne 0
+    echo libprotobuf-c not found:
+    echo '$   ' apt install libprotobuf-c-dev
+end
+
+set LIB $(pkg-config --cflags --libs libprotobuf-c | string trim -lr)
+
+echo Libs: $LIB
+
+gcc -Wall -Wextra -o tagscip ./src/* $LIB
+
+# https://github.com/sourcegraph/scip/blob/main/docs/CLI.md 
+# https://github.com/sourcegraph/scip-typescript
+#
+# ```fish
+#   scip-typescript index --output=out.scip
+#   scip lint out.scip
+#   scip print out.scip
+# ```

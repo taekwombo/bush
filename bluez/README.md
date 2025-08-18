@@ -19,4 +19,7 @@ https://dbus.freedesktop.org/doc/dbus-tutorial.html
     #                                <service>
     gdbus introspect --system --dest org.bluez              --object-path / --recurse
     gdbus introspect --system --dest org.freedesktop.UPower --object-path / --recurse
+
+    # List managed objects
+    busctl call org.bluez / org.freedesktop.DBus.ObjectManager GetManagedObjects --json=pretty
 ```

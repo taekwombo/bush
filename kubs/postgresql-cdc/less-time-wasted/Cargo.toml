@@ -1,0 +1,20 @@
+[package]
+name = "less-time-wasted"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait = "0.1"
+tokio = "1"
+tracing = "0.1"
+pg_replicate = { git = "https://github.com/Mooncake-Labs/pg_replicate.git", rev = "6185151", features = ["stdout"] }
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+] }
+postgres-types = { git = "https:///github.com/Mooncake-labs/rust-postgres.git", rev = "14c8e59" }
+tokio-postgres = { git = "https:///github.com/Mooncake-labs/rust-postgres.git", rev = "14c8e59" }
+
+[patch.'ssh://git@github.com/Mooncake-labs/rust-postgres.git']
+postgres-types = { git = "https:///github.com/Mooncake-labs/rust-postgres.git", rev = "14c8e59" }
+postgres-replication = { git = "https:///github.com/Mooncake-labs/rust-postgres.git", rev = "14c8e59" }
+tokio-postgres = { git = "https:///github.com/Mooncake-labs/rust-postgres.git", rev = "14c8e59" }

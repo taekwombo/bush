@@ -1,14 +1,6 @@
 /// <reference types="./global.d.ts" />
 
-if (Deno.env.get('DEBUG')) {
-    globalThis.debugFlag = true;
-}
-
 export function debug(message: string, ...args: any[]): void {
-    if (!globalThis.debugFlag) {
-        return;
-    }
-
     console.log('%cDEBUG', 'color:purple', message, ...args);
 }
 

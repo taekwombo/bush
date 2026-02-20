@@ -30,42 +30,34 @@ const PsqlFlag = {
 const cmp = Deno.args[0];
 const args = Deno.args.slice(1).join(' ').split(/\s/).map((v) => v.trim()).filter((v) => v.length > 0);
 
-let completions: string[];
+let completions: Iterable<string>;
 
 switch (cmp) {
     case CompletionType.Host:
-        completions = Array.from(
-            filterPgPass(readPgPass(), { port: PsqlFlag.Port, user: PsqlFlag.User, database: PsqlFlag.Database })
-                .reduce((acc, [host]) => acc.add(host), new Set() as Set<string>)
-                .values()
-        );
+        completions = filterPgPass(readPgPass(), { port: PsqlFlag.Port, user: PsqlFlag.User, database: PsqlFlag.Database })
+            .reduce((acc, [host]) => acc.add(host), new Set() as Set<string>)
+            .values();
 
         break;
 
     case CompletionType.User:
-        completions = Array.from(
-            filterPgPass(readPgPass(), { host: PsqlFlag.Host, port: PsqlFlag.Port, database: PsqlFlag.Database })
-                .reduce((acc, [_, __, ___, user]) => acc.add(user), new Set() as Set<string>)
-                .values()
-        );
+        completions = filterPgPass(readPgPass(), { host: PsqlFlag.Host, port: PsqlFlag.Port, database: PsqlFlag.Database })
+            .reduce((acc, [_, __, ___, user]) => acc.add(user), new Set() as Set<string>)
+            .values();
 
         break;
 
     case CompletionType.Port:
-        completions = Array.from(
-            filterPgPass(readPgPass(), { host: PsqlFlag.Host, user: PsqlFlag.User, database: PsqlFlag.Database })
-                .reduce((acc, [_, port]) => acc.add(port), new Set() as Set<string>)
-                .values()
-        );
+        completions = filterPgPass(readPgPass(), { host: PsqlFlag.Host, user: PsqlFlag.User, database: PsqlFlag.Database })
+            .reduce((acc, [_, port]) => acc.add(port), new Set() as Set<string>)
+            .values();
 
         break;
 
     case CompletionType.Database:
-        completions = Array.from(
-            filterPgPass(readPgPass(), { host: PsqlFlag.Host, port: PsqlFlag.Port, user: PsqlFlag.User })
-                .reduce((acc, [_, __, db]) => acc.add(db), new Set() as Set<string>)
-                .values()
-        );
+        completions = filterPgPass(readPgPass(), { host: PsqlFlag.Host, port: PsqlFlag.Port, user: PsqlFlag.User })
+            .reduce((acc, [_, __, db]) => acc.add(db), new Set() as Set<string>)
+            .values();
 
         break;
 
@@ -73,14 +65,20 @@ switch (cmp) {
         throw new Error(`Invalid completion type "${cmp}"`);
 }
 
-completions.forEach((v) => console.log(v));
+for (const cmp of completions) {
+    console.log(cmp);
+}
 
 type PgPassLines = [host: string, port: string, db: string, user: string, pass: string][];
 
 function readPgPass(): PgPassLines {
-    const lines = Deno.readTextFileSync(`${Deno.env.get('HOME')}/.pgpass`).split('\n').filter((l) => l.length);
-    
-    return lines.map((line) => line.split(':')) as PgPassLines;
+    try {
+        const lines = Deno.readTextFileSync(`${Deno.env.get('HOME')}/.pgpass`).split('\n').filter((l) => l.length);
+        
+        return lines.map((line) => line.split(':')) as PgPassLines;
+    } catch (_) {
+        return [];
+    }
 }
 
 type FilterFlags = {

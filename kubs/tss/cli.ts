@@ -347,6 +347,6 @@ export class Cli<T extends {}> {
             (output as Record<string, unknown>)[arg.name] = arg.find(from) as unknown;
         }
 
-        return 0 as any as T;
+        return output;
     }
 }

@@ -11,7 +11,7 @@
 //   complete --command "psql" -s U -l username -a "(pgpass_cmp user (commandline -cp))"
 // ```
 
-import { Flag } from './cli.ts';
+import { Flag } from './cli/flag.ts';
 
 enum CompletionType {
     Host = 'host',

@@ -1,5 +1,32 @@
-import type { CliInput, FlagNames, CliOptions } from './types.ts';
+import type { CliInput, FlagNames } from './types.ts';
 import { Flag } from './flag.ts';
+
+export namespace Options {
+    export interface Base<T> {
+        optional?: boolean;
+        defaultValue?: T;
+    }
+
+    export interface Names {
+        name: string;
+        shortName?: string;
+    }
+
+    export interface Display {
+        typeName?: string;
+        description?: string;
+    }
+
+    export interface Generic<T> extends Base<T>, Names, Display {}
+}
+
+export type InferK<O extends Options.Names> = O['name'];
+export type InferV<T, O extends Options.Base<T>> = O['optional'] extends true
+    ? O['defaultValue'] extends T
+        ? T
+        : T | null
+    : T
+    ;
 
 export type Result<T> = [false, string] | [true, T];
 export type ParseCallback<V> = (key: string, value: string | null) => Result<V>;
@@ -8,11 +35,11 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
     private parseCb: ParseCallback<V>
     private names: string[] = [];
     private expectsValue: boolean;
-    private opt: CliOptions<V>;
+    private opt: Options.Generic<V>;
 
     public constructor(
         parseCb: ParseCallback<V>,
-        opt: CliOptions<V>,
+        opt: Options.Generic<V>,
         extraNames: string[],
         expectsValue: boolean = true,
     ) {
@@ -35,7 +62,7 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
         const { defaultValue, optional, name } = this.opt;
 
         if (result === null) {
-            if (defaultValue) {
+            if (defaultValue !== undefined) {
                 return [name as K, defaultValue];
             }
             if (optional) {
@@ -52,5 +79,33 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
         }
 
         return [name as K, value as V];
+    }
+
+    public display(): void {
+        const pad = '  ';
+
+        console.log(pad + '%c' + this.names.join(', '), 'font-weight: bold');
+
+        const info: string[] = [];
+
+        if (this.opt.typeName) {
+            info.push(`[type=${this.opt.typeName}]`);
+        }
+
+        if (this.opt.defaultValue !== undefined || this.opt.optional) {
+            info.push('[optional]');
+        }
+
+        if (this.opt.defaultValue !== undefined) {
+            info.push(`[default=${this.opt.defaultValue}]`);
+        }
+
+        if (info.length) {
+            console.log(pad + pad + info.join(' '));
+        }
+
+        if (this.opt.description) {
+            console.log(pad + pad + this.opt.description);
+        }
     }
 }

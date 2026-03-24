@@ -9,7 +9,7 @@ export class Flag {
         assert(names.length > 0, 'new Arg(names) expects names to have at least one element');
 
         this.flags = names.map((n) => {
-            return new RegExp(`--?${n}=?`);
+            return new RegExp(`^--?${n}(=.+)?$`);
         });
     }
 
@@ -29,10 +29,11 @@ export class Flag {
                     return [name, null];
                 }
 
-                const [_, val] = current.split('=', 2);
+                const valueIdx = current.indexOf('=');
 
-                if (val) {
-                    return [name, val];
+                if (valueIdx >= 0) {
+                    args.splice(i, 1);
+                    return [name, current.slice(valueIdx + 1)];
                 }
 
                 const value = args[i + 1];

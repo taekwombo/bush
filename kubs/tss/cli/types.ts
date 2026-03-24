@@ -10,25 +10,9 @@ export interface CliInput<K extends string, V> {
     onAdd(reg: FlagNames): void;
     
     parse(args: string[]): [K, V];
-}
 
-export interface BaseOptions<T> {
-    optional?: boolean;
-    defaultValue?: T;
+    display(): void;
 }
-
-export interface CliOptions<T> extends BaseOptions<T> {
-    name: string;
-    shortName?: string;
-}
-
-export type InferK<O extends CliOptions<unknown>> = O['name'];
-export type InferV<T, O extends BaseOptions<T>> = O['optional'] extends true
-    ? O['defaultValue'] extends T
-        ? T
-        : T | null
-    : T
-    ;
 
 export type Added<T extends CliInput<string, unknown>> = T extends CliInput<infer K, infer V>
     ? Record<K, V>

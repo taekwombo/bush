@@ -1,4 +1,7 @@
-import type { CliInput, FlagNames, Added, Cli as ICli, CliOptions, BaseOptions, InferV } from './types.ts';
+import type { CliInput, FlagNames, Added, Cli as ICli } from './types.ts';
+import type { InferV } from './generic.ts';
+import type { Options as InputOptions } from './inputs.ts';
+
 import { assert } from '../assert.ts';
 import * as basic from './inputs.ts';
 
@@ -30,7 +33,7 @@ class Flags implements FlagNames {
     }
 }
 
-type Options<T> = Omit<CliOptions<T>, 'name'>;
+type Options<T> = Omit<InputOptions<T>, 'name'>;
 
 export class Cli<O extends Record<string, unknown>> implements ICli<O> {
     flags: Flags = Flags.empty();
@@ -44,6 +47,13 @@ export class Cli<O extends Record<string, unknown>> implements ICli<O> {
     }
 
     public parse(args: string[]): O {
+        if (args.includes('-h') || args.includes('--help')) {
+            console.log('%cUSAGE', 'font-weight: bold');
+            this.inputs.forEach((i) => i.display());
+
+            Deno.exit(0);
+        }
+
         const result = {} as O;
 
         for (const [k, v] of this.inputs.map((input) => input.parse(args))) {

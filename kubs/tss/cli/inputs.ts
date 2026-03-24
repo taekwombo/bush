@@ -1,36 +1,39 @@
-import type { InferK, InferV, CliOptions, CliInput } from './types.ts';
+import type { CliInput } from './types.ts';
+import type { InferK, InferV, Options as GenericOptions } from './generic.ts';
 import { GenericInput, Result, ParseCallback } from './generic.ts';
 
-type Arg<T, O extends CliOptions<T>> = CliInput<InferK<O>, InferV<T, O>>;
+export type Options<T> = Omit<GenericOptions.Generic<T>, 'typeName'>;
 
-export function bool<O extends CliOptions<boolean>>(opt: O): Arg<boolean, O> {
+type Arg<T, O extends Options<T>> = CliInput<InferK<O>, InferV<T, O>>;
+
+export function bool<O extends Options<boolean>>(opt: O): Arg<boolean, O> {
     type K = InferK<O>;
     type V = InferV<boolean, O>;
 
     const offName = `no-${opt.name}`;
 
-    return new GenericInput<K, V>(Parse.bool(offName, name), opt, [offName], false);
+    return new GenericInput<K, V>(Parse.bool(offName, opt.name), { ...opt, typeName: 'boolean' }, [offName], false);
 }
 
-export function num<O extends CliOptions<number>>(opt: O): Arg<number, O> {
+export function num<O extends Options<number>>(opt: O): Arg<number, O> {
     type K = InferK<O>;
     type V = InferV<number, O>;
 
-    return new GenericInput<K, V>(Parse.number, opt, []);
+    return new GenericInput<K, V>(Parse.number, { ...opt, typeName: 'number' }, []);
 }
 
-export function int<O extends CliOptions<number>>(opt: O): Arg<number, O> {
+export function int<O extends Options<number>>(opt: O): Arg<number, O> {
     type K = InferK<O>;
     type V = InferV<number, O>;
 
-    return new GenericInput<K, V>(Parse.integer, opt, []);
+    return new GenericInput<K, V>(Parse.integer, { ...opt, typeName: 'integer' }, []);
 }
 
-export function str<O extends CliOptions<string>>(opt: O): Arg<string, O> {
+export function str<O extends Options<string>>(opt: O): Arg<string, O> {
     type K = InferK<O>;
     type V = InferV<string, O>;
 
-    return new GenericInput<K, V>(Parse.str, opt, []);
+    return new GenericInput<K, V>(Parse.str, { ...opt, typeName: 'string' }, []);
 }
 
 class Parse {
@@ -64,7 +67,7 @@ class Parse {
     }
 
     static integer(_: string, value: string | null): Result<number> {
-        const [ok, res] = this.number(_, value);
+        const [ok, res] = Parse.number(_, value);
 
         if (!ok) {
             return [false, res];

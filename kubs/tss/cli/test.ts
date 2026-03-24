@@ -28,7 +28,7 @@ describe('Types', () => {
     });
 
     it('produces T when defaultValue: T', () => {
-        const v = new Cli().str('test', { optional: true, defaultValue: 'hi' }).parse([]);
+        const v = new Cli().str('test', { defaultValue: 'hi' }).parse([]);
 
         required(v.test);
         expect(v.test).toBe('hi');
@@ -89,6 +89,30 @@ describe('Flag', () => {
 
         expect(v).not.toBe(null);
         expect(v).toEqual(['-test', null]);
+    });
+
+    it('should remove flag from args', () => {
+        const args = ['--test=1', '-t=2'];
+
+        {
+            const result = new Flag(['test']).parse(args);
+            expect(result).toEqual(['test', '1']);
+            expect(args.length).toBe(1);
+        }
+
+        {
+            const result = new Flag(['t']).parse(args);
+            expect(result).toEqual(['t', '2']);
+            expect(args.length).toBe(0);
+        }
+    });
+
+    it('should ignore sub-expressions', () => {
+        const args = ['--super-long', '1', '--longer=h=h', '--x=-x='];
+
+        expect(new Flag(['long']).parse(args)).toBe(null);
+        expect(new Flag(['longer']).parse(args)).toEqual(['longer', 'h=h']);
+        expect(new Flag(['x']).parse(args)).toEqual(['x', '-x=']);
     });
 });
 

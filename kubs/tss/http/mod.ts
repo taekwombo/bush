@@ -1,4 +1,4 @@
-const prefix = `deno:${Deno.pid()}`;
+const prefix = `deno:${Deno.pid}`;
 let counter: number = 0;
 
 function generateRequestId(): string {

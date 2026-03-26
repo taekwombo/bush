@@ -7,27 +7,27 @@ fn generators(start: u8, repeat: u8, inc_by: u8) -> (u8, u8) {
     //!
     //! Building block of async/await syntax.
 
-    use std::ops::{Generator, GeneratorState};
+    use std::ops::{Coroutine, CoroutineState};
     use std::pin::Pin;
 
-    // Generator<R = ()> R - type accepted by resume function.
+    // Coroutine<R = ()> R - type accepted by resume function.
     //  type Yield - type yielded by generator.
     //  type Return - type returned by generator.
     //
-    // fn pin(self: Pin<&mut Self>, arg: R) -> GeneratorState<Yield, Return>
+    // fn pin(self: Pin<&mut Self>, arg: R) -> CoroutineState<Yield, Return>
 
     fn resume_generator<G>(generator: &mut G, resume_value: u8) -> Option<u8>
     where
-        G: Generator<u8, Yield = u8, Return = u8> + Unpin,
+        G: Coroutine<u8, Yield = u8, Return = u8> + Unpin,
     {
         match Pin::new(generator).resume(resume_value) {
-            GeneratorState::Yielded(y) => Some(y),
+            CoroutineState::Yielded(y) => Some(y),
             _ => None,
         }
     }
 
     // Start counting from init, adding R for each resume call.
-    let mut count_from = |init: u8 /* first resume arg here */| -> u8 {
+    let mut count_from = #[coroutine] |init: u8 /* first resume arg here */| -> u8 {
         let mut count = init;
 
         loop {
@@ -59,7 +59,7 @@ fn generators(start: u8, repeat: u8, inc_by: u8) -> (u8, u8) {
     }
 
     match Pin::new(&mut count_from).resume(0) {
-        GeneratorState::Complete(complete) => (result, complete),
+        CoroutineState::Complete(complete) => (result, complete),
         _ => unreachable!(),
     }
     // This example could return struct that implements Iterator - it would be easier to observe

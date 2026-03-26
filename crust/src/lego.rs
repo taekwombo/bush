@@ -14,11 +14,11 @@ mod ch {
         unsafe {
             asm! {
                 "cmp {val}, 65d",
-                "JL 0f",
+                "JL 9f",
                 "cmp {val}, 90d",
-                "JG 0f",
+                "JG 9f",
                 "OR {val}, 00100000b",
-                "0:",
+                "9:",
                 val = inout(reg_byte) res,
                 options(pure, nomem, nostack),
             }
@@ -34,11 +34,11 @@ mod ch {
         unsafe {
             asm! {
                 "cmp {val}, 97d",
-                "JL 0f",
+                "JL 9f",
                 "cmp {val}, 122d",
-                "JG 0f",
+                "JG 9f",
                 "AND {val}, 11011111b",
-                "0:",
+                "9:",
                 val = inout(reg_byte) res,
                 options(pure, nomem, nostack),
             }

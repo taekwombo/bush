@@ -1,4 +1,4 @@
-#![feature(dropck_eyepatch, generators, generator_trait, maybe_uninit_slice)]
+#![feature(dropck_eyepatch, stmt_expr_attributes, coroutines, coroutine_trait)]
 
 pub mod atomics;
 pub mod cell;

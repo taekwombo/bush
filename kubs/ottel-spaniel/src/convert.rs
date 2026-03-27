@@ -1,0 +1,40 @@
+use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
+
+use crate::builder::SpanData;
+
+// Should report number of rejected spans.
+pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData> {
+    let mut result = Vec::new();
+
+    for rs in request.resource_spans {
+        for ss in rs.scope_spans {
+            for span in ss.spans {
+                if span.trace_id.len() != 16 {
+                    continue;
+                }
+                if span.span_id.len() != 8 {
+                    continue;
+                }
+                if span.parent_span_id.len() != 0 && span.parent_span_id.len() != 8 {
+                    continue;
+                }
+
+                result.push(SpanData {
+                    trace_id: unsafe { *span.trace_id.as_slice().as_ptr().cast() },
+                    span_id: unsafe { *span.span_id.as_slice().as_ptr().cast() },
+                    parent_span_id: if span.parent_span_id.len() == 8 {
+                        Some(unsafe { *span.parent_span_id.as_slice().as_ptr().cast() })
+                    } else {
+                        None
+                    },
+                    name: span.name,
+                    kind: span.kind,
+                    status_code: span.status.as_ref().map(|s| s.code),
+                    status_message: span.status.map(|s| s.message),
+                });
+            }
+        }
+    }
+
+    result
+}

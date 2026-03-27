@@ -1,0 +1,13 @@
+[package]
+name = "ottel-spaniel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arrow = "58"
+opentelemetry_sdk = "0.31"
+opentelemetry-proto = { version = "0.31", features = ["with-serde"] }
+parquet = "58"
+poem = "3"
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }

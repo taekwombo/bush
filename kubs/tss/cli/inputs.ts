@@ -12,7 +12,7 @@ export function bool<O extends Options<boolean>>(opt: O): Arg<boolean, O> {
 
     const offName = `no-${opt.name}`;
 
-    return new GenericInput<K, V>(Parse.bool(offName, opt.name), { ...opt, typeName: 'boolean' }, [offName], false);
+    return new GenericInput<K, V>(Parse.bool(offName, opt.name, opt.shortName), { ...opt, typeName: 'boolean' }, [offName], false);
 }
 
 export function num<O extends Options<number>>(opt: O): Arg<number, O> {
@@ -37,12 +37,15 @@ export function str<O extends Options<string>>(opt: O): Arg<string, O> {
 }
 
 class Parse {
-    static bool(offName: string, name: string): ParseCallback<boolean> {
+    static bool(off: string, long: string, short?: string): ParseCallback<boolean> {
         return (key: string): Result<boolean> => {
-            if (key === offName)
+            if (key === off)
                 return [true, false];
-            if (key === name)
+            if (key === long)
                 return [true, true];
+            if (short !== undefined && key === short) {
+                return [true, true];
+            }
 
             return [false, 'Unreachable'];
         };

@@ -5,9 +5,17 @@ edition = "2024"
 
 [dependencies]
 arrow = "58"
+parquet = { version = "58", features = ["arrow"] }
+
 opentelemetry_sdk = "0.31"
 opentelemetry-proto = { version = "0.31", features = ["with-serde"] }
-parquet = "58"
+
 poem = "3"
-serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread"] }
+
+core_affinity = "0.8"
+console-subscriber = "0.5"
+tokio = { version = "1.50", features = ["rt-multi-thread", "signal"] }
+
+[features]
+default = []
+free-for-all = []

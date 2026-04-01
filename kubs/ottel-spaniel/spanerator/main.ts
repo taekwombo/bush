@@ -23,12 +23,12 @@ const args = new Cli()
     .int('otlp-exporter-http-port', { shortName: 'hp', defaultValue: 4318 })
     .bool('use-http', { defaultValue: false })
     .bool('otlp-exporter-span-batched', { shortName: 'b', defaultValue: false })
+    .str('seed', { optional: true, defaultValue: 'NON_RANDOM' })
     .parse(Deno.args);
 
 const fakerSeed = (() => {
-    const [seed = "NON_RANDOM"] = Deno.args;
     // http://www.cse.yorku.ca/~oz/hash.html
-    const sdbm = seed
+    const sdbm = args.seed
         .split('')
         .filter((c) => c.length > 0)
         .reduce(
@@ -74,7 +74,10 @@ const work = new Array(args.parallelism).fill(0).map(async () => {
     await new Promise((r) => setTimeout(r, faker.number.int({ min: 25, max: 1_000 })));
 
     while (--counter >= 0) {
-        await gen.tree(tracer).execute();
+        const tree = gen.tree(tracer);
+
+        tree.display(0, 1);
+        await tree.execute();
     }
 });
 

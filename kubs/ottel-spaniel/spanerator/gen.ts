@@ -1,6 +1,7 @@
 import type { Attributes, AttributeValue, Tracer } from '@opentelemetry/api';
 import type { Events, SpanNode } from './tree.ts';
 
+import { assert } from '@std/assert';
 import { SpanInfo, RootTree, DefaultSpanNode } from './tree.ts';
 import { faker } from 'faker';
 
@@ -79,12 +80,20 @@ export class Gen {
     }
 
     names: Names;
+    cnt: Counter;
 
     constructor() {
         const rootSpans = Gen.spanNames(faker.number.int({ min: 4, max: 24 }));
-        const childSpans = new Array(faker.number.int({ min: 2, max: 8 }))
+        const childSpans = new Array(faker.number.int({ min: 8, max: 24 }))
             .fill(0)
             .map(() => Gen.spanNames(faker.number.int({ min: 8, max: 48 })));
+
+
+        this.cnt = {
+            created: 0,
+            maximum: 0,
+            names: childSpans.map((v) => v.length),
+        };
 
         this.names = {
             rootSpans,
@@ -97,55 +106,76 @@ export class Gen {
         };
     }
 
-    spanInfo(level: number | null = null) {
-        const names = level == null ? this.names.rootSpans : this.names.childSpans[level];
-
-        if (names === undefined) {
-            throw new Error('invalid names index');
+    spanInfo(depth: number | null = null) {
+        if (depth !== null) {
+            assert(depth < this.names.childSpans.length);
         }
+
+        const names = depth == null ? this.names.rootSpans : this.names.childSpans[depth];
 
         return new SpanInfo(
             faker.helpers.arrayElement(names),
             Gen.duration(),
             Gen.attributes(this.names.attributes.span, faker.number.int({ min: 0, max: this.names.attributes.span.length })),
-            Gen.events(this.names.attributes.event, faker.number.int({ min: 0, max: 8 })),
+            Gen.events(this.names.attributes.event, faker.number.int({ min: 0, max: 4 })),
         );
     }
 
     child(tracer: Tracer, depth: number): SpanNode {
+        this.cnt.created += 1;
+
         const info = this.spanInfo(depth);
         const children = this.children(tracer, depth + 1);
 
         return new DefaultSpanNode(tracer, info, children);
     }
 
-    children(tracer: Tracer, startFrom: number): Array<Array<SpanNode>> {
+    children(tracer: Tracer, depth: number): Array<Array<SpanNode>> {
         const result: Array<Array<SpanNode>> = [];
+        const maxDepth = this.names.childSpans.length - 1;
 
-        const maxDepth = this.names.childSpans.length;
-        const diff = maxDepth - startFrom;
+        if (depth > maxDepth) {
+            return result;
+        }
 
-        for (let i = startFrom; i < maxDepth; i++) {
-            if (faker.number.int({ min: 0, max: maxDepth }) <= i) {
-                continue;
+        const namesLeft = this.cnt.names.slice(depth).reduce((a, b) => a + b);
+        const spansLeft = () => this.cnt.maximum - this.cnt.created;
+
+        let current_depth = depth;
+
+        while (faker.number.float() >= (this.cnt.created / this.cnt.maximum)) {
+            if (faker.number.float() >= 0.5) {
+                current_depth++;
             }
 
-            const level = this.names.childSpans[i];
-            const parallel = faker.number.int({ min: 0, max: diff });
-
-            const pSpans = [];
-
-            while (pSpans.length < parallel) {
-                pSpans.push(this.child(tracer, i));
+            if (current_depth > maxDepth) {
+                break;
             }
 
-            result.push(pSpans);
+            if (spansLeft() === 0) {
+                break;
+            }
+
+            const batch = [];
+
+            do {
+                batch.push(this.child(tracer, current_depth));
+
+                if (spansLeft() === 0) {
+                    break;
+                }
+            } while (faker.number.float() >= 0.65);
+
+            result.push(batch);
         }
 
         return result;
     }
 
-    tree(tracer: Tracer): SpanNode {
+    tree(tracer: Tracer, maxSpans: number = faker.number.int({ min: 4, max: 64 })): SpanNode {
+        this.cnt.created = 1;
+        this.cnt.maximum = maxSpans;
+
         const info = this.spanInfo(null);
         const children = this.children(tracer, 0);
 
@@ -169,3 +199,9 @@ type Names = {
         resource: string[];
     };
 }
+
+type Counter = {
+    created: number;
+    maximum: number;
+    names: number[];
+};

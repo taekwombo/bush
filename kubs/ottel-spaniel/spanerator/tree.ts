@@ -21,6 +21,11 @@ export class SpanInfo {
     }
 }
 
+type Counters = {
+    spans: number;
+    events: number;
+};
+
 export abstract class SpanNode {
     tracer: Tracer;
     info: SpanInfo;
@@ -54,8 +59,9 @@ export abstract class SpanNode {
 
         const pad = '│ '.repeat(depth);
         const displayMs = (value: number) => value.toString().padStart(3, ' ') + 'ms';
+        const spanSum = `[${this.getCounters().spans.toString().padStart(3, ' ')}]`;
 
-        const line = `${displayMs(this.info.minDuration)} ${pad}${this.info.name}`;
+        const line = `${spanSum}${displayMs(this.info.minDuration)} ${pad}${this.info.name}`;
 
         console.log(line);
 
@@ -66,6 +72,24 @@ export abstract class SpanNode {
         });
 
         return this;
+    }
+
+    getCounters(): Counters {
+        let childSpans = 0;
+        let childEvents = 0;
+
+        for (const batch of this.children) {
+            for (const child of batch) {
+                const c = child.getCounters();
+                childSpans += c.spans;
+                childEvents += c.events;
+            }
+        }
+
+        return {
+            events: this.info.events.length + childEvents,
+            spans: 1 + childSpans,
+        };
     }
 }
 
@@ -104,6 +128,6 @@ export class RootTree extends SpanNode {
         ]);
 
         span.end();
-        console.log(span.spanContext().traceId, this.info.name);
+        // console.log(span.spanContext().traceId, this.info.name);
     }
 }

@@ -1,3 +1,7 @@
+export interface PrintHelp {
+    print(): void;
+}
+
 export interface FlagNames {
     /** Tries to add `name` to the flag list - may throw when name is invalid or already present */
     add(name: string): this;
@@ -11,7 +15,7 @@ export interface CliInput<K extends string, V> {
     
     parse(args: string[]): [K, V];
 
-    display(): void;
+    help(): PrintHelp;
 }
 
 export type Added<T extends CliInput<string, unknown>> = T extends CliInput<infer K, infer V>

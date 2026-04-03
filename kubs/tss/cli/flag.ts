@@ -1,12 +1,12 @@
-import { assert } from '../assert.ts';
-
 export type Result = null | [flag: string, value: null | string];
 
 export class Flag {
     public flags: RegExp[];
 
     public constructor(names: string[]) {
-        assert(names.length > 0, 'new Arg(names) expects names to have at least one element');
+        if (names.length === 0) {
+            throw new Error('new Arg(names) expects names to have at least one element');
+        }
 
         this.flags = names.map((n) => {
             return new RegExp(`^--?${n}(=.+)?$`);

@@ -1,4 +1,4 @@
-import type { Attributes, AttributeValue, Tracer } from '@opentelemetry/api';
+import type { AttributeValue, Tracer } from '@opentelemetry/api';
 import type { Events, SpanNode } from './tree.ts';
 
 import { assert } from '@std/assert';
@@ -31,7 +31,7 @@ export class Gen {
     }
 
     static attributes(keys: string[], attempts: number) {
-        let values: Map<string, AttributeValue> = new Map();
+        const values: Map<string, AttributeValue> = new Map();
 
         for (let i = 0; i < attempts; i++) {
             values.set(faker.helpers.arrayElement(keys), Gen.attrValue());
@@ -138,7 +138,6 @@ export class Gen {
             return result;
         }
 
-        const namesLeft = this.cnt.names.slice(depth).reduce((a, b) => a + b);
         const spansLeft = () => this.cnt.maximum - this.cnt.created;
 
         let current_depth = depth;

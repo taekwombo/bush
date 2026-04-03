@@ -33,9 +33,70 @@ describe('Types', () => {
         required(v.test);
         expect(v.test).toBe('hi');
     });
+
+    it('expects at least one enum variant', () => {
+        expect(() => new Cli().strEnum('day', [])).toThrow();
+    });
+
+    it('expects enum variants that are non-empty strings', () => {
+        expect(() => new Cli().strEnum('day', [''])).toThrow();
+        expect(() => new Cli().strEnum('day', ['one', ''])).toThrow();
+    });
+
+    it('enum - required', () => {
+        const cli = new Cli().strEnum('day', ['monday', 'sunday']);
+        const ok: Record<'day', 'monday' | 'sunday'> = cli.parse(['-day', 'monday']);
+
+        expect(ok).toEqual({ day: 'monday' });
+        expect(() => cli.parse(['--day', 'tuesday'])).toThrow();
+    });
+
+    it('enum - optional', () => {
+        const cli = new Cli().strEnum('day', ['monday'], { optional: true });
+        const ok: Record<'day', 'monday' | null> = cli.parse([]);
+
+        expect(ok).toEqual({ day: null });
+    });
+
+    it('enum - non alphabetic variant', () => {
+        const cli = new Cli().strEnum('test', ['0', 'a space', '│']);
+
+        expect(cli.parse(['-test', '0'])).toEqual({ test: '0' });
+        expect(cli.parse(['-test', 'a space'])).toEqual({ test: 'a space' });
+        expect(cli.parse(['-test', '│'])).toEqual({ test: '│' });
+    });
+
+    it('enum - variant must be a string', () => {
+        // @ts-expect-error variants must be a string array
+        new Cli().strEnum('test', [1, 0]);
+    });
+
+    it('reserves help and h', () => {
+        expect(() => new Cli().int('test', { shortName: 'h' })).toThrow();
+        expect(() => new Cli().int('test', { shortName: 'help' })).toThrow();
+        expect(() => new Cli().int('help')).toThrow();
+        expect(() => new Cli().int('h')).toThrow();
+    });
+
+    it('expects valid names', () => {
+        expect(() => new Cli().int('with spaces')).toThrow();
+        expect(() => new Cli().int('numbers00000')).toThrow();
+        expect(() => new Cli().int('/')).toThrow();
+        expect(() => new Cli().int('\n')).toThrow();
+        expect(() => new Cli().int('')).toThrow();
+    });
+
+    it('expects unique names', () => {
+        expect(() => new Cli().int('test', { shortName: 'test' })).toThrow();
+        expect(() => new Cli().int('test').int('test')).toThrow();
+    });
 });
 
 describe('Flag', () => {
+    it('expects at least one name', () => {
+        expect(() => new Flag([])).toThrow();
+    });
+
     it('modifies input `args` when flag found', () => {
         const args = ARGS();
 
@@ -78,7 +139,7 @@ describe('Flag', () => {
         const a = ['--test', 'value'];
         const v = new Flag(['test']).parse(a, false);
 
-        expect(a.length).toBe(1);
+        expect(a).toEqual(['value']);
         expect(v).not.toBe(null);
         expect(v).toEqual(['test', null]);
     });
@@ -97,7 +158,7 @@ describe('Flag', () => {
         {
             const result = new Flag(['test']).parse(args);
             expect(result).toEqual(['test', '1']);
-            expect(args.length).toBe(1);
+            expect(args).toEqual(['-t=2']);
         }
 
         {
@@ -107,7 +168,7 @@ describe('Flag', () => {
         }
     });
 
-    it('should ignore sub-expressions', () => {
+    it('should ignore sub-string matches', () => {
         const args = ['--super-long', '1', '--longer=h=h', '--x=-x='];
 
         expect(new Flag(['long']).parse(args)).toBe(null);

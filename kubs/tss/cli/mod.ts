@@ -2,7 +2,6 @@ import type { CliInput, FlagNames, Added, Cli as ICli } from './types.ts';
 import type { InferV } from './generic.ts';
 import type { Options as InputOptions } from './inputs.ts';
 
-import { assert } from '../assert.ts';
 import * as basic from './inputs.ts';
 
 class Flags implements FlagNames {
@@ -27,9 +26,17 @@ class Flags implements FlagNames {
     }
 
     protected validate(name: string): void {
-        assert(name !== 'help', 'Invalid option name "help", reserved.');
-        assert(/^[a-zA-Z-]+$/.test(name), `Invalid option name "${name}", valid characters a-z, A-Z, -.`);
-        assert(this.set.has(name) === false, `Invalid option name "${name}", already exists.`);
+        if (name === 'help' || name === 'h') {
+            throw new Error('Invalid option name "help" and "h", reserved.');
+        }
+
+        if (!/^[a-zA-Z-]+$/.test(name)) {
+            throw new Error(`Invalid option name "${name}", valid characters a-z, A-Z, -.`);
+        }
+
+        if (this.set.has(name)) {
+            throw new Error(`Invalid option name "${name}", already exists.`);
+        }
     }
 }
 
@@ -49,7 +56,7 @@ export class Cli<O extends Record<string, unknown>> implements ICli<O> {
     public parse(args: string[]): O {
         if (args.includes('-h') || args.includes('--help')) {
             console.log('%cUSAGE', 'font-weight: bold');
-            this.inputs.forEach((i) => i.display());
+            this.inputs.forEach((i) => i.help().print());
 
             Deno.exit(0);
         }
@@ -89,5 +96,15 @@ export class Cli<O extends Record<string, unknown>> implements ICli<O> {
         opt?: P,
     ): Cli<O & Record<K, InferV<string, P>>> {
         return this.add(basic.str({ ...opt, name }));
+    }
+
+    public strEnum<K extends string, E extends string, P extends Options<E>>(
+        name: K,
+        variants: E[],
+        opt?: P,
+    ): Cli<O & Record<K, InferV<E, P>>> {
+        const input: CliInput<K, InferV<E, P>> = basic.strEnum({ ...opt, variants, name });
+
+        return this.add(input);
     }
 }

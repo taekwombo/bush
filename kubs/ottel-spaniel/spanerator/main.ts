@@ -4,21 +4,19 @@ if (!import.meta.main) {
     throw new Error("Not main module https://docs.deno.com/runtime/manual/examples/module_metadata#concepts");
 }
 
-import { propagation, context, trace, Span, SpanStatusCode, Attributes } from '@opentelemetry/api';
-import { BasicTracerProvider, ConsoleSpanExporter, SimpleSpanProcessor, BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { trace } from '@opentelemetry/api';
+import { BasicTracerProvider, SimpleSpanProcessor, BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { Resource } from '@opentelemetry/resources';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 
-import { randomSeeded, randomIntegerBetween } from '@std/random';
 import { faker } from 'faker';
-import { RootTree, DefaultSpanNode, SpanNode, SpanInfo } from './tree.ts';
 import { Gen } from './gen.ts';
 import { Cli } from '../../tss/cli/mod.ts';
 
 const args = new Cli()
     .num('parallelism', { shortName: 'p', defaultValue: 64 })
     .num('traces', { shortName: 't', optional: true })
-    .str('otlp-exporter-host', { shortName: 'h', defaultValue: '0.0.0.0' })
+    .str('otlp-exporter-host', { shortName: 'url', defaultValue: '0.0.0.0' })
     .int('otlp-exporter-grpc-port', { shortName: 'gp', defaultValue: 4317 })
     .int('otlp-exporter-http-port', { shortName: 'hp', defaultValue: 4318 })
     .bool('use-http', { defaultValue: false })

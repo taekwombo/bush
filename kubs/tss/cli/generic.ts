@@ -1,4 +1,4 @@
-import type { CliInput, FlagNames } from './types.ts';
+import type { CliInput, FlagNames, PrintHelp } from './types.ts';
 import { Flag } from './flag.ts';
 
 export namespace Options {
@@ -12,12 +12,12 @@ export namespace Options {
         shortName?: string;
     }
 
-    export interface Display {
+    export interface Description {
         typeName?: string;
         description?: string;
     }
 
-    export interface Generic<T> extends Base<T>, Names, Display {}
+    export interface Generic<T> extends Base<T>, Names, Description {}
 }
 
 export type InferK<O extends Options.Names> = O['name'];
@@ -36,6 +36,7 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
     private names: string[] = [];
     private expectsValue: boolean;
     private opt: Options.Generic<V>;
+    private helpInfo: Help;
 
     public constructor(
         parseCb: ParseCallback<V>,
@@ -49,6 +50,7 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
         this.names = [this.opt.name, this.opt.shortName]
             .filter((v) => v !== undefined)
             .concat(extraNames);
+        this.helpInfo = Help.fromOptions(this.names, this.opt);
     }
 
     public onAdd(reg: FlagNames): void {
@@ -81,31 +83,55 @@ export class GenericInput<K extends string, V> implements CliInput<K, V> {
         return [name as K, value as V];
     }
 
-    public display(): void {
+    public help(): Help {
+        return this.helpInfo;
+    }
+}
+
+export class Help implements PrintHelp {
+    public static fromOptions(names: string[], options: Options.Generic<unknown>): Help {
+        const info = [];
+
+        if (options.typeName) {
+            const isOptional = options.defaultValue !== undefined || options.optional;
+
+            info.push(`type=${options.typeName}${isOptional ? '?' : ''}`);
+        }
+
+        if (options.defaultValue !== undefined) {
+            info.push(`default=${options.defaultValue}`);
+        }
+
+        return new Help(names, info, options.description);
+    }
+
+    private names: string[];
+    private info: string[];
+    private desc?: string;
+
+    private constructor(names: string[], info: string[], desc?: string) {
+        this.names = names;
+        this.info = info;
+        this.desc = desc;
+    }
+
+    public addInfo(value: string): this {
+        this.info.push(value);
+
+        return this;
+    }
+
+    public print() {
         const pad = '  ';
 
         console.log(pad + '%c' + this.names.join(', '), 'font-weight: bold');
 
-        const info: string[] = [];
-
-        if (this.opt.typeName) {
-            info.push(`[type=${this.opt.typeName}]`);
+        for (const info of this.info) {
+            console.log(pad + pad + info);
         }
 
-        if (this.opt.defaultValue !== undefined || this.opt.optional) {
-            info.push('[optional]');
-        }
-
-        if (this.opt.defaultValue !== undefined) {
-            info.push(`[default=${this.opt.defaultValue}]`);
-        }
-
-        if (info.length) {
-            console.log(pad + pad + info.join(' '));
-        }
-
-        if (this.opt.description) {
-            console.log(pad + pad + this.opt.description);
+        if (this.desc) {
+            console.log(pad + pad + this.desc);
         }
     }
 }

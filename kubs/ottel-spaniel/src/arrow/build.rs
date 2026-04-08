@@ -1,4 +1,5 @@
 use arrow::array::*;
+use crate::schema::*;
 
 pub struct BatchBuilders {
     trace_id: FixedSizeListBuilder<UInt8Builder>,
@@ -63,50 +64,37 @@ impl BatchBuilders {
             Arc::new(self.status_message.finish()),
         ];
 
-        RecordBatch::try_new(crate::schema::SCHEMA.clone(), cols)
+        RecordBatch::try_new(SCHEMA.clone(), cols)
     }
 }
 
-pub struct SpanData {
-    pub trace_id: [u8; 16],
-    pub span_id: [u8; 8],
-    pub parent_span_id: Option<[u8; 8]>,
-    pub name: String,
-    pub kind: i32,
-    pub status_code: Option<i32>,
-    pub status_message: Option<String>,
-}
-
-pub type SpanBatch = Vec<SpanData>;
-
-pub struct BatchWriter {
+pub struct Builder {
     builders: BatchBuilders,
-    pub written: usize,
+    pub size: usize,
     pub threshold: usize,
 }
 
-impl BatchWriter {
+impl Builder {
     pub fn new(threshold: usize, capacity: usize) -> Self {
         Self {
             builders: BatchBuilders::new(capacity),
-            written: 0,
+            size: 0,
             threshold,
         }
     }
 
-    // Returns bool indicating whether data should be batched.
     pub fn append(&mut self, data: &[SpanData]) -> bool {
         for data in data {
             self.builders.append(data);
         }
 
-        self.written += data.len();
-        self.written >= self.threshold
+        self.size += data.len();
+        self.size >= self.threshold
     }
 
-    pub fn build(&mut self) -> Result<RecordBatch, arrow::error::ArrowError> {
-        self.written = 0;
+    pub fn build(&mut self) -> RecordBatch {
+        self.size = 0;
 
-        self.builders.build()
+        self.builders.build().expect("builder.build")
     }
 }

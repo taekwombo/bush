@@ -1,6 +1,6 @@
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 
-use crate::builder::SpanData;
+use crate::schema::SpanData;
 
 // Should report number of rejected spans.
 pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData> {

@@ -36,22 +36,14 @@ async fn run_server(sinker: BobbySinker) {
     }
 }
 
-#[cfg(feature = "free-for-all")]
-#[cfg_attr(feature = "free-for-all", tokio::main)]
-async fn main() -> () {
-    console_subscriber::init();
-
-    let (sinker, handle) = create_writer(1024);
-
-    tokio::select! {
-        _ = run_server(sinker) => {},
-        _ = handle => {},
-    }
-}
-
-#[cfg(not(feature = "free-for-all"))]
 fn main() -> () {
     console_subscriber::init();
 
-    start(1024, run_server);
+    const SIZE: usize = 1024;
+
+    start(SIZE, run_server, async |rx| {
+        let writer = arrow::Writer::new(SIZE);
+
+        arrow::sink(writer, rx).await
+    });
 }

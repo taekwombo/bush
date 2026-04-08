@@ -42,3 +42,13 @@ fn create_schema() -> Arc<Schema> {
 
     Arc::new(Schema::new(columns))
 }
+
+pub struct SpanData {
+    pub trace_id: [u8; 16],
+    pub span_id: [u8; 8],
+    pub parent_span_id: Option<[u8; 8]>,
+    pub name: String,
+    pub kind: i32,
+    pub status_code: Option<i32>,
+    pub status_message: Option<String>,
+}

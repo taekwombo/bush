@@ -18,7 +18,7 @@ async fn v1_trace(Data(sinker): Data<&Arc<BobbySinker>>, Json(body): Json<Export
 
 #[handler]
 fn v1_trace_get() -> () {
-    println!("GET /v1/traces");
+    tracing::info!("GET /v1/traces");
 }
 
 async fn run_server(sinker: BobbySinker) {
@@ -31,19 +31,29 @@ async fn run_server(sinker: BobbySinker) {
     tokio::select! {
         _ = Server::new(TcpListener::bind("0.0.0.0:44318")).run(routes) => {},
         _ = tokio::signal::ctrl_c() => {
-            println!("Stopping server");
+            tracing::info!("Stopping server");
         },
     }
 }
 
+fn init_tracing() {
+    use tracing_subscriber::prelude::*;
+
+    tracing_subscriber::registry()
+        .with(console_subscriber::spawn())
+        .with(tracing_subscriber::filter::LevelFilter::INFO)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+}
+
 fn main() -> () {
-    console_subscriber::init();
+    init_tracing();
 
     const SIZE: usize = 1024;
 
     start(SIZE, run_server, async |rx| {
-        let writer = arrow::Writer::new(SIZE);
+        let writer = arrow::Writer::new();
 
-        arrow::sink(writer, rx).await
+        arrow::sink(SIZE, writer, rx).await
     });
 }

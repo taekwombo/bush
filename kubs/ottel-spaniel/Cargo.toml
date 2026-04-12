@@ -3,18 +3,33 @@ name = "ottel-spaniel"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "ottel_spaniel"
+
+[[bin]]
+name = "read"
+path = "src/bin/read.rs"
+
+[[bin]]
+name = "collector"
+path = "src/bin/collector.rs"
+
 [dependencies]
 arrow = "58"
 parquet = { version = "58", features = ["arrow"] }
+vortex = { version = "0.68" }
 
 opentelemetry_sdk = "0.31"
 opentelemetry-proto = { version = "0.31", features = ["with-serde"] }
 
 poem = "3"
+const-hex = "1"
 
 core_affinity = "0.8"
 console-subscriber = "0.5"
 tokio = { version = "1.50", features = ["rt-multi-thread", "signal"] }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["fmt", "std"] }
 
 [features]
 default = []

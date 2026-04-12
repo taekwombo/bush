@@ -1,4 +1,5 @@
 use arrow::array::*;
+
 use crate::schema::*;
 
 pub struct BatchBuilders {
@@ -9,6 +10,9 @@ pub struct BatchBuilders {
     kind: Int32Builder,
     status_code: Int32Builder,
     status_message: StringViewBuilder,
+    time_start: UInt64Builder,
+    time_end: UInt64Builder,
+    time_duration: UInt64Builder,
 }
 
 impl BatchBuilders {
@@ -26,6 +30,10 @@ impl BatchBuilders {
         let status_code = Int32Builder::with_capacity(capacity);
         let status_message = StringViewBuilder::with_capacity(capacity);
 
+        let time_start = UInt64Builder::with_capacity(capacity);
+        let time_end = UInt64Builder::with_capacity(capacity);
+        let time_duration = UInt64Builder::with_capacity(capacity);
+
         Self {
             trace_id,
             span_id,
@@ -34,6 +42,9 @@ impl BatchBuilders {
             kind,
             status_code,
             status_message,
+            time_start,
+            time_end,
+            time_duration,
         }
     }
 
@@ -49,6 +60,10 @@ impl BatchBuilders {
 
         self.status_code.append_option(data.status_code);
         self.status_message.append_option(data.status_message.as_ref());
+
+        self.time_start.append_value(data.time_start);
+        self.time_end.append_value(data.time_end);
+        self.time_duration.append_value(data.time_duration);
     }
 
     fn build(&mut self) -> Result<RecordBatch, arrow::error::ArrowError> {
@@ -62,6 +77,9 @@ impl BatchBuilders {
             Arc::new(self.kind.finish()),
             Arc::new(self.status_code.finish()),
             Arc::new(self.status_message.finish()),
+            Arc::new(self.time_start.finish()),
+            Arc::new(self.time_end.finish()),
+            Arc::new(self.time_duration.finish()),
         ];
 
         RecordBatch::try_new(SCHEMA.clone(), cols)

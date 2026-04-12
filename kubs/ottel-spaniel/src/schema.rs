@@ -27,8 +27,11 @@ fn create_schema() -> Arc<Schema> {
     let parent_span_id = Field::new("parent_span_id", DataType::Int64, true);
     let name = Field::new("name", DataType::Utf8View, false);
     let kind = Field::new("kind", DataType::Int32, false);
-    let status_code = Field::new("status:code", DataType::Int32, true);
-    let status_message = Field::new("status:message", DataType::Utf8View, true);
+    let status_code = Field::new("status.code", DataType::Int32, true);
+    let status_message = Field::new("status.message", DataType::Utf8View, true);
+    let time_start = Field::new("time.start", DataType::UInt64, false);
+    let time_end = Field::new("time.end", DataType::UInt64, false);
+    let time_duration = Field::new("time.duration", DataType::UInt64, false);
 
     let columns = vec![
         trace_id,
@@ -38,11 +41,15 @@ fn create_schema() -> Arc<Schema> {
         kind,
         status_code,
         status_message,
+        time_start,
+        time_end,
+        time_duration,
     ];
 
     Arc::new(Schema::new(columns))
 }
 
+#[derive(Debug)]
 pub struct SpanData {
     pub trace_id: [u8; 16],
     pub span_id: [u8; 8],
@@ -51,4 +58,7 @@ pub struct SpanData {
     pub kind: i32,
     pub status_code: Option<i32>,
     pub status_message: Option<String>,
+    pub time_start: u64,
+    pub time_end: u64,
+    pub time_duration: u64,
 }

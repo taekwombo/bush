@@ -1,3 +1,10 @@
+// 1. Create simple SpanData write and read with filters.
+// 2. Extend simple SpanData with primitive .resource attributes.
+// 3. Read traces via API:
+//    Filter by: trace_id, span_id, parent_span_id
+//             : span_name, span primitive attributes
+//             : only `AND` filtering
+
 pub mod convert;
 pub mod schema;
 pub mod arrow;
@@ -44,8 +51,6 @@ where
     #[cfg(not(feature = "free-for-all"))]
     {
         use std::sync::{Arc, Mutex};
-
-        println!("core affinity");
 
         let mut core_ids = core_affinity::get_core_ids().expect("get_core_ids.ok");
         assert!(!core_ids.is_empty());

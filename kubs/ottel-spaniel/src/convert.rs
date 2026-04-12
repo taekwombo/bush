@@ -31,6 +31,9 @@ pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData>
                     kind: span.kind,
                     status_code: span.status.as_ref().map(|s| s.code),
                     status_message: span.status.map(|s| s.message),
+                    time_start: span.start_time_unix_nano,
+                    time_end: span.end_time_unix_nano,
+                    time_duration: span.end_time_unix_nano - span.start_time_unix_nano,
                 });
             }
         }

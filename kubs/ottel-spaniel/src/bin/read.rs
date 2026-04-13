@@ -3,7 +3,7 @@ use parquet::arrow::arrow_reader::{RowFilter, ParquetRecordBatchReaderBuilder};
 
 use ottel_spaniel::arrow::Filter;
 
-fn main() {
+fn read_arrow() {
     let path = "data-arrow/spaniel-live-arrow";
     let span_name = "d";
 
@@ -58,4 +58,38 @@ fn trace_id_as_hex<'a>(
         const_hex::encode_to_str(value, bytes).unwrap();
 
         unsafe { std::str::from_utf8_unchecked(bytes) }
+}
+
+async fn read_vortex() {
+    use vortex::VortexSessionDefault;
+    use vortex::array::arrays::Struct;
+    use vortex::session::*;
+    use vortex::io::runtime::*;
+    use vortex::io::runtime::current::*;
+    use vortex::io::session::RuntimeSessionExt;
+    use vortex::file::OpenOptionsSessionExt;
+
+    let path = "data-vortex/spaniel-live-vortex-0";
+    let rt = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(rt.handle());
+    let oo = session.open_options().open_path(path).await.expect("ok");
+
+    // println!("{:#?}", oo.dtype());
+
+    for i in oo.scan().unwrap().into_iter(&rt).unwrap() {
+        let i = i.unwrap();
+        let s = i.as_struct_typed();
+        println!("{:?}", s.names());
+
+        let st = i.downcast::<Struct>();
+        for i in 0..st.len() {
+            println!("{:#?}", st.scalar_at(i));
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    // read_arrow();
+    read_vortex().await;
 }

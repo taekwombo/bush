@@ -3,7 +3,7 @@ use std::sync::Arc;
 use poem::{handler, get, web::{Data, Json}, Route};
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 
-use ottel_spaniel::*;
+use ottel_spaniel::{BobbySinker, start, convert};
 
 #[handler]
 async fn v1_trace(Data(sinker): Data<&Arc<BobbySinker>>, Json(body): Json<ExportTraceServiceRequest>) -> () {
@@ -51,9 +51,31 @@ fn main() -> () {
 
     const SIZE: usize = 1024;
 
-    start(SIZE, run_server, async |rx| {
-        let writer = arrow::Writer::new();
+    let run_with_arrow = async |rx| {
+        let writer = ottel_spaniel::arrow::Writer::new();
 
-        arrow::sink(SIZE, writer, rx).await
-    });
+        ottel_spaniel::arrow::sink(SIZE, writer, rx).await
+    };
+
+    let run_with_vortex = async |rx| {
+        use vortex::VortexSessionDefault;
+        use vortex::session::VortexSession;
+        use vortex::io::runtime::current::CurrentThreadRuntime;
+        use vortex::io::runtime::BlockingRuntime;
+        use vortex::io::session::RuntimeSessionExt;
+
+        let rt = CurrentThreadRuntime::new();
+        let session = VortexSession::default().with_handle(rt.handle());
+        let writer = ottel_spaniel::vortex::Writer::new(&session, &rt);
+
+        ottel_spaniel::vortex::sink(SIZE, writer, rx).await
+    };
+
+    let use_arrow = std::env::args().rfind(|i| i == "arrow").is_some();
+
+    if use_arrow {
+        start(SIZE, run_server, run_with_arrow);
+    } else {
+        start(SIZE, run_server, run_with_vortex);
+    }
 }

@@ -8,6 +8,7 @@
 pub mod convert;
 pub mod schema;
 pub mod arrow;
+pub mod vortex;
 
 use tokio::sync::{mpsc, oneshot};
 
@@ -39,7 +40,6 @@ where
     T: Future<Output = ()>,
     T: Send + 'static,
     S: Future<Output = mpsc::Receiver<Message>>,
-    S: Send + 'static,
 {
     let (tx, rx) = mpsc::channel::<Message>(channel_size);
     let sinker = BobbySinker::new(tx);

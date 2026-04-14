@@ -41,8 +41,9 @@ fn init_tracing() {
 
     tracing_subscriber::registry()
         .with(console_subscriber::spawn())
-        .with(tracing_subscriber::filter::LevelFilter::INFO)
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_filter(
+            tracing_subscriber::filter::LevelFilter::INFO
+        ))
         .init();
 }
 

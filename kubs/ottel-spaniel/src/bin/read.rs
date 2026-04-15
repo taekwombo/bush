@@ -90,6 +90,8 @@ async fn read_vortex() {
 
 #[tokio::main]
 async fn main() {
-    // read_arrow();
+    if false {
+        read_arrow();
+    }
     read_vortex().await;
 }

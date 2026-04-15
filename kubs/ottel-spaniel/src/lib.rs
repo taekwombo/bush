@@ -9,6 +9,7 @@ pub mod convert;
 pub mod schema;
 pub mod arrow;
 pub mod vortex;
+mod misc;
 
 use tokio::sync::{mpsc, oneshot};
 

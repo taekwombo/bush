@@ -78,8 +78,6 @@ fn to_scalar(data: SpanData) -> Scalar {
         .map(|v| Scalar::primitive(*v, NonNullable))
         .collect();
 
-    tracing::info!(out_len = trace_id.len(), "creating trace_id");
-
     Scalar::struct_(
         STRUCT.clone(),
         vec![
@@ -108,85 +106,6 @@ fn to_scalar(data: SpanData) -> Scalar {
     )
 }
 
-// impl BatchBuilders {
-//     fn new(capacity: usize) -> Self {
-//         let trace_id = FixedSizeListBuilder::with_capacity(
-//             Arc::new(DType::Primitive(PType::U8, Nullable)),
-//             16,
-//             NonNullable,
-//             capacity,
-//         );
-//         let span_id = PrimitiveBuilder::with_capacity(NonNullable, capacity);
-//         let parent_span_id = PrimitiveBuilder::with_capacity(Nullable, capacity);
-//
-//         let name = VarBinViewBuilder::with_capacity(DType::Utf8(NonNullable), capacity);
-//         let kind = PrimitiveBuilder::with_capacity(NonNullable, capacity);
-//
-//         let status_code = PrimitiveBuilder::with_capacity(Nullable, capacity);
-//         let status_message = VarBinViewBuilder::with_capacity(DType::Utf8(Nullable), capacity);
-//
-//         let time_start = PrimitiveBuilder::with_capacity(NonNullable, capacity);
-//         let time_end = PrimitiveBuilder::with_capacity(NonNullable, capacity);
-//         let time_duration = PrimitiveBuilder::with_capacity(NonNullable, capacity);
-//
-//         Self {
-//             trace_id,
-//             span_id,
-//             parent_span_id,
-//             name,
-//             kind,
-//             status_code,
-//             status_message,
-//             time_start,
-//             time_end,
-//             time_duration,
-//         }
-//     }
-//
-//     fn append(&mut self, data: &SpanData) {
-//         self.trace_id.append_array_as_list(
-//             PrimitiveArray::from_iter(data.trace_id).as_array(),
-//         ).expect("trace_id.append.ok");
-//         self.span_id.append_value(i64::from_be_bytes(data.span_id));
-//         match data.parent_span_id {
-//             Some(id) => self.parent_span_id.append_value(i64::from_be_bytes(id)),
-//             None => self.parent_span_id.append_null(),
-//         }
-//
-//         self.name.append_value(&data.name);
-//         self.kind.append_value(data.kind);
-//
-//         match data.status_code {
-//             Some(id) => self.status_code.append_value(id),
-//             None => self.status_code.append_null(),
-//         }
-//
-//         match data.status_message {
-//             Some(ref s) => self.status_message.append_value(s),
-//             None => self.status_message.append_null(),
-//         }
-//
-//         self.time_start.append_value(data.time_start);
-//         self.time_end.append_value(data.time_end);
-//         self.time_duration.append_value(data.time_duration);
-//     }
-//
-//     fn build(&mut self) -> Arrays {
-//         Arrays {
-//             trace_id: self.trace_id.finish_into_fixed_size_list(),
-//             span_id: self.span_id.finish_into_primitive(),
-//             parent_span_id: self.parent_span_id.finish_into_primitive(),
-//             name: self.name.finish_into_varbinview(),
-//             kind: self.kind.finish_into_primitive(),
-//             status_code: self.status_code.finish_into_primitive(),
-//             status_message: self.status_message.finish_into_varbinview(),
-//             time_start: self.time_start.finish_into_primitive(),
-//             time_end: self.time_end.finish_into_primitive(),
-//             time_duration: self.time_duration.finish_into_primitive(),
-//         }
-//     }
-// }
-
 pub struct Builder {
     builder: StructBuilder,
     pub size: usize,
@@ -206,9 +125,7 @@ impl Builder {
         self.size += data.len();
 
         for data in data {
-            tracing::info!("append.pre");
             self.builder.append_value(to_scalar(data).as_struct()).expect("append.struct.ok");
-            tracing::info!("append.ok");
         }
 
         self.size >= self.threshold

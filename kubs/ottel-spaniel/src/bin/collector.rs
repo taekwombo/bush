@@ -1,19 +1,22 @@
 use std::sync::Arc;
 
 use poem::{handler, get, web::{Data, Json}, Route};
-use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
+use opentelemetry_proto::tonic::collector::trace::v1::{ExportTraceServiceRequest, ExportTraceServiceResponse};
 
 use ottel_spaniel::{BobbySinker, start, convert};
 
 #[handler]
-async fn v1_trace(Data(sinker): Data<&Arc<BobbySinker>>, Json(body): Json<ExportTraceServiceRequest>) -> () {
+async fn v1_trace(
+    Data(sinker): Data<&Arc<BobbySinker>>,
+    Json(body): Json<ExportTraceServiceRequest>,
+) -> Json<ExportTraceServiceResponse> {
     let spans = convert::request_to_span_data(body);
 
-    if spans.is_empty() {
-        return;
+    if !spans.is_empty() {
+        sinker.write(spans).await;
     }
 
-    sinker.write(spans).await;
+    Json(ExportTraceServiceResponse { partial_success: None })
 }
 
 #[handler]
@@ -53,7 +56,7 @@ fn main() -> () {
     const SIZE: usize = 1024;
 
     let run_with_arrow = async |rx| {
-        let writer = ottel_spaniel::arrow::Writer::new();
+        let writer = ottel_spaniel::arrow::Writer::new(SIZE * 8);
 
         ottel_spaniel::arrow::sink(SIZE, writer, rx).await
     };
@@ -67,7 +70,7 @@ fn main() -> () {
 
         let rt = CurrentThreadRuntime::new();
         let session = VortexSession::default().with_handle(rt.handle());
-        let writer = ottel_spaniel::vortex::Writer::new(&session, &rt);
+        let writer = ottel_spaniel::vortex::Writer::new(&session, &rt, SIZE * 8);
 
         ottel_spaniel::vortex::sink(SIZE, writer, rx).await
     };

@@ -1,86 +1,130 @@
-use std::io::BufWriter;
 use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
 
 use arrow::array::RecordBatch;
 use parquet::arrow::arrow_writer::ArrowWriter;
 
 use crate::schema::SCHEMA;
+use crate::{SpanWriter, Stats};
 
 pub struct Writer {
-    writer: ArrowWriter<BufWriter<File>>,
     file_id: usize,
+    writer: Option<ArrowWriter<BufWriter<File>>>,
+    stats: Stats,
+    /// Number of written spans to current file.
     writes: usize,
+    /// Maximum number of Spans per file.
     threshold: usize,
 }
 
 impl Writer {
-    fn path() -> &'static str {
-        "spaniel-live-arrow-"
-    }
+    const DIR: &str = "data-arrow";
+    const PREF: &str = "spaniel-live-arrow-";
 
-    fn dir() -> &'static str {
-        "data-arrow"
-    }
+    fn open_file(path: impl AsRef<Path>) -> BufWriter<File> {
+        tracing::info!(file = ?path.as_ref().as_os_str(), "Opening file");
 
-    fn open_file(id: usize) -> File {
-        let file_name = format!("{}/{}{}", Self::dir(), Self::path(), id);
-        tracing::info!(file = file_name, "Opening file");
-
-        File::options()
+        let file = File::options()
             .write(true)
             .create_new(true)
-            .open(file_name)
-            .expect("writer.file.open")
+            .open(path)
+            .expect("writer.file.open");
+
+        BufWriter::new(file)
+    }
+
+    fn init_file_id(&mut self) {
+        self.file_id = crate::misc::get_next_file_id(Self::DIR, Self::PREF);
+    }
+
+    async fn next_file(&mut self) {
+        self.file_id += 1;
+        self.writes = 0;
+        self.create_new_writer().await;
+    }
+
+    async fn create_new_writer(&mut self) {
+        let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
+
+        #[allow(clippy::borrow_interior_mutable_const)]
+        let writer = ArrowWriter::try_new(
+            Self::open_file(&file_path),
+            SCHEMA.clone(),
+            None,
+        ).expect("arrow-writer.create");
+
+        let old = self.writer.replace(writer);
+
+        if let Some(writer) = old {
+            writer.close().expect("writer.close");
+        };
+
+        self.stats.set_dirty_file(&file_path).await;
     }
 
     pub fn new(spans_per_file: usize) -> Self {
-        let id = crate::misc::get_next_file_id(Self::dir(), Self::path());
-        let file = Self::open_file(id);
-        let file = BufWriter::new(file);
-
         Self {
-            writer: ArrowWriter::try_new(file, SCHEMA.clone(), None).expect("writer.create.ok"),
-            file_id: id,
+            file_id: 0,
+            writer: None,
+            stats: Stats::default(),
             writes: 0,
             threshold: spans_per_file,
         }
     }
 
-    pub fn save(&mut self, data: RecordBatch) {
-        if data.num_rows() + self.writes > self.threshold {
-            let diff = self.threshold - self.writes;
-            let first = data.slice(0, diff);
-            let second = data.slice(diff, data.num_rows() - diff);
-            self.save(first);
-            self.next_file();
-            self.save(second);
-            return;
-        }
+    fn write_data(&mut self, data: RecordBatch) {
+        let Some(writer) = self.writer.as_mut() else {
+            unreachable!();
+        };
 
-        self.writer.write(&data).expect("writer.write.ok");
-        self.writer.flush().expect("writer.flush.ok");
-        self.writer.sync().expect("writer.sync.ok");
+        tracing::info!(len = data.num_rows(), writes = self.writes, "writer.save");
         self.writes += data.num_rows();
-    }
-
-    fn next_file(&mut self) {
-        self.finish();
-        
-        self.file_id += 1;
-        self.writes = 0;
-
-        let file = Self::open_file(self.file_id);
-        let file = BufWriter::new(file);
-        self.writer = ArrowWriter::try_new(file, SCHEMA.clone(), None).expect("writer.create.ok");
-    }
-
-    pub fn finish(&mut self) {
-        self.writer.finish().expect("writer.finish.ok");
+        writer.write(&data).expect("write.ok");
     }
 }
 
-impl Drop for Writer {
-    fn drop(&mut self) {
-        assert!(self.writer.in_progress_rows() == 0);
+impl SpanWriter for Writer {
+    type Input = RecordBatch;
+
+    fn is_dirty(&self) -> bool {
+        self.writes > 0
+    }
+
+    fn stats(&self) -> &Stats {
+        &self.stats
+    }
+
+    async fn write(&mut self, data: Self::Input) {
+        if self.writer.is_none() {
+            self.init_file_id();
+            self.create_new_writer().await;
+        }
+
+        if data.num_rows() > (self.threshold - self.writes) {
+            let diff = self.threshold - self.writes;
+            let first = data.slice(0, diff);
+            let second = data.slice(diff, data.num_rows() - diff);
+            self.write_data(first);
+            self.next_file().await;
+            self.write_data(second);
+            return;
+        }
+
+        self.write_data(data);
+    }
+
+    async fn suspend(&mut self) {
+        if let Some(writer) = self.writer.take() {
+            writer.close().expect("writer.close");
+        }
+    }
+
+    async fn finish(self) {
+        let Some(writer) = self.writer else {
+            return;
+        };
+
+        writer.close().expect("writer.close");
     }
 }

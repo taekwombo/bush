@@ -1,8 +1,9 @@
-use std::sync::Arc;
 use std::cell::LazyCell;
+use std::sync::Arc;
 
 use arrow::datatypes::Schema;
 
+#[allow(clippy::declare_interior_mutable_const)]
 pub const SCHEMA: LazyCell<Arc<Schema>> = LazyCell::new(create_schema);
 
 // Simple schema:
@@ -19,10 +20,14 @@ pub const SCHEMA: LazyCell<Arc<Schema>> = LazyCell::new(create_schema);
 // links - next
 
 fn create_schema() -> Arc<Schema> {
-    use arrow::datatypes::{Field, DataType};
+    use arrow::datatypes::{DataType, Field};
 
     let bytes = Field::new_list_field(DataType::UInt8, false);
-    let trace_id = Field::new("trace_id", DataType::FixedSizeList(Arc::new(bytes), 16), false);
+    let trace_id = Field::new(
+        "trace_id",
+        DataType::FixedSizeList(Arc::new(bytes), 16),
+        false,
+    );
     let span_id = Field::new("span_id", DataType::Int64, false);
     let parent_span_id = Field::new("parent_span_id", DataType::Int64, true);
     let name = Field::new("name", DataType::Utf8View, false);

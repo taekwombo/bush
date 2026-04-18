@@ -52,6 +52,7 @@ const provider = new BasicTracerProvider({
         'service.version': faker.system.semver(),
         'service.ip': faker.internet.ip(),
         'service.port': faker.internet.port(),
+        'service.a': { a: 'b', c: 2 } as any,
     }),
     spanProcessors: [
         args['otlp-exporter-span-batched']
@@ -66,16 +67,22 @@ const tracer = trace.getTracer('spanerator', '0.0.1');
 
 const gen = new Gen();
 
-let counter = args.traces || faker.number.int({ min: 10, max: 1_000 });
+let counter = args.traces ?? faker.number.int({ min: 10, max: 1_000 });
+let doneSpans = 0;
+
+// could be nice if all span counts were summed up after tree was executed
 
 const work = new Array(args.parallelism).fill(0).map(async () => {
     await new Promise((r) => setTimeout(r, faker.number.int({ min: 25, max: 1_000 })));
 
     while (--counter >= 0) {
         const tree = gen.tree(tracer);
+        const cnt = tree.getCounters();
 
-        tree.display(0, 1);
         await tree.execute();
+
+        doneSpans += cnt.spans;
+        console.log('Spans:', doneSpans);
     }
 });
 

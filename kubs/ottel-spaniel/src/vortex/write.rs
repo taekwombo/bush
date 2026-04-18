@@ -1,97 +1,147 @@
-use std::io::BufWriter;
 use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
 
-use vortex::array::arrays::{StructArray, Struct};
+use vortex::array::IntoArray;
+use vortex::array::arrays::{Struct, StructArray};
+use vortex::dtype::DType;
 use vortex::file::BlockingWriter;
 use vortex::file::WriteOptionsSessionExt;
 use vortex::io::runtime::current::CurrentThreadRuntime;
 use vortex::session::VortexSession;
 
+use crate::{SpanWriter, Stats};
+
 pub struct Writer<'a> {
     file_id: usize,
+    stats: Stats,
+    dtype: DType,
     writes: usize,
     threshold: usize,
     session: &'a VortexSession,
     runtime: &'a CurrentThreadRuntime,
-    writer: BlockingWriter<'a, 'a, CurrentThreadRuntime>,
+    writer: Option<BlockingWriter<'a, 'a, CurrentThreadRuntime>>,
 }
 
-impl Writer<'_> {
-    fn path() -> &'static str {
-        "spaniel-live-vortex-"
-    }
+impl<'a> Writer<'a> {
+    const DIR: &'static str = "data-vortex";
+    const PREF: &'static str = "spaniel-live-vortex-";
 
-    fn dir() -> &'static str {
-        "data-vortex"
-    }
+    async fn open_file(&self, path: impl AsRef<Path>) -> BufWriter<File> {
+        tracing::info!(file = ?path.as_ref(), "Opening file");
 
-    fn open_file(id: usize) -> File {
-        let file_name = format!("{}/{}{}", Self::dir(), Self::path(), id);
-        tracing::info!(file = file_name, "Opening file");
-
-        File::options()
+        let file = File::options()
             .write(true)
             .create_new(true)
-            .open(file_name)
-            .expect("writer.file.open")
+            .open(path.as_ref())
+            .expect("writer.file.open");
+
+        BufWriter::new(file)
     }
 
-    pub fn save(&mut self, data: StructArray) {
-        use vortex::array::IntoArray;
+    fn init_file_id(&mut self) {
+        self.file_id = crate::misc::get_next_file_id(Self::DIR, Self::PREF);
+    }
+
+    async fn create_new_writer(&mut self) {
+        let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
+
+        let writer = self
+            .session
+            .write_options()
+            .blocking(self.runtime)
+            .writer(self.open_file(&file_path).await, self.dtype.clone());
+
+        let old = self.writer.replace(writer);
+
+        if let Some(writer) = old {
+            writer.finish().expect("writer.finish.ok");
+        }
+
+        self.stats.set_dirty_file(&file_path).await;
+    }
+
+    pub fn finish(self) {
+        if self.writer.is_none() {
+            return;
+        }
+
+        let result = self.writer.unwrap().finish().expect("writer.finish.ok");
+        tracing::info!(len = result.footer().row_count(), "writer.finish");
+    }
+
+    async fn next_file(&mut self) {
+        self.file_id += 1;
+        self.writes = 0;
+        self.create_new_writer().await;
+    }
+
+    pub fn new(
+        session: &'a VortexSession,
+        rt: &'a CurrentThreadRuntime,
+        spans_per_file: usize,
+    ) -> Writer<'a> {
+        Self {
+            file_id: 0,
+            threshold: spans_per_file,
+            dtype: super::build::create_struct_dtype(),
+            session,
+            runtime: rt,
+            writes: 0,
+            writer: None,
+            stats: Stats::default(),
+        }
+    }
+
+    async fn write_data(&mut self, data: StructArray) {
+        tracing::info!(len = data.len(), writes = self.writes, "writer.save");
+        self.writes += data.len();
+        self.writer
+            .as_mut()
+            .unwrap()
+            .push(data.into_array())
+            .expect("writer.push.ok");
+    }
+}
+
+impl<'a> SpanWriter for Writer<'a> {
+    type Input = StructArray;
+
+    fn is_dirty(&self) -> bool {
+        self.writes > 0
+    }
+
+    fn stats(&self) -> &Stats {
+        &self.stats
+    }
+
+    async fn write(&mut self, data: Self::Input) {
+        if self.writer.is_none() {
+            self.init_file_id();
+            self.create_new_writer().await;
+        }
 
         if data.len() + self.writes > self.threshold {
             let diff = self.threshold - self.writes;
             let first = data.slice(0..diff).expect("array.slice.ok");
             let second = data.slice(diff..data.len()).expect("array.slice.ok");
 
-            self.save(first.downcast::<Struct>());
-            self.next_file();
-            self.save(second.downcast::<Struct>());
+            self.write_data(first.downcast::<Struct>()).await;
+            self.next_file().await;
+            self.write_data(second.downcast::<Struct>()).await;
             return;
         }
 
-        tracing::info!(len = data.len(), writes = self.writes, "writer.save");
-        self.writes += data.len();
-        self.writer.push(data.into_array()).expect("writer.push.ok");
+        self.write_data(data).await;
     }
 
-    pub fn finish(self) {
-        let result = self.writer.finish().expect("writer.finish.ok");
-        tracing::info!(len = result.footer().row_count(), "writer.finish");
-    }
-
-    fn next_file(&mut self) {
-        self.file_id += 1;
-        self.writes = 0;
-
-        let file = Self::open_file(self.file_id);
-        let file = BufWriter::new(file);
-
-        let mut writer = self.session
-            .write_options()
-            .blocking(self.runtime)
-            .writer(file, super::build::STRUCT.clone());
-
-        std::mem::swap(&mut writer, &mut self.writer);
-
-        writer.finish().expect("writer.finish.ok");
-    }
-}
-
-impl<'a> Writer<'a> {
-    pub fn new(session: &'a VortexSession, rt: &'a CurrentThreadRuntime, spans_per_file: usize) -> Writer<'a> {
-
-        let id = crate::misc::get_next_file_id(Self::dir(), Self::path());
-        let file = Self::open_file(id);
-        let file = BufWriter::new(file);
-
-        Self {
-            file_id: id,
-            threshold: spans_per_file,
-            session,
-            runtime: rt,
-            writes: 0,
-            writer: session.write_options().blocking(rt).writer(file, super::build::STRUCT.clone()),
+    async fn suspend(&mut self) {
+        if let Some(writer) = self.writer.take() {
+            writer.finish().expect("writer.close");
         }
+    }
+
+    async fn finish(self) {
+        self.finish();
     }
 }

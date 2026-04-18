@@ -1,13 +1,13 @@
 use std::sync::Arc;
-use std::cell::LazyCell;
 
-use vortex::dtype::{DType, PType, StructFields};
-use vortex::dtype::Nullability::*;
-use vortex::array::builders::*;
 use vortex::array::arrays::*;
+use vortex::array::builders::*;
+use vortex::dtype::Nullability::*;
+use vortex::dtype::{DType, PType, StructFields};
 use vortex::scalar::Scalar;
 
-use crate::schema::*;
+use crate::SpanBuilder;
+use crate::schema::SpanData;
 
 pub struct FieldTypes {
     trace_id_element: Arc<DType>,
@@ -52,86 +52,106 @@ fn create_types() -> FieldTypes {
     }
 }
 
-pub const FIELDS: LazyCell<FieldTypes> = LazyCell::new(create_types);
-
 fn create_struct_fields() -> StructFields {
+    let fields = create_types();
+
     StructFields::from_iter([
-        ("trace_id", FIELDS.trace_id.clone()),
-        ("span_id", FIELDS.span_id.clone()),
-        ("parent_span_id", FIELDS.parent_span_id.clone()),
-        ("name", FIELDS.name.clone()),
-        ("kind", FIELDS.kind.clone()),
-        ("status_code", FIELDS.status_code.clone()),
-        ("status_message", FIELDS.status_message.clone()),
-        ("time_start", FIELDS.time_start.clone()),
-        ("time_end", FIELDS.time_end.clone()),
-        ("time_duration", FIELDS.time_duration.clone()),
+        ("trace_id", fields.trace_id.clone()),
+        ("span_id", fields.span_id.clone()),
+        ("parent_span_id", fields.parent_span_id.clone()),
+        ("name", fields.name.clone()),
+        ("kind", fields.kind.clone()),
+        ("status_code", fields.status_code.clone()),
+        ("status_message", fields.status_message.clone()),
+        ("time_start", fields.time_start.clone()),
+        ("time_end", fields.time_end.clone()),
+        ("time_duration", fields.time_duration.clone()),
     ])
 }
 
-pub const STRUCT_FIELDS: LazyCell<StructFields> = LazyCell::new(create_struct_fields);
-pub const STRUCT: LazyCell<DType> = LazyCell::new(|| DType::Struct(STRUCT_FIELDS.clone(), NonNullable));
-
-fn to_scalar(data: SpanData) -> Scalar {
-    let trace_id: Vec<Scalar> = data.trace_id
-        .iter()
-        .map(|v| Scalar::primitive(*v, NonNullable))
-        .collect();
-
-    Scalar::struct_(
-        STRUCT.clone(),
-        vec![
-            Scalar::fixed_size_list(
-                FIELDS.trace_id_element.clone(),
-                trace_id,
-                NonNullable,
-            ),
-            Scalar::primitive(i64::from_be_bytes(data.span_id), NonNullable),
-            data.parent_span_id
-                .map(i64::from_be_bytes)
-                .map(|v| Scalar::primitive(v, Nullable))
-                .unwrap_or_else(Scalar::null_native::<i64>),
-            Scalar::utf8(data.name, NonNullable),
-            Scalar::primitive(data.kind, NonNullable),
-            data.status_code
-                .map(|v| Scalar::primitive(v, Nullable))
-                .unwrap_or_else(Scalar::null_native::<i64>),
-            data.status_message
-                .map(|v| Scalar::utf8(v.as_str(), Nullable))
-                .unwrap_or(Scalar::null(FIELDS.status_message.clone())),
-            Scalar::primitive(data.time_start, NonNullable),
-            Scalar::primitive(data.time_end, NonNullable),
-            Scalar::primitive(data.time_duration, NonNullable),
-        ],
-    )
+pub fn create_struct_dtype() -> DType {
+    DType::Struct(create_struct_fields(), NonNullable)
 }
 
 pub struct Builder {
     builder: StructBuilder,
+    dtype: DType,
+    field_types: FieldTypes,
     pub size: usize,
     pub threshold: usize,
 }
 
 impl Builder {
     pub fn new(threshold: usize, capacity: usize) -> Self {
+        let field_types = create_types();
+        let struct_fields = create_struct_fields();
+        let dtype = create_struct_dtype();
+
         Self {
-            builder: StructBuilder::with_capacity(STRUCT_FIELDS.clone(), NonNullable, capacity),
+            builder: StructBuilder::with_capacity(struct_fields, NonNullable, capacity),
             size: 0,
             threshold,
+            dtype,
+            field_types,
         }
     }
 
-    pub fn append(&mut self, data: Vec<SpanData>) -> bool {
+    fn to_scalar(&self, data: SpanData) -> Scalar {
+        let trace_id: Vec<Scalar> = data
+            .trace_id
+            .iter()
+            .map(|v| Scalar::primitive(*v, NonNullable))
+            .collect();
+
+        Scalar::struct_(
+            self.dtype.clone(),
+            vec![
+                Scalar::fixed_size_list(
+                    self.field_types.trace_id_element.clone(),
+                    trace_id,
+                    NonNullable,
+                ),
+                Scalar::primitive(i64::from_be_bytes(data.span_id), NonNullable),
+                data.parent_span_id
+                    .map(i64::from_be_bytes)
+                    .map(|v| Scalar::primitive(v, Nullable))
+                    .unwrap_or_else(Scalar::null_native::<i64>),
+                Scalar::utf8(data.name, NonNullable),
+                Scalar::primitive(data.kind, NonNullable),
+                data.status_code
+                    .map(|v| Scalar::primitive(v, Nullable))
+                    .unwrap_or_else(Scalar::null_native::<i64>),
+                data.status_message
+                    .map(|v| Scalar::utf8(v.as_str(), Nullable))
+                    .unwrap_or(Scalar::null(self.field_types.status_message.clone())),
+                Scalar::primitive(data.time_start, NonNullable),
+                Scalar::primitive(data.time_end, NonNullable),
+                Scalar::primitive(data.time_duration, NonNullable),
+            ],
+        )
+    }
+}
+
+impl SpanBuilder for Builder {
+    type Output = StructArray;
+
+    fn size(&self) -> usize {
+        self.size
+    }
+
+    fn append(&mut self, data: Vec<crate::schema::SpanData>) -> bool {
         self.size += data.len();
 
         for data in data {
-            self.builder.append_value(to_scalar(data).as_struct()).expect("append.struct.ok");
+            self.builder
+                .append_value(self.to_scalar(data).as_struct())
+                .expect("append.struct.ok");
         }
 
         self.size >= self.threshold
     }
 
-    pub fn build(&mut self) -> StructArray {
+    fn build(&mut self) -> Self::Output {
         self.size = 0;
         self.builder.finish_into_struct()
     }

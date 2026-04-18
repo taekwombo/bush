@@ -11,8 +11,8 @@ name = "read"
 path = "src/bin/read.rs"
 
 [[bin]]
-name = "collector"
-path = "src/bin/collector.rs"
+name = "ottel-col"
+path = "src/bin/ottel-col/main.rs"
 
 [dependencies]
 arrow = "58"

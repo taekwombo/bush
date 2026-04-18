@@ -1,8 +1,8 @@
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
-
-use crate::schema::SpanData;
+use ottel_spaniel::schema::SpanData;
 
 // Should report number of rejected spans.
+// Should be moved to bin/api
 pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData> {
     let mut result = Vec::new();
 
@@ -15,7 +15,7 @@ pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData>
                 if span.span_id.len() != 8 {
                     continue;
                 }
-                if span.parent_span_id.len() != 0 && span.parent_span_id.len() != 8 {
+                if !span.parent_span_id.is_empty() && span.parent_span_id.len() != 8 {
                     continue;
                 }
 

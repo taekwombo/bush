@@ -1,8 +1,9 @@
 use arrow::array::*;
 
+use crate::SpanBuilder;
 use crate::schema::*;
 
-pub struct BatchBuilders {
+struct BatchBuilders {
     trace_id: FixedSizeListBuilder<UInt8Builder>,
     span_id: Int64Builder,
     parent_span_id: Int64Builder,
@@ -17,7 +18,7 @@ pub struct BatchBuilders {
 
 impl BatchBuilders {
     fn new(capacity: usize) -> Self {
-        use arrow::datatypes::{Field, DataType};
+        use arrow::datatypes::{DataType, Field};
 
         let trace_id = FixedSizeListBuilder::with_capacity(UInt8Builder::new(), 16, capacity)
             .with_field(Field::new_list_field(DataType::UInt8, false));
@@ -49,17 +50,21 @@ impl BatchBuilders {
     }
 
     fn append(&mut self, data: &SpanData) {
-        self.trace_id.values().append_values(&data.trace_id, &[true; 16]);
+        self.trace_id
+            .values()
+            .append_values(&data.trace_id, &[true; 16]);
         self.trace_id.append(true);
 
         self.span_id.append_value(i64::from_be_bytes(data.span_id));
-        self.parent_span_id.append_option(data.parent_span_id.map(i64::from_be_bytes));
+        self.parent_span_id
+            .append_option(data.parent_span_id.map(i64::from_be_bytes));
 
         self.name.append_value(&data.name);
         self.kind.append_value(data.kind);
 
         self.status_code.append_option(data.status_code);
-        self.status_message.append_option(data.status_message.as_ref());
+        self.status_message
+            .append_option(data.status_message.as_ref());
 
         self.time_start.append_value(data.time_start);
         self.time_end.append_value(data.time_end);
@@ -82,13 +87,16 @@ impl BatchBuilders {
             Arc::new(self.time_duration.finish()),
         ];
 
+        #[allow(clippy::borrow_interior_mutable_const)]
         RecordBatch::try_new(SCHEMA.clone(), cols)
     }
 }
 
 pub struct Builder {
     builders: BatchBuilders,
+    /// Number of spans written since last build.
     pub size: usize,
+    /// Number of spans that should trigger build.
     pub threshold: usize,
 }
 
@@ -100,9 +108,13 @@ impl Builder {
             threshold,
         }
     }
+}
 
-    pub fn append(&mut self, data: &[SpanData]) -> bool {
-        for data in data {
+impl SpanBuilder for Builder {
+    type Output = RecordBatch;
+
+    fn append(&mut self, data: Vec<crate::schema::SpanData>) -> bool {
+        for data in data.iter() {
             self.builders.append(data);
         }
 
@@ -110,9 +122,13 @@ impl Builder {
         self.size >= self.threshold
     }
 
-    pub fn build(&mut self) -> RecordBatch {
+    fn build(&mut self) -> Self::Output {
         self.size = 0;
 
         self.builders.build().expect("builder.build")
+    }
+
+    fn size(&self) -> usize {
+        self.size
     }
 }

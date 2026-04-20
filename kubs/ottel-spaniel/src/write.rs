@@ -39,7 +39,7 @@ pub struct Options {
     pub builder_capacity: usize,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Stats {
     /// File currently used by the writer.
     dirty_file: Arc<RwLock<Option<Box<Path>>>>,
@@ -48,6 +48,13 @@ pub struct Stats {
 }
 
 impl Stats {
+    pub fn new(dir: impl AsRef<Path>, prefix: &str) -> Self {
+        Self {
+            dirty_file: Arc::new(RwLock::new(None)),
+            files: Arc::new(RwLock::new(crate::misc::load_existing_files(dir, prefix))),
+        }
+    }
+    
     pub async fn append_files(&self, add: &[impl AsRef<Path>]) {
         let to_add: Vec<Box<Path>> = add
             .iter()

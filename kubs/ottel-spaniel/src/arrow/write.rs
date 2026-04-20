@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::Path;
 
 use arrow::array::RecordBatch;
 use parquet::arrow::arrow_writer::ArrowWriter;
@@ -22,18 +21,6 @@ impl Writer {
     const DIR: &str = "data-arrow";
     const PREF: &str = "spaniel-live-arrow-";
 
-    fn open_file(path: impl AsRef<Path>) -> BufWriter<File> {
-        tracing::info!(file = ?path.as_ref().as_os_str(), "Opening file");
-
-        let file = File::options()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .expect("writer.file.open");
-
-        BufWriter::new(file)
-    }
-
     fn init_file_id(&mut self) {
         self.file_id = crate::misc::get_next_file_id(Self::DIR, Self::PREF);
     }
@@ -44,21 +31,25 @@ impl Writer {
         self.create_new_writer().await;
     }
 
+    fn close_writer(&mut self) {
+        if let Some(writer) = self.writer.take() {
+            writer.close().expect("writer.close");
+        }
+    }
+
     async fn create_new_writer(&mut self) {
+        self.close_writer();
+
         let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
 
         #[allow(clippy::borrow_interior_mutable_const)]
         let writer = ArrowWriter::try_new(
-            Self::open_file(&file_path),
+            crate::misc::open_file(&file_path),
             SCHEMA.clone(),
             None,
         ).expect("arrow-writer.create");
 
-        let old = self.writer.replace(writer);
-
-        if let Some(writer) = old {
-            writer.close().expect("writer.close");
-        };
+        assert!(self.writer.replace(writer).is_none());
 
         self.stats.set_dirty_file(&file_path).await;
     }
@@ -67,7 +58,7 @@ impl Writer {
         Self {
             file_id: 0,
             writer: None,
-            stats: Stats::default(),
+            stats: Stats::new(Self::DIR, Self::PREF),
             writes: 0,
             threshold: spans_per_file,
         }
@@ -115,16 +106,10 @@ impl SpanWriter for Writer {
     }
 
     async fn suspend(&mut self) {
-        if let Some(writer) = self.writer.take() {
-            writer.close().expect("writer.close");
-        }
+        self.close_writer();
     }
 
-    async fn finish(self) {
-        let Some(writer) = self.writer else {
-            return;
-        };
-
-        writer.close().expect("writer.close");
+    async fn finish(mut self) {
+        self.close_writer();
     }
 }

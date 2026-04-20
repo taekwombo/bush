@@ -1,4 +1,6 @@
 use std::fs;
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::Path;
 
 fn ensure_dir_exists(dir: &impl AsRef<Path>) {
@@ -16,7 +18,7 @@ pub fn get_next_file_id(dir: impl AsRef<Path>, prefix: &str) -> usize {
     let mut count: usize = 0;
 
     for name in read_dir(&dir) {
-        if name.len() <= prefix.len() {
+        if !name.starts_with(prefix) {
             continue;
         }
 
@@ -37,4 +39,33 @@ pub fn read_dir(dir: impl AsRef<Path>) -> impl Iterator<Item = String> {
     let files = fs::read_dir(dir.as_ref()).expect("dir.read.ok");
 
     files.map(|f| f.unwrap().file_name().into_string().unwrap())
+}
+
+pub fn open_file(path: impl AsRef<Path>) -> BufWriter<File> {
+    tracing::info!(file = ?path.as_ref(), "Opening file");
+
+    let file = File::options()
+        .write(true)
+        .create_new(true)
+        .open(path.as_ref())
+        .expect("writer.file.open");
+
+    BufWriter::new(file)
+}
+
+pub fn load_existing_files(dir: impl AsRef<Path>, prefix: &str) -> Vec<Box<Path>> {
+    let mut result = Vec::with_capacity(8);
+
+    for name in read_dir(dir.as_ref()) {
+        if !name.starts_with(prefix) {
+            continue;
+        }
+
+        let mut path = dir.as_ref().to_path_buf();
+        path.push(name);
+
+        result.push(path.into_boxed_path());
+    }
+
+    result
 }

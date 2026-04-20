@@ -1,7 +1,3 @@
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path;
-
 use vortex::array::IntoArray;
 use vortex::array::arrays::{Struct, StructArray};
 use vortex::dtype::DType;
@@ -27,47 +23,31 @@ impl<'a> Writer<'a> {
     const DIR: &'static str = "data-vortex";
     const PREF: &'static str = "spaniel-live-vortex-";
 
-    async fn open_file(&self, path: impl AsRef<Path>) -> BufWriter<File> {
-        tracing::info!(file = ?path.as_ref(), "Opening file");
-
-        let file = File::options()
-            .write(true)
-            .create_new(true)
-            .open(path.as_ref())
-            .expect("writer.file.open");
-
-        BufWriter::new(file)
-    }
-
     fn init_file_id(&mut self) {
         self.file_id = crate::misc::get_next_file_id(Self::DIR, Self::PREF);
     }
 
     async fn create_new_writer(&mut self) {
+        self.close_writer();
+
         let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
 
         let writer = self
             .session
             .write_options()
             .blocking(self.runtime)
-            .writer(self.open_file(&file_path).await, self.dtype.clone());
+            .writer(crate::misc::open_file(&file_path), self.dtype.clone());
 
-        let old = self.writer.replace(writer);
-
-        if let Some(writer) = old {
-            writer.finish().expect("writer.finish.ok");
-        }
+        assert!(self.writer.replace(writer).is_none());
 
         self.stats.set_dirty_file(&file_path).await;
     }
 
-    pub fn finish(self) {
-        if self.writer.is_none() {
-            return;
+    pub fn close_writer(&mut self) {
+        if let Some(writer) = self.writer.take() {
+            let result = writer.finish().expect("writer.finish.ok");
+            tracing::info!(len = result.footer().row_count(), "writer.finish");
         }
-
-        let result = self.writer.unwrap().finish().expect("writer.finish.ok");
-        tracing::info!(len = result.footer().row_count(), "writer.finish");
     }
 
     async fn next_file(&mut self) {
@@ -89,7 +69,7 @@ impl<'a> Writer<'a> {
             runtime: rt,
             writes: 0,
             writer: None,
-            stats: Stats::default(),
+            stats: Stats::new(Self::DIR, Self::PREF),
         }
     }
 
@@ -136,12 +116,10 @@ impl<'a> SpanWriter for Writer<'a> {
     }
 
     async fn suspend(&mut self) {
-        if let Some(writer) = self.writer.take() {
-            writer.finish().expect("writer.close");
-        }
+        self.close_writer();
     }
 
-    async fn finish(self) {
-        self.finish();
+    async fn finish(mut self) {
+        self.close_writer();
     }
 }

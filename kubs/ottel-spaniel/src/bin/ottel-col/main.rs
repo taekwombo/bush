@@ -19,11 +19,22 @@ fn main() {
         builder_capacity: 2048,
     };
 
+    let server_options = server::Options {
+        host: "0.0.0.0",
+        port: 44318,
+        shutdown_timeout_secs: 60,
+    };
+
     let (sink, _stats, task) = start_writer(&format, options);
 
-    let rt = runtime::RT::new();
+    let server_task = server::run_server(
+        server_options,
+        format.clone(),
+        sink,
+    );
 
-    rt.run_server_future(server::run_server(format.clone(), sink));
+    let rt = runtime::RT::new();
+    rt.run_server_future(server_task);
     rt.run_writer_future(task);
 }
 

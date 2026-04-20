@@ -1,6 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use core_affinity::{get_core_ids, set_for_current};
 use tokio::runtime::{Builder, Runtime};
 
 pub struct RT {
@@ -24,6 +21,9 @@ impl RT {
 
     #[cfg(not(feature = "free-for-all"))]
     pub fn new() -> Self {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core_affinity::{get_core_ids, set_for_current};
+
         let core_ids = get_core_ids().expect("get_core_ids.ok");
         let len = core_ids.len();
         assert!(len > 1);

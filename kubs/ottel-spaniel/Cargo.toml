@@ -24,6 +24,7 @@ opentelemetry-proto = { version = "0.31", features = ["with-serde"] }
 
 poem = "3"
 const-hex = "1"
+serde = "1"
 
 core_affinity = "0.8"
 console-subscriber = "0.5"

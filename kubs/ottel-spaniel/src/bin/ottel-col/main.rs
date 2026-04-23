@@ -10,11 +10,11 @@ fn main() {
     let format = get_format();
     let options = Options {
         flush_interval_millis: 2_000,
-        suspend_interval_millis: 30_000,
+        suspend_interval_millis: 180_000,
         suspend_after: 10,
         sink_channel_size: 256,
         request_waitlist_size: 128,
-        spans_per_file: 1024 * 1,
+        spans_per_file: 1024 * 4,
         builder_flush_threshold: 1024,
         builder_capacity: 2048,
     };
@@ -25,11 +25,12 @@ fn main() {
         shutdown_timeout_secs: 60,
     };
 
-    let (sink, _stats, task) = start_writer(&format, options);
+    let (sink, stats, task) = start_writer(&format, options);
 
     let server_task = server::run_server(
         server_options,
         format.clone(),
+        stats.clone(),
         sink,
     );
 

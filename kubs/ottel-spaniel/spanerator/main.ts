@@ -72,10 +72,13 @@ let doneSpans = 0;
 
 // could be nice if all span counts were summed up after tree was executed
 
-const work = new Array(args.parallelism).fill(0).map(async () => {
-    await new Promise((r) => setTimeout(r, faker.number.int({ min: 25, max: 1_000 })));
+const work = new Array(args.parallelism).fill(0).map(async (i) => {
+    await new Promise((r) => setTimeout(r, i * 10));
 
-    while (--counter >= 0) {
+    while (counter > 0) {
+        console.log(counter);
+        counter -= 1;
+
         const tree = gen.tree(tracer);
         const cnt = tree.getCounters();
 

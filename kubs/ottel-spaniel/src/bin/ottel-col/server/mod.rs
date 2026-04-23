@@ -4,7 +4,7 @@ use poem::{EndpointExt, Server, Route, post};
 use poem::listener::TcpListener;
 use poem::middleware::*;
 
-use ottel_spaniel::{Format, Sink};
+use ottel_spaniel::{Format, Sink, Stats};
 
 mod handlers;
 
@@ -24,11 +24,13 @@ impl Options {
     }
 }
 
-pub async fn run_server(options: Options, format: Format, sink: Sink) {
+pub async fn run_server(options: Options, format: Format, stats: Stats, sink: Sink) {
     let routes = Route::new()
         .at("/v1/traces", post(handlers::v1_handle_export_trace_request))
+        .at("/v0/search/names", post(handlers::v0_search_get_span_names))
         .with(Cors::default())
         .with(AddData::new(sink))
+        .with(AddData::new(stats))
         .with(AddData::new(format));
 
     let tcp = TcpListener::bind(options.addr());

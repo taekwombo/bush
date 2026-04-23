@@ -1,21 +1,40 @@
+use std::sync::Arc;
+
 use arrow::array::RecordBatch;
 use parquet::arrow::arrow_reader::{ParquetRecordBatchReaderBuilder, RowFilter};
+use parquet::arrow::ArrowSchemaConverter;
 
 use ottel_spaniel::arrow::Filter;
 
 fn read_arrow() {
     let time = std::time::Instant::now();
-    let path = "data-arrow/spaniel-live-arrow";
-    let span_name = "d";
+    let path = "data-arrow/spaniel-live-arrow-1";
 
     let file = std::fs::File::open(path).unwrap();
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).unwrap();
-    let schema = builder.parquet_schema();
+    // let schema = builder.parquet_schema();
+    let schema = ArrowSchemaConverter::new().convert(&ottel_spaniel::schema::SCHEMA).unwrap();
 
-    let mut eq = Filter::new_str(schema, "name", span_name);
-    eq.starts_with();
+    // Find time.start column stats
+    let metadata = builder.metadata();
+    for rg in metadata.row_groups() {
+        for col in rg.columns() {
+            if col.column_descr().name() != "time_start" {
+                continue;
+            }
 
-    let projection = parquet::arrow::ProjectionMask::columns(schema, ["name", "trace_id"]);
+            println!("{:#?}", col.statistics());
+        }
+    }
+
+    let st = Filter::new_str(&schema, "name", "d").starts_with();
+    let cn = Filter::new_str(&schema, "name", "org").contains();
+    let eq = ottel_spaniel::arrow::Boolean::and(vec![
+        Arc::new(st),
+        Arc::new(cn),
+    ]);
+
+    let projection = parquet::arrow::ProjectionMask::columns(&schema, ["name", "trace_id"]);
 
     let reader = builder
         .with_projection(projection)

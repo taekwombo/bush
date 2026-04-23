@@ -5,4 +5,4 @@ mod write;
 pub(crate) use build::Builder;
 pub(crate) use write::Writer;
 
-pub use read::Filter;
+pub use read::{Boolean, Filter, Read};

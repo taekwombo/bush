@@ -44,7 +44,7 @@ pub struct Stats {
     /// File currently used by the writer.
     dirty_file: Arc<RwLock<Option<Box<Path>>>>,
     /// Files available for reading.
-    files: Arc<RwLock<Vec<Box<Path>>>>,
+    pub files: Arc<RwLock<Vec<Box<Path>>>>,
 }
 
 impl Stats {

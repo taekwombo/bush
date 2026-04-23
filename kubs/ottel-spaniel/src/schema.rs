@@ -1,6 +1,7 @@
 use std::cell::LazyCell;
 use std::sync::Arc;
 
+use arrow::array::RecordBatch;
 use arrow::datatypes::Schema;
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -34,9 +35,9 @@ fn create_schema() -> Arc<Schema> {
     let kind = Field::new("kind", DataType::Int32, false);
     let status_code = Field::new("status.code", DataType::Int32, true);
     let status_message = Field::new("status.message", DataType::Utf8View, true);
-    let time_start = Field::new("time.start", DataType::UInt64, false);
-    let time_end = Field::new("time.end", DataType::UInt64, false);
-    let time_duration = Field::new("time.duration", DataType::UInt64, false);
+    let time_start = Field::new("time_start", DataType::UInt64, false);
+    let time_end = Field::new("time_end", DataType::UInt64, false);
+    let time_duration = Field::new("time_duration", DataType::UInt64, false);
 
     let columns = vec![
         trace_id,
@@ -52,6 +53,41 @@ fn create_schema() -> Arc<Schema> {
     ];
 
     Arc::new(Schema::new(columns))
+}
+
+pub trait AsSpanData {
+    fn get_names(&self) -> impl Iterator<Item = &str>;
+}
+
+impl AsSpanData for RecordBatch {
+    fn get_names(&self) -> impl Iterator<Item = &str> {
+        use arrow::array::{AsArray, Array};
+
+        struct Iter<'a> {
+            arr: &'a arrow::array::StringViewArray,
+            index: usize,
+        }
+
+        impl<'a> Iterator for Iter<'a> {
+            type Item = &'a str;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index >= self.arr.len() {
+                    return None;
+                }
+
+                let item = self.arr.value(self.index);
+                self.index += 1;
+
+                Some(item)
+            }
+        }
+
+        Iter {
+            arr: self.column_by_name("name").unwrap().as_string_view(),
+            index: 0,
+        }
+    }
 }
 
 #[derive(Debug)]

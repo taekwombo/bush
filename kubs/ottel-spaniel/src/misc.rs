@@ -37,8 +37,16 @@ pub fn get_next_file_id(dir: impl AsRef<Path>, prefix: &str) -> usize {
 
 pub fn read_dir(dir: impl AsRef<Path>) -> impl Iterator<Item = String> {
     let files = fs::read_dir(dir.as_ref()).expect("dir.read.ok");
+    let mut files = files
+        .map(Result::unwrap)
+        .map(|entry| (
+            entry.metadata().unwrap().created().unwrap(),
+            entry.file_name().into_string().unwrap(),
+        ))
+        .collect::<Vec<_>>();
 
-    files.map(|f| f.unwrap().file_name().into_string().unwrap())
+    files.sort_by(|(a, _), (b, _)| a.cmp(&b));
+    files.into_iter().map(|(_, f)| f)
 }
 
 pub fn open_file(path: impl AsRef<Path>) -> BufWriter<File> {

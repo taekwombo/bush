@@ -56,6 +56,13 @@ export function strEnum<O extends (Options<E> & { variants: E[] }), E extends st
     return input;
 }
 
+export function range<O extends Options<[number, number]>>(opt: O): Arg<[number, number], O> {
+    type K = InferK<O>;
+    type V = InferV<[number, number], O>;
+
+    return new GenericInput<K, V>(Parse.range, { ...opt, typeName: 'range' }, []);
+}
+
 class Parse {
     static bool(off: string, long: string, short?: string): ParseCallback<boolean> {
         return (key: string): Result<boolean> => {
@@ -124,5 +131,22 @@ class Parse {
 
             return [true, out] as Result<E>;
         };
+    }
+
+    static range(_: string, value: string | null): Result<[number, number]> {
+        if (value === null)
+            return [false, 'Missing value'];
+
+        if (!/^-?\d+\.\.-?\d+$/.test(value))
+            return [false, 'Invalid value, expecing <int>..<int>'];
+
+        const [left, right] = value.split('..');
+        const [rs, start] = Parse.integer(_, left);
+        const [re, end] = Parse.integer(_, right);
+
+        if (!rs || !re)
+            return [false, 'Invalid value, expecing <int>..<int>'];
+
+        return [true, [start, end]];
     }
 }

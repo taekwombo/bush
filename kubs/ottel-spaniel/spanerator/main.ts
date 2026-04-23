@@ -1,4 +1,7 @@
 // Use telemetrygen for less rubbish.
+//
+// Node exporter doesn't really work with Deno, comment out lines 86-93 in:
+// @opentelemetry/otlp-exporter-base/0.57.2/build/src/transport/http-transport-utils.js
 
 if (!import.meta.main) {
     throw new Error("Not main module https://docs.deno.com/runtime/manual/examples/module_metadata#concepts");
@@ -12,6 +15,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { faker } from 'faker';
 import { Gen } from './gen.ts';
 import { Cli } from '../../tss/cli/mod.ts';
+import { range } from '../../tss/cli/inputs.ts';
 
 const args = new Cli()
     .num('parallelism', { shortName: 'p', defaultValue: 64 })
@@ -22,6 +26,7 @@ const args = new Cli()
     .bool('use-http', { defaultValue: false })
     .bool('otlp-exporter-span-batched', { shortName: 'b', defaultValue: false })
     .str('seed', { optional: true, defaultValue: 'NON_RANDOM' })
+    .add(range({ name: 'delay', optional: true }))
     .parse(Deno.args);
 
 const fakerSeed = (() => {
@@ -76,7 +81,6 @@ const work = new Array(args.parallelism).fill(0).map(async (i) => {
     await new Promise((r) => setTimeout(r, i * 10));
 
     while (counter > 0) {
-        console.log(counter);
         counter -= 1;
 
         const tree = gen.tree(tracer);

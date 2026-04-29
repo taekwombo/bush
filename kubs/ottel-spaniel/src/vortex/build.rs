@@ -6,8 +6,7 @@ use vortex::dtype::Nullability::*;
 use vortex::dtype::{DType, PType, StructFields};
 use vortex::scalar::Scalar;
 
-use crate::SpanBuilder;
-use crate::schema::SpanData;
+use crate::{SpanBuilder, SpanData};
 
 pub struct FieldTypes {
     trace_id_element: Arc<DType>,
@@ -139,7 +138,7 @@ impl SpanBuilder for Builder {
         self.size
     }
 
-    fn append(&mut self, data: Vec<crate::schema::SpanData>) -> bool {
+    fn append(&mut self, data: Vec<SpanData>) -> bool {
         self.size += data.len();
 
         for data in data {

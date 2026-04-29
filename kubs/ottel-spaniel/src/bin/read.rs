@@ -1,25 +1,29 @@
 use std::sync::Arc;
 
 use arrow::array::RecordBatch;
-use parquet::arrow::arrow_reader::{ParquetRecordBatchReaderBuilder, RowFilter};
 use parquet::arrow::ArrowSchemaConverter;
+use parquet::arrow::arrow_reader::{ParquetRecordBatchReaderBuilder, RowFilter};
 
 use ottel_spaniel::arrow::Filter;
 
 fn read_arrow() {
+    use ottel_spaniel::arrow::columns::*;
+
     let time = std::time::Instant::now();
-    let path = "data-arrow/spaniel-live-arrow-1";
+    let path = "data-arrow/spaniel-live-arrow-0";
 
     let file = std::fs::File::open(path).unwrap();
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).unwrap();
     // let schema = builder.parquet_schema();
-    let schema = ArrowSchemaConverter::new().convert(&ottel_spaniel::schema::SCHEMA).unwrap();
+    let schema = ArrowSchemaConverter::new()
+        .convert(&ottel_spaniel::arrow::SCHEMA)
+        .unwrap();
 
     // Find time.start column stats
     let metadata = builder.metadata();
     for rg in metadata.row_groups() {
         for col in rg.columns() {
-            if col.column_descr().name() != "time_start" {
+            if col.column_descr().name() != TIME_START.name() {
                 continue;
             }
 
@@ -27,14 +31,11 @@ fn read_arrow() {
         }
     }
 
-    let st = Filter::new_str(&schema, "name", "d").starts_with();
-    let cn = Filter::new_str(&schema, "name", "org").contains();
-    let eq = ottel_spaniel::arrow::Boolean::and(vec![
-        Arc::new(st),
-        Arc::new(cn),
-    ]);
+    let st = Filter::new_str(&schema, SPAN_NAME.name(), "d").starts_with();
+    let cn = Filter::new_str(&schema, SPAN_NAME.name(), "org").contains();
+    let eq = ottel_spaniel::arrow::Boolean::and(vec![Arc::new(st), Arc::new(cn)]);
 
-    let projection = parquet::arrow::ProjectionMask::columns(&schema, ["name", "trace_id"]);
+    let projection = parquet::arrow::ProjectionMask::columns(&schema, [SPAN_NAME.name(), TRACE_ID.name()]);
 
     let reader = builder
         .with_projection(projection)
@@ -51,18 +52,17 @@ fn read_arrow() {
 
 fn convert(batch: &RecordBatch) {
     use arrow::array::AsArray;
-    use arrow::datatypes::*;
+    use ottel_spaniel::arrow::columns::*;
 
     let trace_id = &batch
-        .column_by_name("trace_id")
+        .column_by_name(TRACE_ID.name())
         .unwrap()
-        .as_fixed_size_list();
-    let name = &batch.column_by_name("name").unwrap();
+        .as_fixed_size_binary();
+    let name = &batch.column_by_name(SPAN_NAME.name()).unwrap();
     let name = name.as_string_view();
 
     for i in 0..batch.num_rows() {
         let trace_id = trace_id.value(i);
-        let trace_id = trace_id.as_primitive::<UInt8Type>();
         let mut bytes: [u8; 16 * 2] = [0; 16 * 2];
         println!(
             "{} {} {}",
@@ -74,10 +74,9 @@ fn convert(batch: &RecordBatch) {
 }
 
 fn trace_id_as_hex<'a>(
-    value: &'a arrow::array::PrimitiveArray<arrow::datatypes::UInt8Type>,
+    value: &'a [u8],
     bytes: &'a mut [u8; 32],
 ) -> &'a str {
-    let value = value.values().inner().as_slice();
     const_hex::encode_to_str(value, bytes).unwrap();
 
     unsafe { std::str::from_utf8_unchecked(bytes) }

@@ -4,7 +4,7 @@ use std::io::BufWriter;
 use arrow::array::RecordBatch;
 use parquet::arrow::arrow_writer::ArrowWriter;
 
-use crate::schema::SCHEMA;
+use super::SCHEMA;
 use crate::{SpanWriter, Stats};
 
 pub struct Writer {
@@ -43,11 +43,8 @@ impl Writer {
         let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
 
         #[allow(clippy::borrow_interior_mutable_const)]
-        let writer = ArrowWriter::try_new(
-            crate::misc::open_file(&file_path),
-            SCHEMA.clone(),
-            None,
-        ).expect("arrow-writer.create");
+        let writer = ArrowWriter::try_new(crate::misc::open_file(&file_path), SCHEMA.clone(), None)
+            .expect("arrow-writer.create");
 
         assert!(self.writer.replace(writer).is_none());
 

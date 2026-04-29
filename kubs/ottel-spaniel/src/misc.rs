@@ -39,13 +39,15 @@ pub fn read_dir(dir: impl AsRef<Path>) -> impl Iterator<Item = String> {
     let files = fs::read_dir(dir.as_ref()).expect("dir.read.ok");
     let mut files = files
         .map(Result::unwrap)
-        .map(|entry| (
-            entry.metadata().unwrap().created().unwrap(),
-            entry.file_name().into_string().unwrap(),
-        ))
+        .map(|entry| {
+            (
+                entry.metadata().unwrap().created().unwrap(),
+                entry.file_name().into_string().unwrap(),
+            )
+        })
         .collect::<Vec<_>>();
 
-    files.sort_by(|(a, _), (b, _)| a.cmp(&b));
+    files.sort_by(|(a, _), (b, _)| a.cmp(b));
     files.into_iter().map(|(_, f)| f)
 }
 

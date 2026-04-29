@@ -1,14 +1,15 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use arrow::array::{BooleanArray, Datum, RecordBatch};
 use arrow::error::ArrowError;
-use parquet::arrow::ProjectionMask;
 use parquet::arrow::ArrowSchemaConverter;
+use parquet::arrow::ProjectionMask;
 use parquet::arrow::arrow_reader::{ArrowPredicate, RowFilter};
 use parquet::arrow::arrow_reader::{ParquetRecordBatchReader, ParquetRecordBatchReaderBuilder};
 use parquet::schema::types::SchemaDescriptor;
 
-use std::sync::Arc;
+use super::SCHEMA;
 
 pub trait CustomFilter: ArrowPredicate + Sync {
     fn eval(&self, batch: &RecordBatch) -> Result<BooleanArray, ArrowError>;
@@ -27,8 +28,8 @@ impl Boolean {
 
         let mut mask = filters[0].projection().clone();
 
-        for i in 1..filters.len() {
-            mask.union(filters[i].projection()); 
+        for item in filters.iter().skip(1) {
+            mask.union(item.projection());
         }
 
         mask
@@ -48,10 +49,10 @@ impl Boolean {
 impl CustomFilter for Boolean {
     fn eval(&self, batch: &RecordBatch) -> Result<BooleanArray, ArrowError> {
         let mut iter = self.filters.iter();
-        let mut result = iter.next().unwrap().eval(&batch)?;
+        let mut result = iter.next().unwrap().eval(batch)?;
 
         for filter in iter {
-            result = (self.function)(&result, &filter.eval(&batch)?)?;
+            result = (self.function)(&result, &filter.eval(batch)?)?;
         }
 
         Ok(result)
@@ -122,8 +123,8 @@ impl Filter {
 
 impl CustomFilter for Filter {
     fn eval(&self, batch: &RecordBatch) -> Result<BooleanArray, ArrowError> {
-        let col = batch.column_by_name(&self.col_name).expect(&format!("col.exists {}", self.col_name));
-        
+        let col = batch.column_by_name(&self.col_name).expect("col.exists");
+
         (self.function)(col, &*self.value)
     }
 }
@@ -148,19 +149,16 @@ async fn read_arrow_file(
         tracing::info!(file = ?path, "Reading");
         let file = std::fs::File::open(path).expect("file.open");
         let builder = ParquetRecordBatchReaderBuilder::try_new(file).expect("builder.new");
-        let mut builder = builder
-            .with_projection(projection)
-            .with_row_filter(filter);
+        let mut builder = builder.with_projection(projection).with_row_filter(filter);
 
         if let Some(limit) = limit {
             builder = builder.with_limit(limit);
         }
 
-        builder
-            .build()
-            .expect("builder.build")
-
-    }).await.unwrap()
+        builder.build().expect("builder.build")
+    })
+    .await
+    .unwrap()
 }
 
 pub struct Read<T> {
@@ -178,8 +176,8 @@ impl<T> Read<T> {
         make_filter: impl Fn(&SchemaDescriptor) -> Vec<Box<T>>,
         files: Vec<Box<Path>>,
     ) -> Self {
-        let schema = ArrowSchemaConverter::new().convert(&crate::schema::SCHEMA).unwrap();
-        let select = ProjectionMask::columns(&schema, select.into_iter());
+        let schema = ArrowSchemaConverter::new().convert(&SCHEMA).unwrap();
+        let select = ProjectionMask::columns(&schema, select);
         let filter = make_filter(&schema);
 
         Self {
@@ -195,18 +193,26 @@ impl<T> Read<T> {
 
 impl<T> Read<T>
 where
-    T: ArrowPredicate + Clone
+    T: ArrowPredicate + Clone,
 {
     async fn init_reader(&mut self) {
         assert!(self.reader.is_none());
         let file = &self.files[self.index];
 
-        self.reader.replace(read_arrow_file(
-            file.clone(),
-            self.select.clone(),
-            RowFilter::new(self.filter.iter().map(|v| v.clone() as Box<dyn ArrowPredicate>).collect()),
-            self.limit.clone(),
-        ).await);
+        self.reader.replace(
+            read_arrow_file(
+                file.clone(),
+                self.select.clone(),
+                RowFilter::new(
+                    self.filter
+                        .iter()
+                        .map(|v| v.clone() as Box<dyn ArrowPredicate>)
+                        .collect(),
+                ),
+                self.limit,
+            )
+            .await,
+        );
     }
 
     pub async fn next_batch(&mut self) -> Option<RecordBatch> {
@@ -219,7 +225,7 @@ where
 
             let next = self.reader.as_mut().expect("reader.exists").next();
 
-            if let None = next {
+            if next.is_none() {
                 self.index += 1;
                 self.reader = None;
                 continue;
@@ -231,4 +237,3 @@ where
         None
     }
 }
-

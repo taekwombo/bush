@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use poem::{EndpointExt, Server, Route, post};
 use poem::listener::TcpListener;
 use poem::middleware::*;
+use poem::{EndpointExt, Route, Server, post};
 
 use ottel_spaniel::{Format, Sink, Stats};
 
@@ -28,6 +28,10 @@ pub async fn run_server(options: Options, format: Format, stats: Stats, sink: Si
     let routes = Route::new()
         .at("/v1/traces", post(handlers::v1_handle_export_trace_request))
         .at("/v0/search/names", post(handlers::v0_search_get_span_names))
+        .at(
+            "/v0/search/services",
+            post(handlers::v0_search_get_svc_names),
+        )
         .with(Cors::default())
         .with(AddData::new(sink))
         .with(AddData::new(stats))

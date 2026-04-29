@@ -14,15 +14,13 @@ impl RT {
             .build()
             .expect("server-runtime.ok");
 
-        Self {
-            runtime,
-        }
+        Self { runtime }
     }
 
     #[cfg(not(feature = "free-for-all"))]
     pub fn new() -> Self {
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use core_affinity::{get_core_ids, set_for_current};
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let core_ids = get_core_ids().expect("get_core_ids.ok");
         let len = core_ids.len();
@@ -44,7 +42,7 @@ impl RT {
         let runtime = Builder::new_multi_thread()
             .worker_threads(workers)
             .on_thread_start(move || {
-                let idx = idx.fetch_sub(1, Ordering::SeqCst);
+                let idx = idx.fetch_sub(1, Ordering::SeqCst) % len;
                 let id = core_ids[idx];
                 set_for_current(id);
             })

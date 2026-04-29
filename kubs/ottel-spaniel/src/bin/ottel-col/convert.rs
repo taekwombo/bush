@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
-use ottel_spaniel::schema::SpanData;
+use ottel_spaniel::SpanData;
 
 // Should report number of rejected spans.
 // Should be moved to bin/api
@@ -7,6 +9,9 @@ pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData>
     let mut result = Vec::new();
 
     for rs in request.resource_spans {
+        let rs_attrs = rs.resource.map(|v| v.attributes).unwrap_or(Vec::new());
+        let rs_attrs = Arc::new(rs_attrs);
+
         for ss in rs.scope_spans {
             for span in ss.spans {
                 if span.trace_id.len() != 16 {
@@ -34,6 +39,8 @@ pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData>
                     time_start: span.start_time_unix_nano,
                     time_end: span.end_time_unix_nano,
                     time_duration: span.end_time_unix_nano - span.start_time_unix_nano,
+
+                    resource_attributes: rs_attrs.clone(),
                 });
             }
         }

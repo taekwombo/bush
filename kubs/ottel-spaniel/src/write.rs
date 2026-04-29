@@ -54,7 +54,7 @@ impl Stats {
             files: Arc::new(RwLock::new(crate::misc::load_existing_files(dir, prefix))),
         }
     }
-    
+
     pub async fn append_files(&self, add: &[impl AsRef<Path>]) {
         let to_add: Vec<Box<Path>> = add
             .iter()
@@ -80,7 +80,7 @@ impl Stats {
 #[derive(Debug)]
 pub struct Message {
     on_done: oneshot::Sender<()>,
-    pub data: Vec<crate::schema::SpanData>,
+    pub data: Vec<crate::SpanData>,
 }
 
 #[derive(Clone, Debug)]
@@ -89,8 +89,8 @@ pub struct Sink {
 }
 
 impl Sink {
-    /// Sends [crate::schema::SpanData] to be written to storage.
-    pub async fn send(&self, data: Vec<crate::schema::SpanData>) {
+    /// Sends [crate::SpanData] to be written to storage.
+    pub async fn send(&self, data: Vec<crate::SpanData>) {
         let (send, recv) = oneshot::channel::<()>();
 
         self.sender
@@ -119,7 +119,7 @@ pub trait SpanBuilder {
     type Output;
 
     fn size(&self) -> usize;
-    fn append(&mut self, data: Vec<crate::schema::SpanData>) -> bool;
+    fn append(&mut self, data: Vec<crate::SpanData>) -> bool;
     fn build(&mut self) -> Self::Output;
 }
 
@@ -166,7 +166,7 @@ async fn run_writer<T, W, B>(
             }
 
             _ = tokio::time::sleep(Duration::from_millis(interval)) => {
-                tracing::info!(
+                tracing::debug!(
                     buffered = builder.size(),
                     times_since_last_action = times_since_last_action,
                     slept_for = interval,

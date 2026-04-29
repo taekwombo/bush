@@ -1,8 +1,8 @@
-use ottel_spaniel::write::{start_writer, Format, Options};
+use ottel_spaniel::write::{Format, Options, start_writer};
 
-mod server;
 mod convert;
 mod runtime;
+mod server;
 
 fn main() {
     init_tracing();
@@ -14,7 +14,7 @@ fn main() {
         suspend_after: 10,
         sink_channel_size: 256,
         request_waitlist_size: 128,
-        spans_per_file: 1024 * 4,
+        spans_per_file: 1024 * 10,
         builder_flush_threshold: 1024,
         builder_capacity: 2048,
     };
@@ -27,12 +27,7 @@ fn main() {
 
     let (sink, stats, task) = start_writer(&format, options);
 
-    let server_task = server::run_server(
-        server_options,
-        format.clone(),
-        stats.clone(),
-        sink,
-    );
+    let server_task = server::run_server(server_options, format.clone(), stats.clone(), sink);
 
     let rt = runtime::RT::new();
     rt.run_server_future(server_task);
@@ -47,18 +42,15 @@ fn get_format() -> Format {
     }
 
     use vortex::VortexSessionDefault;
-    use vortex::io::runtime::current::CurrentThreadRuntime;
     use vortex::io::runtime::BlockingRuntime;
+    use vortex::io::runtime::current::CurrentThreadRuntime;
     use vortex::io::session::RuntimeSessionExt;
     use vortex::session::VortexSession;
 
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(runtime.handle());
 
-    Format::Vortex {
-        runtime,
-        session,
-    }
+    Format::Vortex { runtime, session }
 }
 
 fn init_tracing() {

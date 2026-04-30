@@ -32,7 +32,7 @@ pub async fn v0_search_get_svc_names(
 
     match format {
         Format::Arrow => {
-            use ottel_spaniel::arrow::{AsSpanData, Filter, Read, columns};
+            use ottel_spaniel::arrow::{AsSpanData, Filter, Null, Read, columns};
             let mut read = Read::new(
                 [
                     columns::RES_ATTR_NAME.name(),
@@ -41,6 +41,7 @@ pub async fn v0_search_get_svc_names(
                 ],
                 |schema| {
                     vec![
+                        Box::new(Null::not_null(schema, columns::PARENT_SPAN_ID.name())),
                         Box::new(
                             Filter::new_u64(
                                 schema,
@@ -96,14 +97,14 @@ pub async fn v0_search_get_span_names(
     match format {
         Format::Arrow => {
             use ottel_spaniel::arrow::{
-                AsSpanData, Filter, Read,
+                AsSpanData, CustomFilter, Filter, Read,
                 columns::{SPAN_NAME, TIME_END, TIME_START},
             };
 
             let mut read = Read::new(
                 [SPAN_NAME.name()],
                 |schema| {
-                    let mut base = vec![
+                    let mut base: Vec<Box<dyn CustomFilter>> = vec![
                         Box::new(
                             Filter::new_u64(
                                 schema,
@@ -143,7 +144,48 @@ pub async fn v0_search_get_span_names(
                 }
             }
         }
-        Format::Vortex { .. } => unimplemented!(),
+        f @ Format::Vortex { .. } => {
+            use ottel_spaniel::vortex::read::*;
+            use vortex::expr::*;
+
+            let mut filter = and(
+                gt(
+                    get_item("time_start", root()),
+                    lit(body.start_time_ms * 1_000_000),
+                ),
+                lt(
+                    get_item("time_end", root()),
+                    lit(body.end_time_ms * 1_000_000),
+                ),
+            );
+
+            if let Some(c) = body.contains {
+                filter = and(
+                    filter,
+                    ilike(get_item("name", root()), lit(format!("%{c}%"))),
+                );
+            }
+
+            let mut read = Read::new(f, files)
+                .with_filter(filter)
+                .with_projection(select(["name"], root()));
+
+            'outter: while let Some(arr) = read.next_batch().await {
+                for name in arr.get_names() {
+                    let name = name.as_utf8().value().unwrap().as_str();
+
+                    if names.contains(name) {
+                        continue;
+                    }
+
+                    names.push(name.to_owned());
+
+                    if names.len >= names.cap {
+                        break 'outter;
+                    }
+                }
+            }
+        }
     }
 
     let mut span_names: Vec<_> = names.into_vec();

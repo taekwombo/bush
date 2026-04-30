@@ -51,6 +51,7 @@ impl AsSpanData for RecordBatch {
 
             index: usize,
         }
+
         impl<'a> Iter<'a> {
             fn new(names: &'a ListArray, types: &'a ListArray, values: &'a ListArray) -> Self {
                 assert_eq!(names.len(), types.len());

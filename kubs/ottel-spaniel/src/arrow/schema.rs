@@ -11,6 +11,7 @@ pub mod columns {
         name: &'static str,
         ty: DataType,
         nullable: bool,
+        elem_nullable: bool,
         is_list: bool,
     }
 
@@ -20,15 +21,22 @@ pub mod columns {
                 name,
                 ty,
                 nullable,
+                elem_nullable: false,
                 is_list: false,
             }
         }
 
-        const fn list(name: &'static str, ty: DataType, nullable: bool) -> Self {
+        const fn list(
+            name: &'static str,
+            ty: DataType,
+            nullable: bool,
+            elem_nullable: bool,
+        ) -> Self {
             Self {
                 name,
                 ty,
                 nullable,
+                elem_nullable,
                 is_list: true,
             }
         }
@@ -39,12 +47,13 @@ pub mod columns {
 
         pub fn as_list_field(&self) -> Field {
             assert!(self.is_list);
-            Field::new(self.name, self.ty.clone(), self.nullable)
+
+            Field::new(self.name, self.ty.clone(), self.elem_nullable)
         }
 
         pub fn as_field(&self) -> Field {
             if self.is_list {
-                return Field::new_list(self.name, self.as_list_field(), false);
+                return Field::new_list(self.name, self.as_list_field(), self.nullable);
             }
 
             Field::new(self.name, self.ty.clone(), self.nullable)
@@ -62,11 +71,11 @@ pub mod columns {
     pub static TIME_END: Column = Column::new("time_end", DataType::UInt64, false);
     pub static TIME_DURATION: Column = Column::new("time_duration", DataType::UInt64, false);
     pub static RES_ATTR_NAME: Column =
-        Column::list("resource_attribute_name", DataType::Utf8View, false);
+        Column::list("resource_attribute_name", DataType::Utf8View, true, false);
     pub static RES_ATTR_TYPE: Column =
-        Column::list("resource_attribute_type", DataType::Int8, false);
+        Column::list("resource_attribute_type", DataType::Int8, true, false);
     pub static RES_ATTR_VALUE: Column =
-        Column::list("resource_attribute_value", DataType::BinaryView, true);
+        Column::list("resource_attribute_value", DataType::BinaryView, true, true);
 }
 
 pub static SCHEMA: LazyLock<Arc<Schema>> = LazyLock::new(create_schema);
@@ -155,9 +164,5 @@ impl Attribute {
 
             name_builder.values().append_value(attr.key.as_str());
         }
-
-        name_builder.append(true);
-        ty_builder.append(true);
-        val_builder.append(true);
     }
 }

@@ -83,12 +83,21 @@ impl BatchBuilders {
         self.time_end.append_value(data.time_end);
         self.time_duration.append_value(data.time_duration);
 
-        Attribute::append(
-            &mut self.res_attr_name,
-            &mut self.res_attr_ty,
-            &mut self.res_attr_value,
-            data.resource_attributes.as_ref(),
-        );
+        if data.parent_span_id.is_some() {
+            Attribute::append(
+                &mut self.res_attr_name,
+                &mut self.res_attr_ty,
+                &mut self.res_attr_value,
+                data.resource_attributes.as_ref(),
+            );
+            self.res_attr_name.append(true);
+            self.res_attr_ty.append(true);
+            self.res_attr_value.append(true);
+        } else {
+            self.res_attr_name.append(false);
+            self.res_attr_ty.append(false);
+            self.res_attr_value.append(false);
+        }
     }
 
     fn build(&mut self) -> Result<RecordBatch, arrow::error::ArrowError> {

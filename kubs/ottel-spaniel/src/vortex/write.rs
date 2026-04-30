@@ -28,7 +28,7 @@ impl<'a> Writer<'a> {
     }
 
     async fn create_new_writer(&mut self) {
-        self.close_writer();
+        self.close_writer().await;
 
         let file_path = format!("{}/{}{}", Self::DIR, Self::PREF, self.file_id);
 
@@ -43,10 +43,11 @@ impl<'a> Writer<'a> {
         self.stats.set_dirty_file(&file_path).await;
     }
 
-    pub fn close_writer(&mut self) {
+    pub async fn close_writer(&mut self) {
         if let Some(writer) = self.writer.take() {
             let result = writer.finish().expect("writer.finish.ok");
             tracing::info!(len = result.footer().row_count(), "writer.finish");
+            self.stats.end_dirty_file().await;
         }
     }
 
@@ -116,10 +117,10 @@ impl<'a> SpanWriter for Writer<'a> {
     }
 
     async fn suspend(&mut self) {
-        self.close_writer();
+        self.close_writer().await;
     }
 
     async fn finish(mut self) {
-        self.close_writer();
+        self.close_writer().await;
     }
 }

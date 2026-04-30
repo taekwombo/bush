@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use arrow::array::{BooleanArray, Datum, RecordBatch};
+use arrow::array::{Array, BooleanArray, Datum, RecordBatch};
 use arrow::error::ArrowError;
 use parquet::arrow::ArrowSchemaConverter;
 use parquet::arrow::ProjectionMask;
@@ -13,6 +13,55 @@ use super::SCHEMA;
 
 pub trait CustomFilter: ArrowPredicate + Sync {
     fn eval(&self, batch: &RecordBatch) -> Result<BooleanArray, ArrowError>;
+
+    fn cloned(&self) -> Box<dyn CustomFilter>;
+}
+
+#[derive(Clone)]
+pub struct Null {
+    mask: ProjectionMask,
+    col_name: Arc<str>,
+    function: fn(&dyn Array) -> Result<BooleanArray, ArrowError>,
+}
+
+impl Null {
+    pub fn not_null(schema: &SchemaDescriptor, column: &str) -> Self {
+        Self {
+            mask: ProjectionMask::columns(schema, [column]),
+            col_name: Arc::from(column),
+            function: arrow::compute::is_not_null,
+        }
+    }
+
+    pub fn is_null(schema: &SchemaDescriptor, column: &str) -> Self {
+        Self {
+            mask: ProjectionMask::columns(schema, [column]),
+            col_name: Arc::from(column),
+            function: arrow::compute::is_null,
+        }
+    }
+}
+
+impl CustomFilter for Null {
+    fn eval(&self, batch: &RecordBatch) -> Result<BooleanArray, ArrowError> {
+        let col = batch.column_by_name(&self.col_name).expect("col.exists");
+
+        (self.function)(col)
+    }
+
+    fn cloned(&self) -> Box<dyn CustomFilter> {
+        Box::new(self.clone())
+    }
+}
+
+impl ArrowPredicate for Null {
+    fn projection(&self) -> &ProjectionMask {
+        &self.mask
+    }
+
+    fn evaluate(&mut self, batch: RecordBatch) -> Result<BooleanArray, ArrowError> {
+        self.eval(&batch)
+    }
 }
 
 #[derive(Clone)]
@@ -56,6 +105,10 @@ impl CustomFilter for Boolean {
         }
 
         Ok(result)
+    }
+
+    fn cloned(&self) -> Box<dyn CustomFilter> {
+        Box::new(self.clone())
     }
 }
 
@@ -127,6 +180,10 @@ impl CustomFilter for Filter {
 
         (self.function)(col, &*self.value)
     }
+
+    fn cloned(&self) -> Box<dyn CustomFilter> {
+        Box::new(self.clone())
+    }
 }
 
 impl ArrowPredicate for Filter {
@@ -161,19 +218,19 @@ async fn read_arrow_file(
     .unwrap()
 }
 
-pub struct Read<T> {
+pub struct Read {
     select: ProjectionMask,
-    filter: Vec<Box<T>>,
+    filter: Vec<Box<dyn CustomFilter>>,
     files: Vec<Box<Path>>,
     limit: Option<usize>,
     index: usize,
     reader: Option<ParquetRecordBatchReader>,
 }
 
-impl<T> Read<T> {
+impl Read {
     pub fn new<'a>(
         select: impl IntoIterator<Item = &'a str>,
-        make_filter: impl Fn(&SchemaDescriptor) -> Vec<Box<T>>,
+        make_filter: impl Fn(&SchemaDescriptor) -> Vec<Box<dyn CustomFilter>>,
         files: Vec<Box<Path>>,
     ) -> Self {
         let schema = ArrowSchemaConverter::new().convert(&SCHEMA).unwrap();
@@ -191,10 +248,7 @@ impl<T> Read<T> {
     }
 }
 
-impl<T> Read<T>
-where
-    T: ArrowPredicate + Clone,
-{
+impl Read {
     async fn init_reader(&mut self) {
         assert!(self.reader.is_none());
         let file = &self.files[self.index];
@@ -206,7 +260,7 @@ where
                 RowFilter::new(
                     self.filter
                         .iter()
-                        .map(|v| v.clone() as Box<dyn ArrowPredicate>)
+                        .map(|v| (*v).cloned() as Box<dyn ArrowPredicate>)
                         .collect(),
                 ),
                 self.limit,

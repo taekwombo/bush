@@ -1,5 +1,5 @@
 pub mod arrow;
-mod misc;
+pub mod misc;
 pub mod vortex;
 pub mod write;
 

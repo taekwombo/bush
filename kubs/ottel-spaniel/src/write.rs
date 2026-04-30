@@ -75,6 +75,15 @@ impl Stats {
             files.push(old);
         }
     }
+
+    pub async fn end_dirty_file(&self) {
+        let old = self.dirty_file.write().await.take();
+
+        if let Some(old) = old {
+            let mut files = self.files.write().await;
+            files.push(old);
+        }
+    }
 }
 
 #[derive(Debug)]

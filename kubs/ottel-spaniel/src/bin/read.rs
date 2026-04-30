@@ -35,7 +35,8 @@ fn read_arrow() {
     let cn = Filter::new_str(&schema, SPAN_NAME.name(), "org").contains();
     let eq = ottel_spaniel::arrow::Boolean::and(vec![Arc::new(st), Arc::new(cn)]);
 
-    let projection = parquet::arrow::ProjectionMask::columns(&schema, [SPAN_NAME.name(), TRACE_ID.name()]);
+    let projection =
+        parquet::arrow::ProjectionMask::columns(&schema, [SPAN_NAME.name(), TRACE_ID.name()]);
 
     let reader = builder
         .with_projection(projection)
@@ -73,10 +74,7 @@ fn convert(batch: &RecordBatch) {
     }
 }
 
-fn trace_id_as_hex<'a>(
-    value: &'a [u8],
-    bytes: &'a mut [u8; 32],
-) -> &'a str {
+fn trace_id_as_hex<'a>(value: &'a [u8], bytes: &'a mut [u8; 32]) -> &'a str {
     const_hex::encode_to_str(value, bytes).unwrap();
 
     unsafe { std::str::from_utf8_unchecked(bytes) }
@@ -84,49 +82,50 @@ fn trace_id_as_hex<'a>(
 
 async fn read_vortex() {
     use vortex::VortexSessionDefault;
-    // use vortex::array::arrays::Struct;
-    use vortex::file::OpenOptionsSessionExt;
+    use vortex::expr::*;
     use vortex::io::runtime::current::*;
     use vortex::io::runtime::*;
     use vortex::io::session::RuntimeSessionExt;
     use vortex::session::*;
-    // use vortex::expr;
 
-    let time = std::time::Instant::now();
-    let path = "data-vortex/spaniel-live-vortex-0";
+    use ottel_spaniel::Format;
+    use ottel_spaniel::vortex::read::*;
+
     let rt = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(rt.handle());
-    let oo = session.open_options().open_path(path).await.expect("ok");
 
-    println!("{:#?}", oo.footer());
-    // println!("{:#?}", oo.dtype());
-    // let filter = expr::get_item("name", expr::root());
-    // let filter = expr::ilike(filter, expr::lit("j%"));
+    let format = Format::Vortex {
+        session,
+        runtime: rt,
+    };
+    let files = ottel_spaniel::misc::read_dir("data-vortex")
+        .map(|v| std::path::PathBuf::from(format!("data-vortex/{v}")).into())
+        .collect();
 
-    // for i in oo.scan().unwrap().with_filter(filter).into_iter(&rt).unwrap() {
-    // let i = i.unwrap();
-    // let s = i.as_struct_typed();
-    // println!("{:?}", s.names());
+    let mut read = Read::new(&format, files).with_projection(select(["name"], root()));
 
-    // let st = i.downcast::<Struct>();
+    let mut unique = std::collections::HashSet::new();
+    let time = std::time::Instant::now();
 
-    // for i in 0..st.len() {
-    // let span = st.scalar_at(i).unwrap().as_struct().field("name").unwrap();
-    // println!("{}", span);
-    // }
-    // }
+    while let Some(arr) = read.next_batch().await {
+        for name in arr.get_names() {
+            let name = name.as_utf8().value().unwrap().as_str();
 
+            if unique.contains(name) {
+                continue;
+            }
+
+            unique.insert(name.to_owned());
+        }
+    }
+    println!("{:#?}", unique);
     println!("Elapsed: {}", time.elapsed().as_millis());
-
-    let names =
-        ottel_spaniel::vortex::read::read_unique_span_names(&session, &rt, 0, u64::MAX).await;
-    let mut names = names.into_iter().collect::<Vec<_>>();
-    names.sort();
-    println!("{:?}", names);
 }
 
 #[tokio::main]
 async fn main() {
     read_arrow();
+    // if false {
     read_vortex().await;
+    // }
 }

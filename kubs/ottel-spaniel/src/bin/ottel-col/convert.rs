@@ -40,6 +40,7 @@ pub fn request_to_span_data(request: ExportTraceServiceRequest) -> Vec<SpanData>
                     time_end: span.end_time_unix_nano,
                     time_duration: span.end_time_unix_nano - span.start_time_unix_nano,
 
+                    span_attributes: span.attributes,
                     resource_attributes: rs_attrs.clone(),
                 });
             }

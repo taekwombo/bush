@@ -198,7 +198,7 @@ impl ArrowPredicate for Filter {
 
 async fn read_arrow_file(
     path: Box<Path>,
-    projection: ProjectionMask,
+    projection: Option<ProjectionMask>,
     filter: RowFilter,
     limit: Option<usize>,
 ) -> ParquetRecordBatchReader {
@@ -206,7 +206,11 @@ async fn read_arrow_file(
         tracing::info!(file = ?path, "Reading");
         let file = std::fs::File::open(path).expect("file.open");
         let builder = ParquetRecordBatchReaderBuilder::try_new(file).expect("builder.new");
-        let mut builder = builder.with_projection(projection).with_row_filter(filter);
+        let mut builder = builder.with_row_filter(filter);
+
+        if let Some(proj) = projection {
+            builder = builder.with_projection(proj);
+        }
 
         if let Some(limit) = limit {
             builder = builder.with_limit(limit);
@@ -219,7 +223,7 @@ async fn read_arrow_file(
 }
 
 pub struct Read {
-    select: ProjectionMask,
+    select: Option<ProjectionMask>,
     filter: Vec<Box<dyn CustomFilter>>,
     files: Vec<Box<Path>>,
     limit: Option<usize>,
@@ -229,12 +233,12 @@ pub struct Read {
 
 impl Read {
     pub fn new<'a>(
-        select: impl IntoIterator<Item = &'a str>,
+        select: Option<impl IntoIterator<Item = &'a str>>,
         make_filter: impl Fn(&SchemaDescriptor) -> Vec<Box<dyn CustomFilter>>,
         files: Vec<Box<Path>>,
     ) -> Self {
         let schema = ArrowSchemaConverter::new().convert(&SCHEMA).unwrap();
-        let select = ProjectionMask::columns(&schema, select);
+        let select = select.map(|s| ProjectionMask::columns(&schema, s));
         let filter = make_filter(&schema);
 
         Self {

@@ -6,7 +6,8 @@ use poem::{EndpointExt, Route, Server, post};
 
 use ottel_spaniel::{Format, Sink, Stats};
 
-mod handlers;
+mod collect;
+mod search;
 
 pub struct Options {
     pub host: &'static str,
@@ -25,13 +26,14 @@ impl Options {
 }
 
 pub async fn run_server(options: Options, format: Format, stats: Stats, sink: Sink) {
+    use collect::*;
+    use search::*;
+
     let routes = Route::new()
-        .at("/v1/traces", post(handlers::v1_handle_export_trace_request))
-        .at("/v0/search/names", post(handlers::v0_search_get_span_names))
-        .at(
-            "/v0/search/services",
-            post(handlers::v0_search_get_svc_names),
-        )
+        .at("/v1/traces", post(v1_handle_export_trace_request))
+        .at("/v0/search/span", post(v0_search_traces))
+        .at("/v0/search/span/name", post(v0_search_get_span_names))
+        .at("/v0/search/resource/name", post(v0_search_get_svc_names))
         .with(Cors::default())
         .with(AddData::new(sink))
         .with(AddData::new(stats))

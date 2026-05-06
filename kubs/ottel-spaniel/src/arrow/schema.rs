@@ -74,8 +74,16 @@ pub mod columns {
         Column::list("resource_attribute_name", DataType::Utf8View, true, false);
     pub static RES_ATTR_TYPE: Column =
         Column::list("resource_attribute_type", DataType::Int8, true, false);
-    pub static RES_ATTR_VALUE: Column =
-        Column::list("resource_attribute_value", DataType::BinaryView, true, true);
+    pub static RES_ATTR_VALUE: Column = Column::list(
+        "resource_attribute_value",
+        DataType::BinaryView,
+        true,
+        false,
+    );
+    pub static SPAN_ATTR_NAME: Column = Column::list("attr_name", DataType::Utf8View, false, false);
+    pub static SPAN_ATTR_TYPE: Column = Column::list("attr_type", DataType::Int8, false, false);
+    pub static SPAN_ATTR_VALUE: Column =
+        Column::list("attr_value", DataType::BinaryView, false, false);
 }
 
 pub static SCHEMA: LazyLock<Arc<Schema>> = LazyLock::new(create_schema);
@@ -97,6 +105,9 @@ fn create_schema() -> Arc<Schema> {
         RES_ATTR_NAME.as_field(),
         RES_ATTR_TYPE.as_field(),
         RES_ATTR_VALUE.as_field(),
+        SPAN_ATTR_NAME.as_field(),
+        SPAN_ATTR_TYPE.as_field(),
+        SPAN_ATTR_VALUE.as_field(),
     ];
 
     Arc::new(Schema::new(cols))
@@ -105,7 +116,6 @@ fn create_schema() -> Arc<Schema> {
 pub struct Attribute;
 
 impl Attribute {
-    pub const FIELD_NULL: i8 = 0;
     pub const FIELD_STR: i8 = 1;
     pub const FIELD_NUM_I: i8 = 2;
     pub const FIELD_NUM_F: i8 = 3;

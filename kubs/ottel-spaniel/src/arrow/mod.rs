@@ -1,5 +1,5 @@
 mod build;
-mod ext;
+pub mod ext;
 mod read;
 mod schema;
 mod write;

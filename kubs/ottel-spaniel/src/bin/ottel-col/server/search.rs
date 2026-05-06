@@ -1,32 +1,13 @@
-use opentelemetry_proto::tonic::collector::trace::v1::{
-    ExportTraceServiceRequest, ExportTraceServiceResponse,
-};
 use poem::web::{Data, Json};
 
-use ottel_spaniel::{Format, Sink, Stats};
-
-#[poem::handler]
-pub async fn v1_handle_export_trace_request(
-    Data(sink): Data<&Sink>,
-    Json(body): Json<ExportTraceServiceRequest>,
-) -> Json<ExportTraceServiceResponse> {
-    let spans = crate::convert::request_to_span_data(body);
-
-    if !spans.is_empty() {
-        sink.send(spans).await;
-    }
-
-    Json(ExportTraceServiceResponse {
-        partial_success: None,
-    })
-}
+use ottel_spaniel::{Format, Stats};
 
 #[poem::handler]
 pub async fn v0_search_get_svc_names(
     Data(format): Data<&Format>,
     Data(stats): Data<&Stats>,
-    Json(body): Json<ServiceNamesForCompletionRequest>,
-) -> Json<ServiceNamesForCompletionResponse> {
+    Json(body): Json<request::NameFilter>,
+) -> Json<response::Names> {
     let files: Vec<Box<_>> = { stats.files.read().await.iter().cloned().collect() };
     let mut names: Sagarray<50, String> = Sagarray::new();
 
@@ -34,11 +15,11 @@ pub async fn v0_search_get_svc_names(
         Format::Arrow => {
             use ottel_spaniel::arrow::{AsSpanData, Filter, Null, Read, columns};
             let mut read = Read::new(
-                [
+                Some([
                     columns::RES_ATTR_NAME.name(),
                     columns::RES_ATTR_TYPE.name(),
                     columns::RES_ATTR_VALUE.name(),
-                ],
+                ]),
                 |schema| {
                     vec![
                         Box::new(Null::not_null(schema, columns::PARENT_SPAN_ID.name())),
@@ -82,15 +63,15 @@ pub async fn v0_search_get_svc_names(
 
     let mut names: Vec<_> = names.into_vec();
     names.sort();
-    Json(ServiceNamesForCompletionResponse { svc_names: names })
+    Json(response::Names { names })
 }
 
 #[poem::handler]
 pub async fn v0_search_get_span_names(
     Data(format): Data<&Format>,
     Data(stats): Data<&Stats>,
-    Json(body): Json<SpanNamesForCompletionRequest>,
-) -> Json<SpanNamesForCompletionResponse> {
+    Json(body): Json<request::NameFilter>,
+) -> Json<response::Names> {
     let files: Vec<Box<_>> = { stats.files.read().await.iter().cloned().collect() };
     let mut names: Sagarray<50, String> = Sagarray::new();
 
@@ -102,7 +83,7 @@ pub async fn v0_search_get_span_names(
             };
 
             let mut read = Read::new(
-                [SPAN_NAME.name()],
+                Some([SPAN_NAME.name()]),
                 |schema| {
                     let mut base: Vec<Box<dyn CustomFilter>> = vec![
                         Box::new(
@@ -191,61 +172,59 @@ pub async fn v0_search_get_span_names(
     let mut span_names: Vec<_> = names.into_vec();
     span_names.sort();
 
-    Json(SpanNamesForCompletionResponse { span_names })
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ServiceNamesForCompletionRequest {
-    start_time_ms: u64,
-    end_time_ms: u64,
-    contains: Option<String>,
-    limit: u16,
-}
-
-#[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ServiceNamesForCompletionResponse {
-    svc_names: Vec<String>,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpanNamesForCompletionRequest {
-    start_time_ms: u64,
-    end_time_ms: u64,
-    contains: Option<String>,
-    limit: u16,
-}
-
-#[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpanNamesForCompletionResponse {
-    span_names: Vec<String>,
+    Json(response::Names { names: span_names })
 }
 
 #[poem::handler]
 pub async fn v0_search_traces(
-    Data(_format): Data<&Format>,
-    Data(_stats): Data<&Stats>,
-    Json(_body): Json<SearchTracesRequest>,
-) -> Json<SearchTracesResponse> {
-    todo!()
-}
+    Data(format): Data<&Format>,
+    Data(stats): Data<&Stats>,
+    Json(body): Json<request::TraceFilter>,
+) -> Json<response::Traces> {
+    // TODO: Should return top level spans only.
 
-#[allow(dead_code)]
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchTracesRequest {
-    end_time_ms: u64,
-    start_time_ms: u64,
-}
+    let files: Vec<Box<_>> = { stats.files.read().await.iter().cloned().collect() };
+    let mut traces: Sagarray<50, Span> = Sagarray::new();
 
-#[allow(dead_code)]
-#[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchTracesResponse {
-    data: u8,
+    if let Format::Vortex { .. } = format {
+        return Json(response::Traces { traces: vec![] });
+    }
+
+    use ottel_spaniel::arrow::{
+        AsSpanData, Filter, Read,
+        columns::{TIME_END, TIME_START},
+        ext::*,
+    };
+
+    let mut read = Read::new(
+        None::<Vec<&str>>,
+        |schema| {
+            vec![
+                Box::new(
+                    Filter::new_u64(schema, TIME_START.name(), body.start_time_ms * 1_000_000)
+                        .gte(),
+                ),
+                Box::new(
+                    Filter::new_u64(schema, TIME_END.name(), body.end_time_ms * 1_000_000).lte(),
+                ),
+            ]
+        },
+        files,
+    );
+
+    'outter: while let Some(batch) = read.next_batch().await {
+        for span in batch.get_spans() {
+            traces.push(span);
+
+            if traces.len >= traces.cap {
+                break 'outter;
+            }
+        }
+    }
+
+    Json(response::Traces {
+        traces: traces.into_vec(),
+    })
 }
 
 struct Sagarray<const CAP: usize, T> {
@@ -276,7 +255,7 @@ impl<const CAP: usize, T> Sagarray<CAP, T> {
 
         for _ in 0..self.len {
             unsafe {
-                let old = ptr.read();
+                let old: std::mem::MaybeUninit<T> = ptr.read();
                 ptr = ptr.add(1);
                 result.push(old.assume_init());
             }
@@ -301,5 +280,38 @@ impl<const CAP: usize, T: PartialEq> Sagarray<CAP, T> {
         }
 
         false
+    }
+}
+
+pub mod request {
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NameFilter {
+        pub start_time_ms: u64,
+        pub end_time_ms: u64,
+        pub contains: Option<String>,
+        pub limit: u8,
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct TraceFilter {
+        pub start_time_ms: u64,
+        pub end_time_ms: u64,
+        pub limit: u8,
+    }
+}
+
+pub mod response {
+    #[derive(Debug, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Names {
+        pub names: Vec<String>,
+    }
+
+    #[derive(Debug, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Traces {
+        pub traces: Vec<ottel_spaniel::arrow::ext::Span>,
     }
 }

@@ -18,6 +18,9 @@ struct BatchBuilders {
     res_attr_name: ListBuilder<StringViewBuilder>,
     res_attr_ty: ListBuilder<Int8Builder>,
     res_attr_value: ListBuilder<BinaryViewBuilder>,
+    span_attr_name: ListBuilder<StringViewBuilder>,
+    span_attr_ty: ListBuilder<Int8Builder>,
+    span_attr_value: ListBuilder<BinaryViewBuilder>,
 }
 
 impl BatchBuilders {
@@ -46,6 +49,16 @@ impl BatchBuilders {
         let res_attr_value = ListBuilder::with_capacity(BinaryViewBuilder::new(), capacity)
             .with_field(columns::RES_ATTR_VALUE.as_list_field());
 
+        let span_attr_name = ListBuilder::with_capacity(
+            StringViewBuilder::new().with_deduplicate_strings(),
+            capacity,
+        )
+        .with_field(columns::SPAN_ATTR_NAME.as_list_field());
+        let span_attr_ty = ListBuilder::with_capacity(Int8Builder::new(), capacity)
+            .with_field(columns::SPAN_ATTR_TYPE.as_list_field());
+        let span_attr_value = ListBuilder::with_capacity(BinaryViewBuilder::new(), capacity)
+            .with_field(columns::SPAN_ATTR_VALUE.as_list_field());
+
         Self {
             trace_id,
             span_id,
@@ -60,6 +73,9 @@ impl BatchBuilders {
             res_attr_name,
             res_attr_ty,
             res_attr_value,
+            span_attr_name,
+            span_attr_ty,
+            span_attr_value,
         }
     }
 
@@ -98,6 +114,16 @@ impl BatchBuilders {
             self.res_attr_ty.append(false);
             self.res_attr_value.append(false);
         }
+
+        Attribute::append(
+            &mut self.span_attr_name,
+            &mut self.span_attr_ty,
+            &mut self.span_attr_value,
+            data.span_attributes.as_ref(),
+        );
+        self.span_attr_name.append(true);
+        self.span_attr_ty.append(true);
+        self.span_attr_value.append(true);
     }
 
     fn build(&mut self) -> Result<RecordBatch, arrow::error::ArrowError> {
@@ -117,6 +143,9 @@ impl BatchBuilders {
             Arc::new(self.res_attr_name.finish()),
             Arc::new(self.res_attr_ty.finish()),
             Arc::new(self.res_attr_value.finish()),
+            Arc::new(self.span_attr_name.finish()),
+            Arc::new(self.span_attr_ty.finish()),
+            Arc::new(self.span_attr_value.finish()),
         ];
 
         #[allow(clippy::borrow_interior_mutable_const)]

@@ -18,6 +18,7 @@ pub struct SpanData {
     pub time_start: u64,
     pub time_end: u64,
     pub time_duration: u64,
+    pub span_attributes: Vec<opentelemetry_proto::tonic::common::v1::KeyValue>,
     // TODO: revisit type
     pub resource_attributes: std::sync::Arc<Vec<opentelemetry_proto::tonic::common::v1::KeyValue>>,
 }

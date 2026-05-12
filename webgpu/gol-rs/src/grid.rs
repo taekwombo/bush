@@ -82,4 +82,13 @@ impl Grid {
 
         vec
     }
+
+    pub fn resize(&mut self, window_size: PhysicalSize<u32>) {
+        let (rows, cols, width, height) = Self::calc(self.cell_size, window_size);
+
+        self.rows = rows;
+        self.cols = cols;
+        self.width = width;
+        self.height = height;
+    }
 }

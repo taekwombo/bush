@@ -2,6 +2,55 @@ use super::Grid;
 use wgpu::util::DeviceExt;
 use wgpu::*;
 
+pub struct UBindGroups {
+    a: BindGroup,
+    b: BindGroup,
+    c: usize,
+}
+
+impl UBindGroups {
+    fn new(device: &Device, layout: &BindGroupLayout, bufs: &[UserBuffer], c: &UserBuffer, n: &UserBuffer) -> Self {
+        let bufsa = {
+            let mut r: Vec<_> = bufs.iter().map(|b| b.as_bg(None)).collect();
+            r.push(c.as_bg(Some(c.binding)));
+            r.push(n.as_bg(Some(n.binding)));
+            r
+        };
+        let bufsb = {
+            let mut r: Vec<_> = bufs.iter().map(|b| b.as_bg(None)).collect();
+            r.push(c.as_bg(Some(n.binding)));
+            r.push(n.as_bg(Some(c.binding)));
+            r
+        };
+
+        Self {
+            a: device.create_bind_group(&BindGroupDescriptor {
+                layout,
+                label: Some("bg_a"),
+                entries: &bufsa,
+            }),
+            b: device.create_bind_group(&BindGroupDescriptor {
+                layout,
+                label: Some("bg_b"),
+                entries: &bufsb,
+            }),
+            c: 0,
+        }
+    }
+
+    pub fn get(&self) -> &BindGroup {
+        if self.c % 2 == 0 {
+            &self.a
+        } else {
+            &self.b
+        }
+    }
+
+    pub fn inc(&mut self) {
+        self.c = self.c.wrapping_add(1);
+    }
+}
+
 pub struct UserBuffer {
     pub name: &'static str,
     pub buffer: Buffer,
@@ -9,6 +58,7 @@ pub struct UserBuffer {
     pub size: u64,
     pub visibility: ShaderStages,
     pub ty: BufferBindingType,
+    usage: BufferUsages,
 }
 
 impl UserBuffer {
@@ -32,7 +82,16 @@ impl UserBuffer {
                 usage,
                 contents: data,
             }),
+            usage,
         }
+    }
+
+    fn update(&mut self, device: &Device, data: &[u8]) {
+        self.buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: Some(self.name),
+            usage: self.usage,
+            contents: data,
+        });
     }
 
     pub fn as_bgl(&self) -> BindGroupLayoutEntry {
@@ -48,9 +107,9 @@ impl UserBuffer {
         }
     }
 
-    pub fn as_bg(&self) -> BindGroupEntry {
+    pub fn as_bg(&self, binding: Option<u32>) -> BindGroupEntry {
         BindGroupEntry {
-            binding: self.binding,
+            binding: binding.unwrap_or(self.binding),
             resource: BindingResource::Buffer(BufferBinding {
                 buffer: &self.buffer,
                 offset: 0,
@@ -62,6 +121,8 @@ impl UserBuffer {
 
 pub struct UBuffers {
     buffers: Vec<UserBuffer>,
+    pub cells: UserBuffer,
+    pub ncells: UserBuffer,
 }
 
 impl UBuffers {
@@ -101,19 +162,16 @@ impl UBuffers {
         let cells_buffer = UserBuffer::new(
             device,
             &cells,
-            BufferUsages::UNIFORM | BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            BufferUsages::STORAGE | BufferUsages::COPY_DST, /* COPY_DST for Queue::write_buffer */
             "cells",
             2,
             ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
-            BufferBindingType::Storage { read_only: true },
+            BufferBindingType::Storage { read_only: false },
         );
         let next_cells_buffer = UserBuffer::new(
             device,
             &cells,
-            BufferUsages::UNIFORM
-                | BufferUsages::STORAGE
-                | BufferUsages::COPY_DST
-                | BufferUsages::COPY_SRC,
+            BufferUsages::STORAGE | BufferUsages::COPY_DST, /* COPY_DST for Queue::write_buffer */
             "next_cells",
             3,
             ShaderStages::FRAGMENT | ShaderStages::COMPUTE,
@@ -124,42 +182,31 @@ impl UBuffers {
             buffers: vec![
                 cell_size_buffer,
                 viewport_buffer,
-                cells_buffer,
-                next_cells_buffer,
             ],
+            cells: cells_buffer,
+            ncells: next_cells_buffer,
         }
     }
 
-    pub fn get(&self, name: &'static str) -> &UserBuffer {
-        for buf in &self.buffers {
-            if buf.name == name {
-                return buf;
-            }
+    fn get_buffers(&self) -> impl Iterator<Item = &UserBuffer> {
+        let mut r = Vec::with_capacity(self.buffers.len() + 2);
+        for b in self.buffers.iter() {
+            r.push(b);
         }
-
-        let names = self.buffers.iter().map(|n| n.name).collect::<Vec<_>>();
-
-        println!(
-            "Couldn't find buffer {}. Did you mean one of {}",
-            name,
-            names.join(", ")
-        );
-        panic!();
+        r.push(&self.cells);
+        r.push(&self.ncells);
+        r.into_iter()
     }
 
     pub fn get_bgl(&self, device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("the_only_one_bgl"),
-            entries: &self.buffers.iter().map(|b| b.as_bgl()).collect::<Vec<_>>(),
+            entries: &self.get_buffers().map(|b| b.as_bgl()).collect::<Vec<_>>(),
         })
     }
 
-    pub fn get_bg(&self, device: &Device, layout: &BindGroupLayout) -> BindGroup {
-        device.create_bind_group(&BindGroupDescriptor {
-            layout,
-            label: Some("the_only_one_bg"),
-            entries: &self.buffers.iter().map(|b| b.as_bg()).collect::<Vec<_>>(),
-        })
+    pub fn get_bg(&self, device: &Device, layout: &BindGroupLayout) -> UBindGroups {
+        UBindGroups::new(device, layout, &self.buffers, &self.cells, &self.ncells)
     }
 
     pub fn get_pl(&self, device: &Device, bgls: &[&BindGroupLayout]) -> PipelineLayout {
@@ -168,6 +215,18 @@ impl UBuffers {
             bind_group_layouts: bgls,
             push_constant_ranges: &[],
         })
+    }
+
+    pub fn update(&mut self, device: &Device, grid: &Grid) {
+        let cells = grid.get_cell_buffer();
+        self.cells.update(device, &cells);
+        self.ncells.update(device, &cells);
+
+        for b in self.buffers.iter_mut() {
+            if b.name == "viewport" {
+                b.update(device, &grid.get_viewport_data());
+            }
+        }
     }
 }
 

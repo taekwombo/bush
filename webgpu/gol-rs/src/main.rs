@@ -1,4 +1,4 @@
-#![feature(int_roundings)]
+// WINIT_UNIX_BACKEND=x11 RUST_BACKTRACE=1 cargo +1.94.1 run --release --
 
 use winit::{
     event_loop::{ControlFlow, EventLoop},
@@ -25,12 +25,12 @@ fn main() {
     let swapchain_format = surface.get_supported_formats(&adapter)[0];
 
     // GOL thingies.
-    let grid = Grid::new(cell_size, init_size);
+    let mut grid = Grid::new(cell_size, init_size);
 
-    let buffers = wgpu_utils::UBuffers::new(&device, &grid);
+    let mut buffers = wgpu_utils::UBuffers::new(&device, &grid);
 
     let bind_group_layout = buffers.get_bgl(&device);
-    let bind_group = buffers.get_bg(&device, &bind_group_layout);
+    let mut bind_group = buffers.get_bg(&device, &bind_group_layout);
     let pipeline_layout = buffers.get_pl(&device, &[&bind_group_layout]);
 
     let program = wgpu_utils::Program::new(&device, swapchain_format, &pipeline_layout);
@@ -75,7 +75,7 @@ fn main() {
                     });
 
                     render_pass.set_pipeline(&program.render_pipeline);
-                    render_pass.set_bind_group(0, &bind_group, &[]);
+                    render_pass.set_bind_group(0, &bind_group.get(), &[]);
                     render_pass
                         .set_vertex_buffer(0, program.vertex_buffer.slice(0..program.vb_size));
                     render_pass.draw(0..4, 0..1);
@@ -86,33 +86,40 @@ fn main() {
                         encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
 
                     compute_pass.set_pipeline(&program.compute_pipeline);
-                    compute_pass.set_bind_group(0, &bind_group, &[]);
+                    compute_pass.set_bind_group(0, &bind_group.get(), &[]);
                     compute_pass.dispatch_workgroups(grid.cols as u32, grid.rows as u32, 1);
 
-                    let src = buffers.get("next_cells");
-                    let dst = buffers.get("cells");
-
                     drop(compute_pass);
-
-                    encoder.copy_buffer_to_buffer(&src.buffer, 0, &dst.buffer, 0, src.size);
 
                     if compute_single_tick {
                         compute_single_tick = false;
                     }
                 }
 
+                bind_group.inc();
                 queue.submit(Some(encoder.finish()));
                 frame.present();
 
                 window.request_redraw();
             }
             Event::WindowEvent {
-                event: WindowEvent::Resized(_size),
+                event: WindowEvent::Resized(size),
                 ..
             } => {
-                // TODO: reset cell buffers.
-                // configure surface
-                // grid.resize(size);
+                grid.resize(size);
+                buffers.update(&device, &grid);
+                bind_group = buffers.get_bg(&device, &bind_group_layout);
+                surface.configure(
+                    &device,
+                    &wgpu::SurfaceConfiguration {
+                        alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        format: swapchain_format,
+                        width: size.width,
+                        height: size.height,
+                        present_mode: wgpu::PresentMode::Fifo,
+                    },
+                );
             }
             Event::WindowEvent {
                 event:
@@ -129,8 +136,8 @@ fn main() {
             } => match keycode {
                 VirtualKeyCode::R => {
                     let cells = grid.get_cell_buffer();
-                    let next_cells_buffer = buffers.get("next_cells");
-                    let cells_buffer = buffers.get("cells");
+                    let next_cells_buffer = &buffers.cells;
+                    let cells_buffer = &buffers.ncells;
 
                     queue.write_buffer(&cells_buffer.buffer, 0, &cells);
                     queue.write_buffer(&next_cells_buffer.buffer, 0, &cells);

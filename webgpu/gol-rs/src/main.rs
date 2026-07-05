@@ -18,14 +18,15 @@ fn main() {
     // Winit thingies.
     let event_loop = EventLoop::new();
     let window = Window::new(&event_loop).expect("window created");
-    let init_size = window.inner_size();
+    let mut size = window.inner_size();
+    let mut did_resize = false;
 
     // WGPU thingies.
     let (adapter, device, queue, surface) = smol::block_on(init_wgpu(&window));
     let swapchain_format = surface.get_supported_formats(&adapter)[0];
 
     // GOL thingies.
-    let mut grid = Grid::new(cell_size, init_size);
+    let mut grid = Grid::new(cell_size, size);
 
     let mut buffers = wgpu_utils::UBuffers::new(&device, &grid);
 
@@ -41,17 +42,33 @@ fn main() {
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: swapchain_format,
-            width: init_size.width,
-            height: init_size.height,
+            width: size.width,
+            height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         },
     );
-
     event_loop.run(move |event, _, control_flow| {
         use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 
         match event {
             Event::RedrawRequested(_) => {
+                if !paused && did_resize {
+                    did_resize = false;
+                    grid.resize(size);
+                    buffers.update(&device, &grid);
+                    bind_group = buffers.get_bg(&device, &bind_group_layout);
+                    surface.configure(
+                        &device,
+                        &wgpu::SurfaceConfiguration {
+                            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                            format: swapchain_format,
+                            width: size.width,
+                            height: size.height,
+                            present_mode: wgpu::PresentMode::Fifo,
+                        },
+                    );
+                }
                 let frame = surface.get_current_texture().expect("get_current_texture");
                 let view = frame
                     .texture
@@ -103,23 +120,12 @@ fn main() {
                 window.request_redraw();
             }
             Event::WindowEvent {
-                event: WindowEvent::Resized(size),
+                event: WindowEvent::Resized(nsize),
                 ..
             } => {
-                grid.resize(size);
-                buffers.update(&device, &grid);
-                bind_group = buffers.get_bg(&device, &bind_group_layout);
-                surface.configure(
-                    &device,
-                    &wgpu::SurfaceConfiguration {
-                        alpha_mode: wgpu::CompositeAlphaMode::Auto,
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                        format: swapchain_format,
-                        width: size.width,
-                        height: size.height,
-                        present_mode: wgpu::PresentMode::Fifo,
-                    },
-                );
+                size = nsize;
+                did_resize = true;
+                paused = true;
             }
             Event::WindowEvent {
                 event:

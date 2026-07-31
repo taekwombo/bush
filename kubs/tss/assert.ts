@@ -1,6 +1,10 @@
-import { fatal } from './log.ts';
+import { error } from './log.ts';
 
 export function assert<T>(condition: T | null | undefined | false, message: string, ...args: any[]): T {
-    if (!condition) fatal(message, ...args);
+    if (!condition) {
+        const msg = `Assertion fialed: ${message}`;
+        error(msg, ...args);
+        throw new Error(msg);
+    }
     return condition;
 }

@@ -1,0 +1,19 @@
+[package]
+name = "trayray"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "trayray"
+path = "./src/lib.rs"
+
+[dependencies]
+opentelemetry = "0.32.0"
+opentelemetry-otlp = "0.32.0"
+opentelemetry_sdk = "0.32.1"
+tracing = "0.1.44"
+tracing-opentelemetry = "0.33.0"
+tracing-subscriber = {
+    version = "0.3.23",
+    features = ["fmt", "env-filter", "registry"],
+}

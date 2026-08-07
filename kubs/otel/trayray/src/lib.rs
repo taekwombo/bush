@@ -99,3 +99,13 @@ where
 
     (logger_provider, tracing_layer)
 }
+
+pub fn otel_metrics_setup() {
+    let exporter = opentelemetry_otlp::MetricExporter::builder().build().unwrap();
+    let provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
+        .with_periodic_exporter(exporter)
+        .with_resource(get_resource())
+        .build();
+
+    opentelemetry::global::set_meter_provider(provider);
+}

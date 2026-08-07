@@ -12,6 +12,30 @@ fn get_resource() -> opentelemetry_sdk::Resource {
         .build()
 }
 
+pub fn otel_trace_layer_batch<S>() -> impl Layer<S>
+where
+    S: Subscriber,
+    S: for<'span> LookupSpan<'span>,
+{
+    use opentelemetry::trace::TracerProvider;
+
+    let span_exporter = opentelemetry_otlp::SpanExporter::builder().build().unwrap();
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(span_exporter)
+        .with_resource(get_resource())
+        .build();
+
+    let trayray_tracer = tracer_provider.tracer("trayray");
+
+    // Set tracer provider for the duration of the program.
+    //
+    // See create_span_with_custom_tracer.
+    opentelemetry::global::set_tracer_provider(tracer_provider);
+
+    tracing_opentelemetry::layer().with_tracer(trayray_tracer)
+}
+
+
 pub fn otel_trace_layer<S>() -> impl Layer<S>
 where
     S: Subscriber,
@@ -19,7 +43,7 @@ where
 {
     use opentelemetry::trace::TracerProvider;
 
-    let span_exporter = opentelemetry_otlp::SpanExporter::builder().build() .unwrap();
+    let span_exporter = opentelemetry_otlp::SpanExporter::builder().build().unwrap();
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_simple_exporter(span_exporter)
         .with_resource(get_resource())
@@ -46,4 +70,32 @@ pub fn otel_init_propagation() {
         Box::new(baggage_propagator),
     ]);
     opentelemetry::global::set_text_map_propagator(propagator);
+}
+
+/// https://docs.rs/opentelemetry-appender-log/latest/opentelemetry_appender_log/index.html#getting-started
+/// +
+/// https://docs.rs/opentelemetry-appender-tracing/latest/opentelemetry_appender_tracing/
+///
+///
+/// Sets both log and tracing crates support for OTEL Log export.
+pub fn otel_log_appender<S>() -> (opentelemetry_sdk::logs::SdkLoggerProvider, impl Layer<S>) 
+where
+    S: Subscriber,
+    S: for<'span> LookupSpan<'span>,
+{
+    let exporter = opentelemetry_otlp::LogExporter::builder().build().unwrap();
+    let logger_provider = opentelemetry_sdk::logs::SdkLoggerProvider::builder()
+        .with_log_processor(
+            opentelemetry_sdk::logs::BatchLogProcessor::builder(exporter).build(),
+        )
+        .build();
+
+    let otel_log_appender = opentelemetry_appender_log::OpenTelemetryLogBridge::new(&logger_provider);
+
+    log::set_boxed_logger(Box::new(otel_log_appender)).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+
+    let tracing_layer = opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(&logger_provider);
+
+    (logger_provider, tracing_layer)
 }

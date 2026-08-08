@@ -13,28 +13,36 @@ export function bool<O extends Options<boolean>>(opt: O): Arg<boolean, O> {
 
     const offName = `no-${opt.name}`;
 
-    return new GenericInput<K, V>(Parse.bool(offName, opt.name, opt.shortName), { ...opt, typeName: 'boolean' }, [offName], false);
+    return new GenericInput<K, V>(
+        Parse.bool(offName, opt.name, opt.shortName),
+        { ...opt, typeName: 'boolean' },
+        {
+            expectsValue: false,
+            ensureUnique: true,
+            extraNames: [{ name: offName }],
+        }
+    );
 }
 
 export function num<O extends Options<number>>(opt: O): Arg<number, O> {
     type K = InferK<O>;
     type V = InferV<number, O>;
 
-    return new GenericInput<K, V>(Parse.number, { ...opt, typeName: 'number' }, []);
+    return new GenericInput<K, V>(Parse.number, { ...opt, typeName: 'number' });
 }
 
 export function int<O extends Options<number>>(opt: O): Arg<number, O> {
     type K = InferK<O>;
     type V = InferV<number, O>;
 
-    return new GenericInput<K, V>(Parse.integer, { ...opt, typeName: 'integer' }, []);
+    return new GenericInput<K, V>(Parse.integer, { ...opt, typeName: 'integer' });
 }
 
 export function str<O extends Options<string>>(opt: O): Arg<string, O> {
     type K = InferK<O>;
     type V = InferV<string, O>;
 
-    return new GenericInput<K, V>(Parse.str, { ...opt, typeName: 'string' }, []);
+    return new GenericInput<K, V>(Parse.str, { ...opt, typeName: 'string' });
 }
 
 export function strEnum<O extends (Options<E> & { variants: E[] }), E extends string>(opt: O): CliInput<InferK<O>, InferV<E, O>> {
@@ -49,7 +57,7 @@ export function strEnum<O extends (Options<E> & { variants: E[] }), E extends st
     type K = InferK<O>;
     type V = InferV<E, O>;
 
-    const input = new GenericInput<K, V>(Parse.strEnum(opt.variants), { ...opt, typeName: 'string' }, []);
+    const input = new GenericInput<K, V>(Parse.strEnum(opt.variants), { ...opt, typeName: 'string' });
 
     input.help().addInfo(`variants=${opt.variants.join(', ')}`);
 
@@ -60,7 +68,7 @@ export function range<O extends Options<[number, number]>>(opt: O): Arg<[number,
     type K = InferK<O>;
     type V = InferV<[number, number], O>;
 
-    return new GenericInput<K, V>(Parse.range, { ...opt, typeName: 'range' }, []);
+    return new GenericInput<K, V>(Parse.range, { ...opt, typeName: 'range' });
 }
 
 class Parse {

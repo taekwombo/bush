@@ -21,10 +21,10 @@ enum CompletionType {
 }
 
 const PsqlFlag = {
-    Host: new Flag(['--host', '-h']),
-    Port: new Flag(['--port', '-p']),
-    User: new Flag(['--username', '-U']),
-    Database: new Flag(['--dbname', '-d']),
+    Host: Flag.new('host', 'h'),
+    Port: Flag.new('port', 'p'),
+    User: Flag.new('username', 'U'),
+    Database: Flag.new('dbname', 'd'),
 };
 
 const cmp = Deno.args[0];

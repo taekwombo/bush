@@ -1,10 +1,10 @@
-import type { CliInput, FlagNames, Added, Cli as ICli } from './types.ts';
-import type { InferV } from './generic.ts';
-import type { Options as InputOptions } from './inputs.ts';
+import type { Added, Cli as ICli } from './types.ts';
+import type { InferV } from './inputs/options.ts';
+import type { Options as InputOptions } from './inputs/mod.ts';
 
-import * as basic from './inputs.ts';
+import * as basic from './inputs/mod.ts';
 
-class Flags implements FlagNames {
+class Flags implements ICli.RegisteredFlags {
     public static empty(): Flags {
         return new Flags();
     }
@@ -44,9 +44,9 @@ type Options<T> = Omit<InputOptions<T>, 'name'>;
 
 export class Cli<O extends Record<string, unknown>> implements ICli<O> {
     flags: Flags = Flags.empty();
-    inputs: CliInput<string, unknown>[] = [];
+    inputs: ICli.Input<string, unknown>[] = [];
 
-    public add<I extends CliInput<string, unknown>>(input: I): Cli<O & Added<I>> {
+    public add<I extends ICli.Input<string, unknown>>(input: I): Cli<O & Added<I>> {
         input.onAdd(this.flags);
         this.inputs.push(input);
 
@@ -103,7 +103,7 @@ export class Cli<O extends Record<string, unknown>> implements ICli<O> {
         variants: E[],
         opt?: P,
     ): Cli<O & Record<K, InferV<E, P>>> {
-        const input: CliInput<K, InferV<E, P>> = basic.strEnum({ ...opt, variants, name });
+        const input: ICli.Input<K, InferV<E, P>> = basic.strEnum({ ...opt, variants, name });
 
         return this.add(input);
     }

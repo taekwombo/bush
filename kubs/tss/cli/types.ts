@@ -1,30 +1,35 @@
-export interface PrintHelp {
-    print(): void;
-}
+export namespace Cli {
+    /** Prints help for a single input arguement */
+    export interface Help {
+        print(): void;
+    }
 
-export interface FlagNames {
-    /** Tries to add `name` to the flag list - may throw when name is invalid or already present */
-    add(name: string): this;
+    /** Keeps track of already registered flags */
+    export interface RegisteredFlags {
+        /** Tries to add `name` to the flag list - must throw when name is invalid or already present */
+        add(name: string): this;
 
-    /** Checks whether `name` is already present in the list */
-    has(name: string): boolean;
-}
+        /** Checks whether `name` is already present in the list */
+        has(name: string): boolean;
+    }
 
-export interface CliInput<K extends string, V> {
-    onAdd(reg: FlagNames): void;
+
+    export interface Input<K extends string, V> {
+        onAdd(reg: RegisteredFlags): void;
     
-    parse(args: string[]): [K, V];
+        parse(args: string[]): [K, V];
 
-    help(): PrintHelp;
+        help(): Help;
+    }
 }
 
-export type Added<T extends CliInput<string, unknown>> = T extends CliInput<infer K, infer V>
+export type Added<T extends Cli.Input<string, unknown>> = T extends Cli.Input<infer K, infer V>
     ? Record<K, V>
     : never
     ;
 
 export interface Cli<O extends Record<string, unknown>> {
-    add<I extends CliInput<string, unknown>>(input: I): Cli<O & Added<I>>;
+    add<I extends Cli.Input<string, unknown>>(input: I): Cli<O & Added<I>>;
 
     parse(args: string[]): O;
 }

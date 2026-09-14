@@ -2,13 +2,13 @@
 ///
 /// Information set by span can be accessed by descendant spans.
 
-use tracing::Level;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 #[derive(Debug)]
 struct CtxInfo {
+    #[allow(unused)]
     name: &'static str,
 }
 

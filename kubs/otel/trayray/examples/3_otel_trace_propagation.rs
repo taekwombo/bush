@@ -53,6 +53,7 @@ fn span_load_and_set_context(op_name: &str, carrier: &mut HashMap<String, String
         span.add_event(format!("otel - adde {}", op_name), vec![]);
 
         // Extract current context and inject it into our carrier while the span is active.
+        #[allow(unused)]
         opentelemetry::global::get_text_map_propagator(|propagator| {
             // propagator.inject(carrier);
         });

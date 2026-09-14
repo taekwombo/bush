@@ -40,7 +40,7 @@ fn main() {
 
     {
         // This sets the default dispatcher for the duration of the lifetime of the guard.
-        let default_guard = tracing::dispatcher::set_default(&Dispatch::new(fmt()));
+        let _default_guard = tracing::dispatcher::set_default(&Dispatch::new(fmt()));
 
         tracing::info!("Default guard alive, log works!");
     }

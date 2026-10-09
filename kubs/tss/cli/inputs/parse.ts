@@ -18,7 +18,7 @@ export class Parse {
 
     static number(_: string, value: string | null): Result<number> {
         if (value === null) {
-            return [false, 'Missing value, expected integer'];
+            return [false, 'Missing value, expected number'];
         }
 
         const result = Number(value);

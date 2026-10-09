@@ -218,12 +218,16 @@ describe('Cli', () => {
             expect(new Cli().str('test').parse(['--test', 'val']).test).toBe('val');
         })
         it ('parses <name?>', () => {
-            expect(new Cli().str('test', { optional: true }).parse([]).test).toBe(null);
-            expect(new Cli().str('test', { optional: true }).parse(['--test']).test).toBe(null);
+            const cli = new Cli().str('test', { optional: true });
+
+            expect(cli.parse([]).test).toBe(null);
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it ('parses <name?=default>', () => {
-            expect(new Cli().str('test', { optional: true, defaultValue: 'x' }).parse([]).test).toBe('x');
-            expect(new Cli().str('test', { optional: true, defaultValue: 'x' }).parse(['--test']).test).toBe('x');
+            const cli = new Cli().str('test', { optional: true, defaultValue: 'x' });
+
+            expect(cli.parse([]).test).toBe('x');
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it('throw when value missing', () => {
             expect(() => new Cli().str('test').parse([])).toThrow();
@@ -239,12 +243,16 @@ describe('Cli', () => {
             expect(new Cli().strEnum('test', ['val']).parse(['--test', 'val']).test).toBe('val');
         })
         it ('parses <name?>', () => {
-            expect(new Cli().strEnum('test', ['x'], { optional: true }).parse([]).test).toBe(null);
-            expect(new Cli().strEnum('test', ['x'], { optional: true }).parse(['--test']).test).toBe(null);
+            const cli = new Cli().strEnum('test', ['x'], { optional: true });
+
+            expect(cli.parse([]).test).toBe(null);
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it ('parses <name?=default>', () => {
-            expect(new Cli().strEnum('test', ['x'], { optional: true, defaultValue: 'x' }).parse([]).test).toBe('x');
-            expect(new Cli().strEnum('test', ['x'], { optional: true, defaultValue: 'x' }).parse(['--test']).test).toBe('x');
+            const cli = new Cli().strEnum('test', ['x'], { optional: true, defaultValue: 'x' });
+
+            expect(cli.parse([]).test).toBe('x');
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it('throw when value missing', () => {
             expect(() => new Cli().strEnum('test', ['x', 'y']).parse([])).toThrow();
@@ -273,22 +281,56 @@ describe('Cli', () => {
     describe('int', () => {
         it('parses <name>=<value>', () => {
             expect(new Cli().int('test').parse(['--test=0']).test).toBe(0);
+            expect(new Cli().int('test').parse(['--test=0xF']).test).toBe(0xF);
+            expect(new Cli().int('test').parse(['--test=1e9']).test).toBe(1e9);
             expect(new Cli().int('test').parse(['--test=-1']).test).toBe(-1);
         });
         it('parses <name> <value>', () => {
             expect(new Cli().int('test').parse(['--test', '-10']).test).toBe(-10);
         })
         it ('parses <name?>', () => {
-            expect(new Cli().int('test', { optional: true }).parse([]).test).toBe(null);
-            expect(new Cli().int('test', { optional: true }).parse(['--test']).test).toBe(null);
+            const cli = new Cli().int('test', { optional: true });
+
+            expect(cli.parse([]).test).toBe(null);
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it ('parses <name?=default>', () => {
-            expect(new Cli().int('test', { optional: true, defaultValue: 0 }).parse([]).test).toBe(0);
-            expect(new Cli().int('test', { optional: true, defaultValue: 0 }).parse(['--test']).test).toBe(0);
+            const cli = new Cli().int('test', { optional: true, defaultValue: 0 });
+
+            expect(cli.parse([]).test).toBe(0);
+            expect(() => cli.parse(['--test']).test).toThrow();
         });
         it('throw when value missing', () => {
             expect(() => new Cli().int('test').parse([])).toThrow();
             expect(() => new Cli().int('test').parse(['--test'])).toThrow();
+        });
+    });
+
+    describe('num', () => {
+        it('parses <name>=<value>', () => {
+            expect(new Cli().num('test').parse(['--test=0o7']).test).toBe(0o7);
+            expect(new Cli().num('test').parse(['--test=0x7']).test).toBe(0x7);
+            expect(new Cli().num('test').parse(['--test=-1e10']).test).toBe(-1e10);
+            expect(new Cli().num('test').parse(['--test=-1.69']).test).toBe(-1.69);
+        });
+        it('parses <name> <value>', () => {
+            expect(new Cli().num('test').parse(['--test', '-1.70']).test).toBe(-1.70);
+        })
+        it ('parses <name?>', () => {
+            const cli = new Cli().num('test', { optional: true });
+
+            expect(cli.parse([]).test).toBe(null);
+            expect(() => cli.parse(['--test']).test).toThrow();
+        });
+        it ('parses <name?=default>', () => {
+            const cli = new Cli().num('test', { optional: true, defaultValue: 0 });
+
+            expect(cli.parse([]).test).toBe(0);
+            expect(() => cli.parse(['--test']).test).toThrow();
+        });
+        it('throw when value missing', () => {
+            expect(() => new Cli().num('test').parse([])).toThrow();
+            expect(() => new Cli().num('test').parse(['--test'])).toThrow();
         });
     });
 

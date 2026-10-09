@@ -88,7 +88,7 @@ export class Cli<O extends Record<string, unknown>> implements ICli<O> {
         name: K,
         opt?: P,
     ): Cli<O & Record<K, InferV<number, P>>> {
-        return this.add(basic.int({ ...opt, name }));
+        return this.add(basic.num({ ...opt, name }));
     }
 
     public str<K extends string, P extends Options<string>>(

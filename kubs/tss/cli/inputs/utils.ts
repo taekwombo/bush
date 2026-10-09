@@ -25,8 +25,8 @@ export function makeParser<K, V>({ flag, parseOptions, valueParser, options }: M
         const result = flag.parse(args, parseOptions);
         const { defaultValue, optional, name } = options;
 
-        // null | [key: string, null] trigger optional + default branch.
-        if (result === null || result[1] === null) {
+        // null triggers optional + default branch.
+        if (result === null) {
             if (defaultValue !== undefined) {
                 return [name as K, defaultValue];
             }

@@ -125,9 +125,13 @@ pub async fn v0_search_get_span_names(
                 }
             }
         }
-        f @ Format::Vortex { .. } => {
+        f @ Format::Vortex { session, .. } => {
             use ottel_spaniel::vortex::read::*;
             use vortex::expr::*;
+            use vortex::array::ExecutionCtx;
+
+            let mut ctx = ExecutionCtx::new(session.clone());
+            let dtype = ottel_spaniel::vortex::create_struct_dtype();
 
             let mut filter = and(
                 gt(
@@ -148,11 +152,11 @@ pub async fn v0_search_get_span_names(
             }
 
             let mut read = Read::new(f, files)
-                .with_filter(filter)
-                .with_projection(select(["name"], root()));
+                .with_filter(filter.bind(&dtype).unwrap())
+                .with_projection(select(["name"], root()).bind(&dtype).unwrap());
 
             'outter: while let Some(arr) = read.next_batch().await {
-                for name in arr.get_names() {
+                for name in arr.get_names(&mut ctx) {
                     let name = name.as_utf8().value().unwrap().as_str();
 
                     if names.contains(name) {

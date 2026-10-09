@@ -82,6 +82,7 @@ fn trace_id_as_hex<'a>(value: &'a [u8], bytes: &'a mut [u8; 32]) -> &'a str {
 
 async fn read_vortex() {
     use vortex::VortexSessionDefault;
+    use vortex::array::ExecutionCtx;
     use vortex::expr::*;
     use vortex::io::runtime::current::*;
     use vortex::io::runtime::*;
@@ -93,6 +94,7 @@ async fn read_vortex() {
 
     let rt = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(rt.handle());
+    let mut ctx = ExecutionCtx::new(session.clone());
 
     let format = Format::Vortex {
         session,
@@ -102,13 +104,16 @@ async fn read_vortex() {
         .map(|v| std::path::PathBuf::from(format!("data-vortex/{v}")).into())
         .collect();
 
-    let mut read = Read::new(&format, files).with_projection(select(["name"], root()));
+    let dtype = ottel_spaniel::vortex::create_struct_dtype();
+    let projection = select(["name"], root()).bind(&dtype).unwrap();
+
+    let mut read = Read::new(&format, files).with_projection(projection);
 
     let mut unique = std::collections::HashSet::new();
     let time = std::time::Instant::now();
 
     while let Some(arr) = read.next_batch().await {
-        for name in arr.get_names() {
+        for name in arr.get_names(&mut ctx) {
             let name = name.as_utf8().value().unwrap().as_str();
 
             if unique.contains(name) {

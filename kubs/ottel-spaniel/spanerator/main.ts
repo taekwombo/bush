@@ -15,7 +15,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { faker } from 'faker';
 import { Gen } from './gen.ts';
 import { Cli } from '../../tss/cli/mod.ts';
-import { range } from '../../tss/cli/inputs.ts';
+import { range } from '../../tss/cli/inputs/mod.ts';
 
 const args = new Cli()
     .num('parallelism', { shortName: 'p', defaultValue: 64 })

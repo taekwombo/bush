@@ -17,7 +17,7 @@ path = "src/bin/ottel-col/main.rs"
 [dependencies]
 arrow = "58"
 parquet = { version = "58", features = ["arrow"] }
-vortex = { version = "0.68" }
+vortex = "0.88"
 
 opentelemetry_sdk = "0.31"
 opentelemetry-proto = { version = "0.31", features = ["with-serde"] }

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use vortex::array::arrays::Struct;
-use vortex::array::{Array, ArrayRef};
+use vortex::array::{Array, ArrayRef, ExecutionCtx};
 use vortex::error::VortexError;
 use vortex::expr::*;
 use vortex::file::OpenOptionsSessionExt;
@@ -10,13 +10,14 @@ use vortex::scalar::Scalar;
 use crate::Format;
 
 pub trait AsSpanData {
-    fn get_names(&self) -> impl Iterator<Item = Scalar>;
+    fn get_names<'a>(&'a self, ctx: &'a mut ExecutionCtx) -> impl Iterator<Item = Scalar>;
 }
 
 impl AsSpanData for Array<Struct> {
-    fn get_names(&self) -> impl Iterator<Item = Scalar> {
+    fn get_names<'a>(&'a self, ctx: &'a mut ExecutionCtx) -> impl Iterator<Item = Scalar> {
         struct Iter<'a> {
             arr: &'a Array<Struct>,
+            ctx: &'a mut ExecutionCtx,
             index: usize,
         }
 
@@ -27,7 +28,7 @@ impl AsSpanData for Array<Struct> {
                 if self.index < self.arr.len() {
                     let name = self
                         .arr
-                        .scalar_at(self.index)
+                        .execute_scalar(self.index, self.ctx)
                         .expect("elem.exists")
                         .as_struct()
                         .field("name")
@@ -42,6 +43,7 @@ impl AsSpanData for Array<Struct> {
         }
 
         Iter {
+            ctx,
             arr: self,
             index: 0,
         }
@@ -52,8 +54,8 @@ pub struct Read<'a> {
     files: Vec<Box<Path>>,
     index: usize,
     format: &'a Format,
-    filter: Option<Expression>,
-    projection: Option<Expression>,
+    filter: Option<BoundExpression>,
+    projection: Option<BoundExpression>,
     reader: Option<Box<dyn Iterator<Item = Result<ArrayRef, VortexError>> + Send + 'static>>,
 }
 
@@ -69,12 +71,12 @@ impl<'a> Read<'a> {
         }
     }
 
-    pub fn with_filter(mut self, filter: Expression) -> Self {
+    pub fn with_filter(mut self, filter: BoundExpression) -> Self {
         self.filter.replace(filter);
         self
     }
 
-    pub fn with_projection(mut self, projection: Expression) -> Self {
+    pub fn with_projection(mut self, projection: BoundExpression) -> Self {
         self.projection.replace(projection);
         self
     }

@@ -1,1 +1,8 @@
 services:
+  rabbit:
+    image: docker.io/rabbitmq:4.3-management
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+      - ./rabbit.conf:/etc/rabbitmq/rabbitmq.conf
